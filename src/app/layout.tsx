@@ -30,6 +30,7 @@ const urdu = Noto_Nastaliq_Urdu({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3300'),
   title: {
     default: 'Waseem Jewellers — The House of Waseem, Since 1952',
     template: '%s — Waseem Jewellers',

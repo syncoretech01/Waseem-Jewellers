@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
  * Development-only page inspector: loads a URL in headless Edge/Chromium,
- * collects console errors/warnings and page errors, optionally scrolls,
- * and writes screenshots. Not shipped; used to verify each milestone.
+ * collects console errors/warnings and page errors, scrolls with real wheel
+ * events (so Lenis + ScrollTrigger behave as for a visitor) and writes screenshots.
  *
- *   node scripts/dev/shot.mjs <url> [--out dir] [--w 1440] [--h 900] [--scroll N] [--wait ms]
- *        [--mobile] [--reduced] [--full] [--steps 6] [--click sel] [--eval "js"] [--tag name]
+ *   node scripts/dev/shot.mjs <url> [--out dir] [--w 1440] [--h 900] [--steps N] [--to px]
+ *        [--wait ms] [--mobile] [--reduced] [--full] [--click sel] [--eval "js"] [--tag name] [--hover sel]
  */
 import { chromium, devices } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const args = process.argv.slice(2);
-const url = args.find((a) => !a.startsWith('--')) ?? 'http://localhost:3000/';
+const url = args.find((a) => !a.startsWith('--')) ?? 'http://localhost:3300/';
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
@@ -24,18 +24,22 @@ const width = Number(opt('w', 1440));
 const height = Number(opt('h', 900));
 const wait = Number(opt('wait', 1800));
 const steps = Number(opt('steps', 0));
-const scroll = Number(opt('scroll', 0));
+const to = Number(opt('to', 0));
 const tag = opt('tag', 'shot');
 const clickSel = opt('click', null);
+const hoverSel = opt('hover', null);
 const evalJs = opt('eval', null);
 fs.mkdirSync(out, { recursive: true });
 
 async function launch() {
-  const channels = ['msedge', 'chrome', undefined];
   let lastErr;
-  for (const channel of channels) {
+  for (const channel of ['msedge', 'chrome', undefined]) {
     try {
-      return await chromium.launch({ headless: true, channel, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+      return await chromium.launch({
+        headless: true,
+        channel,
+        args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
+      });
     } catch (e) {
       lastErr = e;
     }
@@ -53,40 +57,53 @@ const page = await context.newPage();
 const log = [];
 page.on('console', (m) => {
   const t = m.type();
-  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text()}`);
+  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, 300)}`);
 });
 page.on('pageerror', (e) => log.push(`[pageerror] ${e.message}`));
 page.on('requestfailed', (r) => {
   const u = r.url();
-  if (!u.includes('_next/webpack-hmr') && !u.includes('__nextjs')) log.push(`[requestfailed] ${u} ${r.failure()?.errorText ?? ''}`);
+  const err = r.failure()?.errorText ?? '';
+  if (!u.includes('_next/webpack-hmr') && !u.includes('__nextjs') && err !== 'net::ERR_ABORTED') log.push(`[requestfailed] ${u} ${err}`);
 });
+
+async function wheelTo(targetY) {
+  const current = await page.evaluate(() => window.scrollY);
+  let remaining = targetY - current;
+  const dir = Math.sign(remaining);
+  while (Math.abs(remaining) > 1) {
+    const delta = dir * Math.min(600, Math.abs(remaining));
+    await page.mouse.wheel(0, delta);
+    remaining -= delta;
+    await page.waitForTimeout(90);
+  }
+  await page.waitForTimeout(1100);
+}
 
 const t0 = Date.now();
 await page.goto(url, { waitUntil: 'networkidle', timeout: 90000 }).catch((e) => log.push(`[goto] ${e.message}`));
+await page.mouse.move(width / 2, height / 2);
 await page.waitForTimeout(wait);
 if (clickSel) {
   await page.click(clickSel).catch((e) => log.push(`[click] ${e.message}`));
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1000);
 }
+if (hoverSel) {
+  await page.hover(hoverSel).catch((e) => log.push(`[hover] ${e.message}`));
+  await page.waitForTimeout(900);
+}
+if (to > 0) await wheelTo(to);
 if (evalJs) {
   const r = await page.evaluate(evalJs).catch((e) => `eval error: ${e.message}`);
   console.log('[eval]', JSON.stringify(r));
 }
 await page.screenshot({ path: path.join(out, `${tag}-0.png`), fullPage: flag('full') });
 
-const total = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
 if (steps > 0) {
+  const total = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
   for (let i = 1; i <= steps; i++) {
-    const y = Math.round((total * i) / steps);
-    await page.evaluate((yy) => window.scrollTo(0, yy), y);
-    await page.mouse.wheel(0, 1);
-    await page.waitForTimeout(700);
+    await wheelTo(Math.round((total * i) / steps));
     await page.screenshot({ path: path.join(out, `${tag}-${i}.png`) });
   }
-} else if (scroll > 0) {
-  await page.evaluate((yy) => window.scrollTo(0, yy), scroll);
-  await page.waitForTimeout(900);
-  await page.screenshot({ path: path.join(out, `${tag}-scrolled.png`) });
 }
 
 const metrics = await page.evaluate(() => ({
@@ -100,6 +117,6 @@ const metrics = await page.evaluate(() => ({
   canvases: document.querySelectorAll('canvas').length,
   videos: document.querySelectorAll('video').length,
 }));
-console.log(JSON.stringify({ ms: Date.now() - t0, ...metrics }, null, 0));
+console.log(JSON.stringify({ ms: Date.now() - t0, ...metrics }));
 console.log(log.length ? log.join('\n') : 'NO CONSOLE ERRORS/WARNINGS');
 await browser.close();

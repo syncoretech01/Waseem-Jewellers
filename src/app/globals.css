@@ -162,10 +162,10 @@
   font-variation-settings: "opsz" 14;
 }
 @utility grain {
-  position: relative;
+  isolation: isolate;
 }
 @utility vignette {
-  position: relative;
+  isolation: isolate;
 }
 @utility no-scrollbar {
   scrollbar-width: none;

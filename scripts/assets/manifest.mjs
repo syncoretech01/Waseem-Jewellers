@@ -59,7 +59,7 @@ export const IMAGES = [
 
   // ── p10 Feathered Cluster Ring (2250px, styled macro) ──
   { id: 'p10-hero', source: CDN + 'Dioman-ring_5916d888-f5fc-41c0-a0a3-95c9aa84ac4a.jpg', out: P('timeless-feathered-cluster-ring', 'hero'), role: 'campaign', maxWidth: 2250, focal: [0.5, 0.52], alt: 'Diamond cluster ring resting on white feathers' },
-  { id: 'p10-macro', source: CDN + 'Dioman-ring_5916d888-f5fc-41c0-a0a3-95c9aa84ac4a.jpg', out: P('timeless-feathered-cluster-ring', 'macro'), role: 'macro', maxWidth: 2000, derive: { crop: [0.3, 0.3, 0.42, 0.42] }, focal: [0.5, 0.5], alt: 'Detail of the diamond cluster' },
+  { id: 'p10-macro', source: CDN + 'Dioman-ring_5916d888-f5fc-41c0-a0a3-95c9aa84ac4a.jpg', out: P('timeless-feathered-cluster-ring', 'macro'), role: 'macro', maxWidth: 2000, derive: { crop: [0.23, 0.24, 0.56, 0.56] }, focal: [0.5, 0.5], alt: 'Detail of the diamond cluster' },
 
   // ── World column tiles not covered above ──
   { id: 'w-rukh-3', source: CDN + '0113_0197ffc1-b25a-4c0e-aeaf-bdaca50f54b8.png', out: 'images/worlds/rukh-e-jana-3', role: 'world', maxWidth: 960, focal: [0.5, 0.4], alt: 'Rukh-e-Jana diamond and sapphire fringe necklace on black velvet' },
@@ -71,7 +71,7 @@ export const IMAGES = [
   // ── Wall, bespoke and interlude campaign images ──
   { id: 'wall-campaign', source: CDN + '012-min.jpg', out: 'images/campaign/naqsh-e-gul-portrait', role: 'campaign', maxWidth: 2880, focal: [0.5, 0.35], alt: 'Naqsh-e-Gul campaign portrait before a backlit lattice' },
   { id: 'bespoke-bride', source: CDN + '017-min_7eeae0d6-6afa-4f9c-b43b-7fb276a812a3.jpg', out: 'images/campaign/dewan-bride', role: 'campaign', maxWidth: 2250, focal: [0.5, 0.38], alt: 'Bride wearing the Dewan suite' },
-  { id: 'bespoke-stone', source: CDN + '015_8f0c82d6-62ec-4209-b45d-90731022b958.jpg', out: 'images/campaign/stone', role: 'macro', maxWidth: 1600, derive: { crop: [0.36, 0.56, 0.28, 0.28] }, focal: [0.5, 0.5], alt: 'A single sapphire in its diamond setting' },
+  { id: 'bespoke-stone', source: CDN + '015_8f0c82d6-62ec-4209-b45d-90731022b958.jpg', out: 'images/campaign/stone', role: 'macro', maxWidth: 1600, derive: { crop: [0.34, 0.54, 0.32, 0.32] }, focal: [0.5, 0.5], alt: 'A single sapphire in its diamond setting' },
   { id: 'bespoke-form', source: CDN + '0174.png', out: 'images/campaign/form', role: 'packshot', maxWidth: 1600, focal: [0.5, 0.5], alt: 'The lavender halo ring, second angle' },
 
   // ── Heritage (honest fragments; no faked age) ──
@@ -89,7 +89,7 @@ export const VIDEOS = [
   { id: 'hero-royal', input: 'media-originals/royal-wedding.mp4', start: 5, end: 36, poster: 13, subject: [0.5, 0.35], portraitX: 438, fadeEdges: 0.5, label: 'Hero (CH01), menu BRIDAL' },
   { id: 'bridal-cinema', input: 'media-originals/naqsh-e-gul.mp4', start: 6, end: 40, poster: 26, subject: [0.5, 0.32], portraitX: 438, label: 'Bridal cinema (CH05)' },
   { id: 'bridal-opening', input: 'media-originals/naqsh-e-gul.mp4', start: 40, end: 52, poster: 46, subject: [0.5, 0.3], portraitX: 438, label: '/collections/bridal opening + chapter II interlude' },
-  { id: 'menu-ambient', input: 'media-originals/dewaan.mp4', start: 4, end: 34, poster: 13, subject: [0.5, 0.4], portraitX: 438, cropWatermark: true, label: 'Menu ambient, DEWAN world' },
+  { id: 'menu-ambient', input: 'media-originals/dewaan.mp4', start: 4, end: 30, poster: 13, crf: 27, subject: [0.5, 0.4], portraitX: 438, cropWatermark: true, label: 'Menu ambient, DEWAN world' },
   { id: 'diamond-studio', input: '.cache/assets/shopify-hero.mp4', remote: SHOPIFY_HERO_VIDEO, start: 0, end: 20.3, poster: 13, subject: [0.5, 0.4], portraitX: 758, label: 'CH08 diamond side, menu DIAMOND' },
 ];
 

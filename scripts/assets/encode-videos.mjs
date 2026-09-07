@@ -39,9 +39,9 @@ for (const v of VIDEOS) {
   const portraitH = Math.min(720, src.height - (src.height % 2));
 
   const variants = [
-    { name: '1280', vf: `${pre}scale=1280:-2${fade},format=yuv420p`, crf: '23' },
-    { name: '720', vf: `${pre}scale=720:-2${fade},format=yuv420p`, crf: '26' },
-    { name: 'portrait', vf: `${pre}scale=-2:${portraitH},crop=404:${portraitH}:${v.portraitX}:0${fade},format=yuv420p`, crf: '25' },
+    { name: '1280', vf: `${pre}scale=1280:-2${fade},format=yuv420p`, crf: String(v.crf ?? 24) },
+    { name: '720', vf: `${pre}scale=720:-2${fade},format=yuv420p`, crf: String((v.crf ?? 24) + 3) },
+    { name: 'portrait', vf: `${pre}scale=-2:${portraitH},crop=404:${portraitH}:${v.portraitX}:0${fade},format=yuv420p`, crf: String((v.crf ?? 24) + 4) },
   ];
 
   const entry = { id: v.id, label: v.label, subject: v.subject, duration, files: {} };
