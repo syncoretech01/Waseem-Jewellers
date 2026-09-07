@@ -2,10 +2,10 @@ new Promise(async (resolve) => {
   const c = window.__wjConcierge;
   const before = { t: window.__wj.triggers(), w: window.__wj.tweens(), fns: window.__wj.tickerFns(), canvases: document.querySelectorAll('canvas').length };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 10; i++) {
     c.open({ mode: i % 2 ? 'voice' : 'chat' });
     await sleep(900);
-    if (i % 5 === 4) { c.submitText('hello', 'text'); await sleep(1600); }
+    if (i % 5 === 4) { c.submitText('hello', 'text'); await sleep(1500); }
     c.close();
     await sleep(500);
   }

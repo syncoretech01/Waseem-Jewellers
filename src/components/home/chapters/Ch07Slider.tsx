@@ -56,9 +56,11 @@ export function Ch07Slider() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
-        if (mobile || reduced) {
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
+        if (mobile || still) {
           ready();
           return;
         }
@@ -203,7 +205,7 @@ export function Ch07Slider() {
         <h2 id="slider-title" className="sr-only">
           The Collection
         </h2>
-        <p className="micro hidden text-ivory/45 md:block" aria-hidden>
+        <p className="slider-hint micro hidden text-ivory/45 md:block" aria-hidden>
           {COPY.slider.hint} · {String(centre + 1).padStart(2, '0')} / {String(N).padStart(2, '0')}
         </p>
       </div>
@@ -253,7 +255,7 @@ export function Ch07Slider() {
       </div>
 
       {/* mobile: native snap */}
-      <div className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[12vw] pb-16 pt-[16svh] md:hidden" data-lenis-prevent-wheel>
+      <div className="slider-rail no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[12vw] pb-16 pt-[16svh] md:hidden" data-lenis-prevent-wheel>
         {products.map((p) => (
           <div key={p.slug} className="w-[76vw] shrink-0 snap-center">
             <PieceLink product={p} sizes="76vw" aspect="4 / 5" />

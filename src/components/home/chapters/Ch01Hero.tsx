@@ -35,8 +35,10 @@ export function Ch01Hero() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const media = root.querySelector<HTMLElement>('.media-scale');
         const bars = root.querySelectorAll<HTMLElement>('.letterbox');
         const vignette = root.querySelector<HTMLElement>('.hero-vignette');
@@ -51,7 +53,12 @@ export function Ch01Hero() {
           setInvitation(v && introPlayed.current);
         };
 
-        if (mobile || reduced) {
+        if (still) {
+          setShown(true);
+          ready();
+          return;
+        }
+        if (mobile) {
           // no pin: a gentle recede as the page scrolls past
           gsap.to(media, {
             y: '10svh',

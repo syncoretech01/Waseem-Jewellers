@@ -41,6 +41,9 @@ function chunks(text: string) {
     .filter(Boolean);
 }
 
+/** Settles the reply currently being spoken (set by speak, run by cancelSpeech). */
+let pending: (() => void) | null = null;
+
 /** Speaks a reply in sentence chunks; resolves when finished or cancelled. */
 export function speak(text: string, handlers: { onStart?: () => void; onEnd?: () => void } = {}) {
   return new Promise<void>((resolve) => {
@@ -58,13 +61,18 @@ export function speak(text: string, handlers: { onStart?: () => void; onEnd?: ()
     let started = false;
     let remaining = parts.length;
     let boundaries = 0;
+    let done = false;
     const finish = () => {
+      if (done) return;
+      done = true;
+      pending = null;
       stopSpeechEnvelope();
       if (envelope) window.clearInterval(envelope);
       envelope = null;
       handlers.onEnd?.();
       resolve();
     };
+    pending = finish;
     parts.forEach((part) => {
       const u = new SpeechSynthesisUtterance(part);
       if (chosen) u.voice = chosen;
@@ -103,4 +111,8 @@ export function cancelSpeech() {
   stopSpeechEnvelope();
   if (envelope) window.clearInterval(envelope);
   envelope = null;
+  // cancelled utterances never fire `end`, so settle the reply ourselves
+  const settle = pending;
+  pending = null;
+  settle?.();
 }

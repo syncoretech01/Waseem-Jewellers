@@ -98,6 +98,7 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
 
   return (
     <video
+      key={src}
       ref={el}
       className={cn('absolute inset-0 h-full w-full object-cover', className)}
       style={{ objectPosition: `${Math.round(asset.subject[0] * 100)}% ${Math.round(asset.subject[1] * 100)}%`, ...style }}
@@ -108,7 +109,8 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
       poster={asset.poster}
       disablePictureInPicture
       disableRemotePlayback
-      aria-label={ariaLabel ?? asset.label}
+      aria-label={ariaLabel}
+      aria-hidden={ariaLabel ? undefined : true}
     >
       {portrait && <source src={asset.srcPortrait} type="video/mp4" media="(max-width: 767px) and (orientation: portrait)" />}
       <source src={src} type="video/mp4" />

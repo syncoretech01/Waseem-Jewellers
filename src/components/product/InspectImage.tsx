@@ -110,10 +110,26 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
     }
   };
 
+  const interactive = Boolean(macro) && !coarse && !reduced;
+
   return (
     <div
       ref={box}
-      className={cn('relative w-full overflow-hidden bg-bg-2', inspecting && 'cursor-grab active:cursor-grabbing', className)}
+      {...(interactive
+        ? {
+            role: 'button' as const,
+            tabIndex: 0,
+            'aria-pressed': inspecting,
+            'aria-label': inspecting ? 'Close the close view' : 'Look closely at this image',
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleInspect();
+              }
+            },
+          }
+        : {})}
+      className={cn('relative w-full overflow-hidden bg-bg-2 outline-none focus-visible:ring-1 focus-visible:ring-gold-hi', inspecting && 'cursor-grab active:cursor-grabbing', className)}
       style={{ aspectRatio: '4 / 5', maxHeight: '100svh' }}
       data-cursor={inspecting ? 'drag' : macro ? 'inspect' : undefined}
       data-flip-target={flipTarget ? 'product-hero' : undefined}
@@ -136,7 +152,7 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
       </div>
       {macro && (
         <p className="micro pointer-events-none absolute bottom-4 left-4 text-ivory/80 mix-blend-difference">
-          {inspecting ? 'Drag · Esc to close' : coarse ? '' : 'Click to inspect'}
+          {inspecting ? 'Drag · Esc to close' : coarse ? '' : 'Look closely'}
         </p>
       )}
     </div>

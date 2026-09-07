@@ -29,7 +29,7 @@ export const CONCIERGE = {
   help: 'I can bring pieces to you, open a collection, keep a piece in your selection, or arrange a private viewing.',
   unknown: 'I may have missed that. I can show you pieces, open a collection or arrange a private viewing.',
   outOfScope: 'That is beyond the house, I am afraid. I can help with pieces, collections and private appointments.',
-  watches: "The house's watch salon is best seen in person at MM Alam Road — shall I arrange a visit?",
+  watches: 'The house works in gold and diamond jewellery. I can show you pieces, or arrange a private viewing at MM Alam Road.',
   micDenied: 'Your microphone is switched off for this site. You can write to me instead, or let me show you.',
   noSpeech: 'I did not catch that — once more, a little closer.',
   error: 'Forgive me — shall we try that once more?',

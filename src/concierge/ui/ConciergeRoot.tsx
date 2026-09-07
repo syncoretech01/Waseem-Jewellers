@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { ConciergeOrb } from './ConciergeOrb';
 import { ConciergePanel } from './ConciergePanel';
 import { ResultTray } from './ResultTray';
@@ -43,8 +42,8 @@ export function ConciergeRoot() {
 /** Development only: `?concierge=LISTENING` forces a state so every visual can be polished. */
 function DevPreview() {
   const controller = useController();
-  const params = useSearchParams();
-  const wanted = params.get('concierge');
+  const search = useSiteStore((s) => s.search);
+  const wanted = new URLSearchParams(search).get('concierge');
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development' || !controller || !wanted) return;
     const state = wanted.toUpperCase() as ConciergeState;

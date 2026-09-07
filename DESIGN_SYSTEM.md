@@ -1,31 +1,336 @@
-# Design System — Waseem Jewellers (Stage 1)
+# Design System — Waseem Jewellers
 
-Living document, updated at the end of every milestone.
+Everything in this document is declared in `src/app/globals.css`, `src/app/layout.tsx`, `src/components/ui/*`, `src/components/media/*`, `src/components/chrome/Monogram.tsx` and `src/concierge/orb/*`. Motion (GSAP, Lenis, ScrollTrigger, the transition layer) is documented separately in `MOTION_SYSTEM.md`.
 
-## Intent
-Heritage, craftsmanship, rarity, materiality, intimacy, ceremony, desire, prestige, Pakistani luxury, timelessness. Never a Shopify template, SaaS, tech demo, gaming site or black-and-gold cliché.
+Tailwind v4 reads the tokens directly from `globals.css` — there is no `tailwind.config`. `@theme` tokens generate utilities (`bg-ink`, `text-champagne`, `px-gutter`, `text-display-m`); `:root` tokens do not, and are used through `var()`.
 
-## Palette (`src/app/globals.css` → `@theme`)
-ink `#0B0A09` · charcoal `#161412` · ivory `#F4EFE6` · pearl `#EDE6D8` · champagne `#D8C3A5` · gold `#A8894F` · gold-hi `#E4CFA3` · gold-deep `#6E5527` · burgundy `#5A1F2B` · emerald `#12463A` · lilac `#B9AFC9` (Dewan world only).
+---
 
-**Gold is a material or a light source, never a flat fill.** Use `--gold-metal`, `--gold-conic`, `--gold-hairline`. The `text-gold` utility is reserved for the monogram and the consultation reference; the `sheen` animation never runs on type.
+## 1. Palette
 
-## Themes
-Semantic tokens (`--bg --bg-2 --fg --fg-2 --fg-muted --line --line-strong --accent --accent-text --veil --surface`) flip under `[data-theme="dark"|"ivory"]` on chapter roots and are exposed to Tailwind utilities through `@theme inline` (`bg-bg`, `text-fg`, `border-line`, …). The chrome mirrors the active chapter through `<html data-theme>` (section registry). Ivory swaps accent text to burgundy because gold on ivory fails contrast as text.
+Declared in `@theme`, so each is available as a Tailwind colour utility (`bg-ink`, `text-ivory`, `border-champagne`, …).
 
-## Typography
-- Display: **Bodoni Moda** (variable, opsz 6–96, italics). `display` utility = opsz 96, weight 400, leading 0.92. Italics carry mood lines and ledes.
-- UI: **Instrument Sans** (variable). `eyebrow` = 12px, tracking .18em, uppercase; `micro` = 11px, tracking .24em.
-- Accents: **Noto Nastaliq Urdu**, only for verified names (دیوان Dewan, نقش گل Naqsh-e-Gul). `lang="ur" dir="rtl"`, line-height ≥ 2.
-- Scale: display-xl `clamp(4.25rem, 1.5rem + 11.5vw, 15rem)` · display-l `clamp(3rem, 1.25rem + 6.5vw, 8.5rem)` · display-m `clamp(2.125rem, 1.25rem + 3.25vw, 4.75rem)` · heading · lead · body 17px · caption 12px · micro 11px. Functional text never below 11px.
+| Token | Value | What it is for |
+| --- | --- | --- |
+| `--color-ink` | `#0b0a09` | The dark ground. `<html>` background, `#page-root` background, the viewport theme colour, the selection text colour. |
+| `--color-charcoal` | `#161412` | The second dark surface — a plane lifted off ink without a border. Also the secondary foreground on ivory. |
+| `--color-ivory` | `#f4efe6` | The light ground and the foreground on dark. |
+| `--color-pearl` | `#ede6d8` | The second light surface, and the tile that packshots multiply into (see `Img`). |
+| `--color-champagne` | `#d8c3a5` | Secondary foreground on dark; the source of `--line` / `--line-strong` in the dark theme. |
+| `--color-gold` | `#a8894f` | Mid gold. Selection background, the accent in the ivory theme, a stop in the metal gradients. Not used as flat text on dark. |
+| `--color-gold-hi` | `#e4cfa3` | The light of gold: focus outlines, the hairline core, the concierge glow, `--accent` on dark. |
+| `--color-gold-deep` | `#6e5527` | The shadow of gold: the darkest stop in the metal gradients, and the scrollbar thumb. |
+| `--color-burgundy` | `#5a1f2b` | Error and refusal (field errors, the concierge `ERROR` tint), and `--accent-text` on ivory. |
+| `--color-emerald` | `#12463a` | The Rang-e-Jamal accent. |
+| `--color-lilac` | `#b9afc9` | The Dewan accent. |
 
-## Spacing, easing, layers
-`--spacing-gutter` clamp(1.25rem, 4vw, 4.5rem) · `--spacing-section` clamp(6rem, 12vw, 14rem) · measure 34em.
-`wj.out` cubic-bezier(.16,1,.3,1) for reveals · `wj.inOut` / `expo.inOut` for travel · `power3.out` for pointer following. Durations: micro .3–.45s, component .6–.9s, cinematic 1.2–1.8s.
-z ladder: chapter 1 · chapter-ui 5 · nav 20 · orb 40 · ledger 50 · menu 60 · concierge 70 · modal 75 · transition 80 · loader 90 · cursor 100.
+Burgundy is the state colour and never decorates chrome. Emerald and lilac are world colours: the tokens are the record of the value, and the world palettes in `src/data/worlds.ts` carry the same hex inline (`accent: '#12463a'` for Rang-e-Jamal, `accent: '#b9afc9'` for Dewan). Neither token is used as a utility anywhere.
 
-## Materials
-`grain` (tiled 256px PNG overlay, opacity .035), `vignette`, `hairline`, `rule`. Every video surface carries grain + vignette so 720p footage reads as film, not compression.
+---
 
-## Copy register
-No exclamation marks, superlatives, "shop now", or consumer-facing demo/prototype/mock language. Heritage facts only as published on waseemjewellers.com. No general karat or grade claims; per-piece specs only from that piece's data.
+## 2. Gold is light, not a fill
+
+Gold in this house is a material catching light, so it is authored as gradients on `:root`, never as a flat paint bucket.
+
+| Token | Shape | Used by |
+| --- | --- | --- |
+| `--gold-metal` | `linear-gradient(105deg, …)` across gold-deep → gold → gold-hi → `#b8975a` → `#f1e2bf` → `#8a6d3a` | The `text-gold` utility. |
+| `--gold-conic` | `conic-gradient(from 210deg, …)` through five stops, gold-deep → gold-hi → gold → `#f1e2bf` → gold-deep | The concierge bezel (which repeats the gradient literally in `.wj-orb-bezel`). |
+| `--gold-hairline` | `linear-gradient(90deg, transparent, gold-hi 40%, #f1e2bf 50%, gold-hi 60%, transparent)` | The `hairline` utility. |
+
+**`hairline`** sets `height: 1px` and that background. It sets no width and no position, so callers supply those. The house pattern is a 1px span pinned to an edge, drawn on interaction:
+
+```tsx
+<span aria-hidden className="hairline absolute inset-x-0 bottom-0 origin-left scale-x-0
+  transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/btn:scale-x-100" />
+```
+
+That figure appears on the `hairline` Button variant, the nav selection, `SaveButton` and the collection index rows; `PieceLink` runs the same span along its top edge. `ChoiceRow` and the menu overlay use the same draw driven by selection rather than hover. `<Hairline />` in `src/components/ui/primitives.tsx` is the static full-width version.
+
+**`text-gold`** paints `--gold-metal` at `background-size: 220% 100%` and clips it to the glyphs. It is for one short string. In Stage 1 it is used exactly once — the consultation reference number on the success panel of `src/components/commerce/ConsultationModal.tsx`, which is an ivory dialog, so the gradient carries its own dark stops rather than relying on the ground. It is never used for running text, and the `sheen` keyframe is never run across type.
+
+Two cautions:
+
+- `text-gold` is the gradient utility and shares its name with the flat colour utility Tailwind would generate from `--color-gold`. Do not reach for `text-gold` expecting flat `#a8894f`. For gold-toned flat text use `text-gold-hi`, `text-champagne` or the semantic `text-accent`.
+- Flat gold as text on ivory fails contrast, which is why the ivory theme sets `--accent-text: var(--color-burgundy)`.
+
+---
+
+## 3. Theme system
+
+Two registers, `dark` (the default) and `ivory`, selected by a `data-theme` attribute on any element. Semantic tokens are redefined under each:
+
+| Semantic | dark | ivory |
+| --- | --- | --- |
+| `--bg` | ink | ivory |
+| `--bg-2` | charcoal | pearl |
+| `--fg` | ivory | ink |
+| `--fg-2` | champagne | charcoal |
+| `--fg-muted` | ivory at 58% | ink at 60% |
+| `--line` | champagne at 22% | ink at 14% |
+| `--line-strong` | champagne at 45% | ink at 32% |
+| `--accent` | gold-hi | gold |
+| `--accent-text` | champagne | burgundy |
+| `--veil` | `rgb(11 10 9 / 0.62)` | `rgb(244 239 230 / 0.7)` |
+| `--surface` | `#0f0e0c` | pearl |
+| `color-scheme` | `dark` | `light` |
+
+Mixes use `color-mix(in oklab, …)`, so muted foregrounds and lines stay true at both ends.
+
+`@theme inline` re-exports ten of these as Tailwind utilities: `bg-bg`, `bg-bg-2`, `text-fg`, `text-fg-2`, `text-fg-muted`, `border-line`, `border-line-strong`, `text-accent`, `text-accent-text`, `bg-surface`. `--veil` is not re-exported and is currently unused — dialogs paint their veil with `bg-ink/70`.
+
+`@custom-variant ivory` gives an `ivory:` prefix that matches inside an ivory subtree. `@custom-variant hover-fine` gives a `hover-fine:` prefix gated on `(hover: hover) and (pointer: fine)`; it is declared but not used in Stage 1.
+
+### How a chapter sets the theme
+
+Every chapter and page section calls `useChapter({ id, theme, pinned })` (`src/motion/hooks/useChapter.ts`) and puts the returned `ref` on its root; the hook also returns `ready()`, which pinned chapters call once their pin exists. The fixed footer is the exception — it stamps `data-section="footer"` itself and is handled by the registry's fallback below. `registerSection` in `src/state/sections.ts` then:
+
+1. stamps `data-section="<id>"` and, if the element does not already carry one, `data-theme="<theme>"`, so the section styles itself;
+2. observes the element and, on scroll, picks the section whose rect straddles the viewport centre-line — a pinned section wins over an unpinned one at the same line;
+3. mirrors that section's theme onto `<html data-theme>` and sets the active section in `siteStore`.
+
+The mirror is what lets the fixed chrome — the nav and the concierge orb's label — read as though it belongs to the chapter beneath it, because that chrome styles itself from the semantic tokens (`text-fg`) rather than from literal colours. Below `#page-root` (the fixed footer), the registry falls back to `footer` and `dark`.
+
+Chapter themes as shipped: hero, craft, collections, bridal, slider, duality, bespoke, the collection opening and the product gallery are `dark`; heritage, the jewellery wall and the collection intro/index/details are `ivory`. Two sections take their theme from a prop or from data: the "worn together" rail is `ivory` on the product route and `dark` on the collection route, and the collection story chapters carry the theme set on each chapter in `src/data/collections.ts`. `Dialog` opens its panel with its own `data-theme` (the consultation modal and the selection ledger are both `ivory` islands).
+
+`layout.tsx` renders `<html lang="en" data-theme="dark">` with `suppressHydrationWarning`, and a synchronous script stamps three more attributes before hydration: `data-rm` (reduced motion), which the CSS in §8 reads directly; `data-visited` (a `wj:visited` timestamp under 24h old), which the loader reads; and `data-coarse` (coarse pointer). `qualityStore` later adds `data-tier` with the lower-cased tier name. Components read pointer and tier from `qualityStore`, not from the attributes.
+
+The `body` transitions `background-color` and `color` over `600ms var(--ease-silk)`, so a theme flip reads as a dip rather than a cut.
+
+---
+
+## 4. Typography
+
+Three faces, loaded through `next/font/google` in `src/app/layout.tsx`.
+
+| Face | Loading | Variable |
+| --- | --- | --- |
+| **Bodoni Moda** | variable weight, `normal` + `italic`, `axes: ['opsz']`, latin | `--font-display` |
+| **Instrument Sans** | variable weight, `normal` + `italic`, latin | `--font-sans` |
+| **Noto Nastaliq Urdu** | variable weight, arabic subset, `preload: false` | `--font-urdu` |
+
+The Urdu face is deliberately not preloaded: it exists for two verified accents only. The base layer sets `[lang="ur"] { font-family: var(--font-urdu); line-height: 2 }`.
+
+**Urdu is used in exactly two places**, both verified against published house material: `دیوان` on the Dewan world (`src/data/worlds.ts`) and `نقش گل` in the bridal interlude (`src/data/collections.ts`). `UrduAccent` renders nothing when no string is supplied, which is why passing an unverified accent is a code change and not a content edit.
+
+### Scale
+
+| Token | Value |
+| --- | --- |
+| `--text-display-xl` | `clamp(4.25rem, 1.5rem + 11.5vw, 15rem)` |
+| `--text-display-l` | `clamp(3rem, 1.25rem + 6.5vw, 8.5rem)` |
+| `--text-display-m` | `clamp(2.125rem, 1.25rem + 3.25vw, 4.75rem)` |
+| `--text-heading` | `clamp(1.5rem, 1.15rem + 1.3vw, 2.375rem)` |
+| `--text-lead` | `clamp(1.125rem, 1.05rem + 0.35vw, 1.375rem)` |
+| `--text-body` | `1.0625rem` (17px, the `body` size) |
+| `--text-small` | `0.9375rem` |
+| `--text-caption` | `0.75rem` (12px, the eyebrow size) |
+| `--text-micro` | `0.6875rem` (11px, the floor) |
+
+Metrics: `--leading-display: 0.92`, `--leading-heading: 1.08`, `--leading-body: 1.55`, `--tracking-display: -0.01em`, `--tracking-caption: 0.18em`, `--tracking-micro: 0.24em`.
+
+Chapters that need a headline tuned to one composition use an inline `text-[clamp(…)]` rather than bending the scale. Most of the home chapters do this, along with the footer wordmark and the menu items.
+
+### Type utilities
+
+| Utility | Declares |
+| --- | --- |
+| `display` | `font-display`, weight 400, `line-height: 0.92`, `letter-spacing: -0.01em`, `font-variation-settings: "opsz" 96` |
+| `serif` | `font-display`, `font-variation-settings: "opsz" 14` |
+| `eyebrow` | `font-sans`, 12px, `0.18em` tracking, uppercase |
+| `micro` | `font-sans`, 11px, `0.24em` tracking, uppercase |
+
+The optical size axis is the point of the `display` / `serif` pair: `opsz 96` gives the high-contrast, tight-jointed Bodoni that large headlines need; `opsz 14` keeps small serif text readable. Using the raw `font-display` utility sets the family but leaves `opsz` at its default, so the codebase sets `fontVariationSettings` inline to match the optical size to the type size — `"opsz" 12` through `"opsz" 32` on small and mid serif text, `"opsz" 96` on the collection opening headline. The `serif` utility is declared but not applied by class anywhere; it is the fixed `opsz 14` case only.
+
+Nothing functional renders below 11px.
+
+---
+
+## 5. Spacing and the gutter
+
+| Token | Value | Utility |
+| --- | --- | --- |
+| `--spacing-gutter` | `clamp(1.25rem, 4vw, 4.5rem)` | `px-gutter`, `p-gutter`, `pl-gutter`, `gap-gutter`, `w-gutter` |
+| `--spacing-section` | `clamp(6rem, 12vw, 14rem)` | `py-section`, `pb-section` |
+| `--spacing-measure` | `34em` | `max-w-measure` — declared, not currently used |
+| `--nav-h` | `72px` | `var(--nav-h)`, via `calc()` in the nav, the menu overlay and product page offsets |
+
+The gutter is the single horizontal margin of the site. Full-bleed chapters bleed; everything measured sits inside `px-gutter`. Horizontal rails scroll with `no-scrollbar`; the concierge result tray also sets `scrollPaddingLeft: var(--spacing-gutter)` so a snapped tile lines up with the gutter.
+
+Easing and duration tokens (`--ease-out-expo`, `--ease-in-out-quart`, `--ease-silk`, `--ease-luxe`, `--duration-micro|ui|scene|cinema`) are mirrored for JS in `src/lib/motion/easings.ts` as `EASE` and `DUR`; see `MOTION_SYSTEM.md`.
+
+---
+
+## 6. Surface utilities
+
+| Utility | Declares | Notes |
+| --- | --- | --- |
+| `hairline` | `height: 1px` + `--gold-hairline` | Gold light. See §2. |
+| `rule` | `height: 1px` + `var(--line)` | Structural divider; theme-aware, not gold. `<Rule />` is the full-width component. |
+| `grain` | `isolation: isolate` only | The film is a separate `.grain::after` rule: the 256px tile at `/assets/waseem/brand/grain-256.png`, `opacity 0.035`, `mix-blend-mode: overlay`, `z-index: 2`. |
+| `vignette` | `isolation: isolate` only | The falloff is `.vignette::before`: a radial gradient to `rgb(11 10 9 / 0.55)` at the corners, `z-index: 2`. |
+| `no-scrollbar` | `scrollbar-width: none` + a `::-webkit-scrollbar { display: none }` rule | For the mobile rails and the concierge result tray. |
+| `is-spotlit` | A state class, not a style utility | See below. |
+
+**The trap:** `grain` and `vignette` set `isolation`, not `position`. Their pseudo-elements are `position: absolute; inset: 0`, so they land on the nearest positioned ancestor, which may not be the element you put the class on. Every use in the codebase applies them to an element that is itself positioned — `<div className="absolute inset-0 grain vignette">` in the menu overlay and the collection opening, `<div className="grain pointer-events-none absolute inset-0" />` in the hero, bridal and duality chapters. Follow that pattern. The `isolation: isolate` is there so `mix-blend-mode: overlay` blends against the chapter and not against whatever sits behind it.
+
+Both pseudo-elements are `pointer-events: none` and sit at `z-index: 2` within their stacking context, above imagery and below chapter UI.
+
+**`is-spotlit`** is how the concierge points at something on the page. Adding the class to a section makes a gold-hi sheen sweep across `[data-reveal-inner]` (or the first child `div`) twice over 1.6s, at `z-index: 3`. It is light and lines only — it never transforms the element, so it cannot disturb a pinned composition. It is added and removed on a timer by `src/concierge/tools/executeTool.ts` (2600ms) and `src/components/collection/CollectionExperience.tsx` (2400/2600ms).
+
+Related scoped classes also live in `globals.css`: `.wall-sheen` (a pointer-following radial highlight driven by `--sx`/`--sy` on the hovered piece in the jewellery wall), `.wj-ring-light` (the drawn arc on the concierge invitation) and the `[data-webgl="1"]` rules that hide the drawn craft object once the WebGL one renders.
+
+---
+
+## 7. Base layer
+
+- `html`: ink background, `scrollbar-gutter: stable`, a thin `--color-gold-deep` scrollbar, `-webkit-text-size-adjust: 100%`.
+- `body`: semantic `--bg` / `--fg`, sans, 17px, `1.55` leading, antialiased, `overflow-x: clip`, and the 600ms theme transition.
+- `::selection`: gold on ink.
+- `:focus-visible`: `1px solid var(--color-gold-hi)` at `4px` offset — one focus ring for the whole site, visible on both themes. Components whose focus should hug the target set `outline-none` and use `focus-visible:ring-1 focus-visible:ring-gold-hi` instead: the concierge orb, the result-tray cards, the recap thumbnails, the world tiles and `InspectImage`.
+- `a` inherits colour and drops underlines; `button` is reset to inherited type with `cursor: pointer`; `img` and `video` are `display: block; max-width: 100%`.
+
+`#page-root` is `position: relative; z-index: 1`, painted ink, with `margin-bottom: 100svh` — the footer is fixed beneath the page and revealed as the last chapter lifts off it. Under `html[data-rm="1"]` that margin is removed and the footer returns to normal flow at `min-height: 100svh`.
+
+Two global state classes: `html.has-cursor` (set by `CursorLayer`, and dropped again while the pointer is over an `input`, `textarea`, `select` or `iframe`) hides the native cursor with `cursor: none !important`, and `html.is-transitioning` (set in `src/lib/motion/transition.ts`) makes `#page-root` non-interactive during a route transition.
+
+---
+
+## 8. Reduced motion
+
+`data-rm="1"` is stamped on `<html>` by the pre-paint script in `layout.tsx`, before hydration, so the reduced-motion layout is pure CSS and cannot mismatch on the client.
+
+The block does structural work, not just animation suppression. Chapters whose desktop composition is only traversable by scroll fall back to their stacked reading order: `.heritage-wrap` loses its fixed height and its track becomes a vertical column with `14svh` gaps and gutter padding; `#ch07` (slider) and `#ch09` (bespoke) lose their pinned heights; `.vitrine-stage`, `.bespoke-stage`, `.heritage-travel` and `.slider-hint` are hidden while `.slider-rail` and `.bespoke-stack` become flex. The concierge orb core and the invitation ring stop animating.
+
+There is also a `@media (prefers-reduced-motion: reduce) { .sheen { animation: none } }` rule; no element currently carries a bare `sheen` class (the keyframe is used by name), so this rule is inert.
+
+---
+
+## 9. z-index ladder
+
+One list on `:root`, so a new layer is decided here rather than guessed at a call site.
+
+| Token | Value | Layer |
+| --- | --- | --- |
+| `--z-chapter` | 1 | Chapter content |
+| `--z-chapter-ui` | 5 | UI inside a chapter |
+| `--z-nav` | 20 | Nav bar |
+| `--z-orb` | 40 | Concierge orb |
+| `--z-ledger` | 50 | Selection ledger |
+| `--z-menu` | 60 | Full-screen menu |
+| `--z-concierge` | 70 | Concierge panel and result tray |
+| `--z-modal` | 75 | Dialogs |
+| `--z-transition` | 80 | Route transition curtain |
+| `--z-loader` | 90 | Loading ritual |
+| `--z-cursor` | 100 | Custom cursor |
+
+Referenced as `var(--z-…)` by the nav (which raises itself to `calc(var(--z-menu) + 1)` while the menu is open), the menu overlay, the loader, the cursor layer, the transition layer, `Dialog`, the concierge orb, panel and result tray. `--z-chapter`, `--z-chapter-ui`, `--z-orb` and `--z-ledger` describe the ladder but are not referenced by name — those layers use literal values (`z-[5]` inside chapters, `zIndex={50}` on the ledger) and the orb sits at `--z-concierge`. Read the table as the intended order and keep new literals consistent with it.
+
+---
+
+## 10. Component primitives
+
+### `Button` — `src/components/ui/Button.tsx`
+
+One button, three variants. Always uppercase sans at `0.22em` tracking; `sm` is 11px, `md` (default) is 12px.
+
+| Variant | Figure |
+| --- | --- |
+| `bracket` (default) | `[ LABEL ]` with Bodoni brackets at 60% opacity that breathe apart 4px on hover or focus. |
+| `hairline` | Tracked label over a `bg-line-strong` rule, with a gold `hairline` drawing left-to-right beneath it on hover or focus. |
+| `text` | The label alone, 80% → 100% opacity. |
+
+Props: `variant`, `size` (`'sm' | 'md'`), `className`, `cursor`, plus either button attributes or `href` (with optional `kind: 'curtain' | 'veil'`, `onNavigate`, `target`). A `tone` prop is declared on the props type but is not read by the component and is not passed anywhere. With `href` it renders a `TransitionLink` and runs the route transition; without, a `type="button"` element. `cursor` writes `data-cursor`, which the custom cursor reads to swap its label — the vocabulary is `view`, `view-piece`, `explore`, `drag`, `play`, `pause`, `discover`, `inspect`, `ask`, `save`, `close` (`src/components/motion/CursorLayer.tsx`). Hover and focus-visible are always styled together.
+
+### `Field` and `ChoiceRow` — `src/components/ui/Field.tsx`
+
+`Field` is a hairline-underlined input with no box: Bodoni at 18px on a transparent ground, `border-b border-line` moving to `border-line-strong` on focus and `border-burgundy` on error. The label is the input's `placeholder` and a floating `micro` caption, animated with the `peer-placeholder-shown` / `peer-focus` pair. `useId()` wires `aria-describedby` to either the error or the hint, and `aria-invalid` follows `error`. Props: `label`, `error`, `hint`, `multiline`, `rows` (default 2), plus native input attributes.
+
+`ChoiceRow` is a `role="radiogroup"` of tracked words with a gold hairline sliding under the chosen one — no pills, no chips. Props: `label`, `options: {value,label}[]`, `value`, `onChange`, `error`.
+
+### `Dialog` — `src/components/ui/Dialog.tsx`
+
+Props: `open`, `onClose`, `label`, `variant` (`'center' | 'sheet' | 'right'`), `theme` (`'dark' | 'ivory'`, default dark), `className`, `zIndex` (default `var(--z-modal)`), `veilClassName`.
+
+While open it stops Lenis (`stopScroll`), sets `inert` on `#page-root`, binds Escape, and traps focus inside the panel on the next frame (`src/lib/focusTrap.ts`); the cleanup reverses all four. The panel carries `role="dialog"`, `aria-modal`, the supplied `aria-label`, its own `data-theme` and `data-lenis-prevent`. Motion per variant: `center` fades and rises 24px; `sheet` slides from the bottom edge; `right` opens by animating `clip-path: inset(0 0 0 100%)` to zero, so the panel is revealed rather than pushed.
+
+### `primitives.tsx` — `src/components/ui/primitives.tsx`
+
+| Component | Props | What it renders |
+| --- | --- | --- |
+| `Eyebrow` | `children`, `numeral?`, `className`, `…p` | The `eyebrow` line in `text-fg-2`, with an optional Bodoni roman numeral 4 units to its left at 70% opacity. |
+| `Hairline` | `className` | `aria-hidden` full-width gold hairline. |
+| `Rule` | `className` | `aria-hidden` full-width `--line` rule. |
+| `SrOnly` | `children` | `sr-only` span. |
+| `UrduAccent` | `text?`, `className` | Returns `null` unless `text` is present; otherwise a `lang="ur" dir="rtl"` span in `text-fg-2`. |
+| `TravellingLight` | `active`, `className` | A 24×1px `bg-line` track with a gold-hi quarter running the `travel-light` keyframe (1.4s, infinite) when `active`, parked off-track and transparent when not. |
+
+`TravellingLight` is the house's working indicator — there are no spinners. It runs while the concierge is `THINKING` or `EXECUTING_ACTION` (`ConciergePanel`, `Exchange`), and per tool call with `bg-gold-hi/70` on completion and `bg-burgundy` on failure. `ConsultationModal` uses a pulsing `hairline` on submit for the same reason.
+
+### `Img` — `src/components/media/Img.tsx`
+
+Wraps `next/image` and binds it to the generated asset map, so a call site names an asset id and never a path. `getImage(id)` supplies `src`, real `width`/`height`, `alt`, a blur `blurDataURL`, a `focal` point and a `role`.
+
+Props: `id`, `sizes` (**required** — every image declares how wide it renders), `fill` (default `true`), `priority`, `quality` (`70 | 82`, default 82), `className`, `style`, `draggable` (default false), `alt` (override, `""` for decorative), `onLoad`, `plain`, `eager`, `data`.
+
+Behaviour worth knowing:
+
+- The asset's focal point becomes `object-position`, so crops keep the subject.
+- Assets with `role: 'packshot'` are white-background studio shots. They are placed on a `bg-pearl` tile and composited with `mix-blend-mode: multiply`, so they read as objects on paper rather than cut-outs.
+- `plain` renders a bare `<img>` with no blur placeholder and no `next/image` wrapper — this is the form FLIP transitions need, because a stable `currentSrc` is required to hand an element from one route to the next. (A packshot with `fill` still gets its pearl tile.) It lazy-loads unless `priority` or `eager` is set; `eager` is the `loading="eager"` case without the preload hint `priority` adds, for tiles inside pinned stages, and it has no effect outside `plain`.
+- `data={{ 'flip-source': '…' }}` becomes `data-flip-source`, the hook chapters use to mark FLIP participants.
+- If the asset has no `src`, the component renders nothing rather than a broken frame.
+
+### `Video` — `src/components/media/Video.tsx`
+
+Also asset-map bound (`getVideo(id)`). Always `muted`, `playsInline`, `loop`, poster-first, with `disablePictureInPicture` and `disableRemotePlayback`, and with **no** `autoplay` attribute — playback is started from an effect once the quality tier is known. A portrait source is served under `(max-width: 767px) and (orientation: portrait)`; the landscape source is 720p on the `LOW` tier and 1280p otherwise. An `IntersectionObserver` at `25%` root margin plays it in view and pauses it out of view, and it never plays on the `REDUCED` tier or when the visitor has paused media. `onFirstFrame` fires from `requestVideoFrameCallback`, falling back to the `playing` event and a 2500ms timeout. Props: `id`, `className`, `style`, `autoPlayInView` (default true), `preload` (default `'none'`), `onFirstFrame`, `ref` (a `VideoHandle` of `el` / `play` / `pause`), `ariaLabel` (absent means `aria-hidden`), `portrait` (default true — set false to skip the portrait source).
+
+Video sits under film: the hero, bridal and duality chapters lay a `grain` plane over the frame (the hero adds its own radial `.hero-vignette`), and the collection opening, the menu overlay's item preview and the collection interlude put the video inside a `grain` / `grain vignette` box.
+
+### `Monogram` — `src/components/chrome/Monogram.tsx`
+
+The WJW mark as an inline `<img>` from `/assets/waseem/brand/monogram.png` (gold on transparent), sized by the caller's `className`. `gold={false}` applies `brightness-0 invert` for a flat white silhouette; nothing passes it in Stage 1.
+
+---
+
+## 11. The concierge jewel
+
+The orb is CSS, not a video or a Lottie: `.wj-orb` and its layers, composed in `src/concierge/orb/OrbStatic.tsx` as `ring / bezel / core(specular, sweep) / glint`. This is the orb everywhere except the voice stage, where `Orb` (`src/concierge/orb/Orb.tsx`) swaps in the WebGL `OrbCanvas` when `qualityStore.orbRenderer` is `webgl`, and falls back to the CSS gem when it is not.
+
+State is expressed only through **glow, tint and breath** — never a spinner. Three custom properties on `.wj-orb` carry it: `--orb-glow` (default `0.16`, driving both the box-shadow spread and its alpha), `--orb-tint` (default transparent, applied to a `::after` over the core) and `--orb-breath` (default `4s`, the period of the `breathe` keyframe).
+
+| `data-state` | Reads as |
+| --- | --- |
+| `HOVER` | glow 0.32 |
+| `OPENING` | glow 0.50, one 0.9s breath on `--ease-out-expo` |
+| `CHAT`, `VOICE_READY` | glow 0.22, breath slowed to 5s |
+| `LISTENING` | glow 0.42, level ring at 0.35 |
+| `THINKING` | glow 0.36, core runs `orb-gather` (contract to 0.94 with a saturation lift) |
+| `EXECUTING_ACTION` | the sweep layer runs `sheen` once, forwards |
+| `SPEAKING` | glow 0.40, ring at 0.25 |
+| `RESULT` | glow 0.50, the `orb-glint` conic sweep once |
+| `ERROR` | glow drops to 0.08, burgundy tint, breath stops |
+
+With `live`, `OrbStatic` adds a GSAP ticker that scales the ring and core, and fades the ring, from the microphone/speech envelope in `voiceMeter`. Under `html[data-rm="1"]` the core animation is off entirely.
+
+Shared keyframes in `globals.css`: `sheen`, `breathe`, `travel-light`, `orb-gather`, `orb-glint`, `ring-light`.
+
+---
+
+## 12. Copy register
+
+The register is held in `src/data/copy.ts`, `src/concierge/copy.ts` and the concierge system prompt (`src/concierge/prompt.ts`).
+
+- No exclamation marks. Anywhere, including concierge replies.
+- No superlatives, no "shop now", no software vocabulary in consumer-facing strings.
+- Heritage facts only as published by the house. Nothing about 1952, the showrooms or the family is invented.
+- No general karat or grade claims. Per-piece specifications come only from that piece's own data.
+- Prices are on request unless the piece's data carries a fixed figure, in which case it is labelled indicative and subject to the gold rate.
+- The concierge answers in the visitor's language, English or Roman Urdu, in one or two sentences, and never invents a piece, price, specification or history.
+- Urdu script appears only where the house's own material shows it — the two accents in §4.
+
+---
+
+## Not in Stage 1
+
+There is no visitor-facing theme switch (the register is chosen by the chapter), no localised UI beyond the two Urdu accents, and no checkout or pricing surface beyond "on request" and the private-consultation request.

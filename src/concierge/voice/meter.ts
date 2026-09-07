@@ -10,12 +10,21 @@ let stream: MediaStream | null = null;
 let tick: ((t: number) => void) | null = null;
 let syntheticTick: ((t: number) => void) | null = null;
 let speechDecay: ((t: number) => void) | null = null;
+/** Bumped by stopMeter so a start still awaiting the microphone knows it was cancelled. */
+let generation = 0;
 
 /** Meters a microphone stream into voiceMeter.level with a breath-like attack/release. */
 export async function startMeter(existing?: MediaStream) {
   stopMeter();
+  const mine = generation;
   try {
-    stream = existing ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
+    const granted = existing ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
+    if (mine !== generation) {
+      // the session closed while the visitor was answering the permission prompt
+      if (!existing) granted.getTracks().forEach((t) => t.stop());
+      return false;
+    }
+    stream = granted;
     ctx = new AudioContext();
     const src = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
@@ -36,6 +45,7 @@ export async function startMeter(existing?: MediaStream) {
     voiceMeter.synthetic = false;
     return true;
   } catch {
+    if (mine !== generation) return false;
     startSyntheticMeter();
     return false;
   }
@@ -52,6 +62,7 @@ export function startSyntheticMeter() {
 }
 
 export function stopMeter() {
+  generation += 1;
   if (tick) gsap.ticker.remove(tick);
   if (syntheticTick) gsap.ticker.remove(syntheticTick);
   tick = null;

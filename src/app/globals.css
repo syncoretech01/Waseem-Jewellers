@@ -408,3 +408,44 @@ html[data-rm="1"] .wj-ring-light { animation: none; opacity: 0.6; }
 
 /* ── loading ritual: the stone rises over the drawing, which stays beneath it ─ */
 .ritual-stone[data-gem="1"] .stone-lines { opacity: 0.5; transition: opacity 900ms var(--ease-silk); }
+
+/* ── reduced motion: chapters whose desktop composition is only traversable by
+      scroll fall back to their stacked reading order. `data-rm` is stamped on
+      <html> before hydration, so this needs no JavaScript and cannot mismatch. ── */
+html[data-rm="1"] .heritage-wrap {
+  height: auto;
+  overflow: visible;
+}
+html[data-rm="1"] .heritage-track {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14svh;
+  padding: 12svh var(--spacing-gutter);
+}
+html[data-rm="1"] .heritage-panel {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2rem;
+}
+html[data-rm="1"] .heritage-panel figure,
+html[data-rm="1"] .heritage-panel .h-mask {
+  width: 100%;
+  height: auto;
+}
+html[data-rm="1"] #ch07,
+html[data-rm="1"] #ch09 {
+  height: auto;
+  overflow: visible;
+}
+html[data-rm="1"] .vitrine-stage,
+html[data-rm="1"] .bespoke-stage,
+html[data-rm="1"] .heritage-travel,
+html[data-rm="1"] .slider-hint {
+  display: none;
+}
+html[data-rm="1"] .slider-rail,
+html[data-rm="1"] .bespoke-stack {
+  display: flex;
+}

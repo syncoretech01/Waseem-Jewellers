@@ -26,6 +26,8 @@ export function Nav() {
   const count = useSiteStore((s) => s.wishlist.length);
   const invitationVisible = useSiteStore((s) => s.heroInvitationVisible);
   const loaderDone = useSiteStore((s) => s.loaderDone);
+  const videoPaused = useSiteStore((s) => s.videoPaused);
+  const setVideoPaused = useSiteStore((s) => s.setVideoPaused);
   const conciergeOpen = useConciergeStore((s) => OPEN_STATES.includes(s.state));
   const [hidden, setHidden] = useState(false);
 
@@ -73,7 +75,7 @@ export function Nav() {
 
       <nav className="flex items-center gap-8 md:gap-10">
         {hydrated && count > 0 && (
-          <button type="button" onClick={openLedger} className="micro group/sel relative flex h-11 items-center gap-2 text-fg" aria-label={`Your selection, ${count} pieces`}>
+          <button type="button" onClick={openLedger} className="micro group/sel relative flex h-11 items-center gap-2 text-fg" aria-label={count === 1 ? 'Your selection, one piece' : `Your selection, ${count} pieces`}>
             <span className="hidden sm:inline">Selection</span>
             <span className="font-display text-[0.9rem] tracking-normal" style={{ fontVariationSettings: '"opsz" 12' }}>
               {String(count).padStart(2, '0')}
@@ -87,6 +89,15 @@ export function Nav() {
             <Underline />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setVideoPaused(!videoPaused)}
+          aria-pressed={videoPaused}
+          className="micro group/sel relative hidden h-11 items-center text-fg md:flex"
+        >
+          {videoPaused ? 'Play motion' : 'Pause motion'}
+          <Underline />
+        </button>
         <button
           type="button"
           onClick={menuOpen ? closeMenu : openMenu}

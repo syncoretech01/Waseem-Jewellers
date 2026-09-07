@@ -52,8 +52,10 @@ export function Ch02Craft() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const backdrop = root.querySelector<HTMLElement>('.craft-backdrop');
         const stone = root.querySelector<HTMLElement>('.craft-stone');
         const halo = root.querySelector<HTMLElement>('.craft-halo');
@@ -66,10 +68,16 @@ export function Ch02Craft() {
         if (!stone || !backdrop) return;
         const setReveal = gsap.quickSetter(stone, '--reveal');
 
-        if (reduced) {
+        if (still) {
+          // composed still: the object lit, every label named, and one closing note
+          // (the notes share one absolute box, so only the last may show)
           gsap.set(backdrop, { opacity: 0 });
           setReveal(1);
-          gsap.set([labels, notes, closing, eyebrow], { autoAlpha: 1 });
+          gsap.set([labels, closing, eyebrow], { autoAlpha: 1 });
+          gsap.set(notes, { autoAlpha: 0 });
+          const lastNote = notes[notes.length - 1];
+          if (lastNote) gsap.set(lastNote, { autoAlpha: 1 });
+          labels.forEach((l) => (l.dataset.lit = '1'));
           ready();
           return;
         }

@@ -36,18 +36,20 @@ export function Ch04Worlds() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const paper = root.querySelector<HTMLElement>('.worlds-paper');
         const cols = root.querySelectorAll<HTMLElement>('.world-col');
         const lights = root.querySelectorAll<HTMLElement>('.world-toplight');
         const columnsWrap = root.querySelector<HTMLElement>('.worlds-columns');
         if (!paper || !columnsWrap) return;
 
-        if (mobile || reduced) {
+        if (mobile || still) {
           gsap.set(paper, { autoAlpha: 0 });
           gsap.set(columnsWrap, { clipPath: 'inset(0% 0 0 0)' });
-          if (!reduced) {
+          if (!still) {
             root.querySelectorAll<HTMLElement>('.world-row').forEach((row) => {
               gsap.fromTo(row.querySelectorAll('.world-tile'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 1, stagger: 0.08, ease: 'wj.out', scrollTrigger: { trigger: row, start: 'top 85%', once: true } });
             });
@@ -106,9 +108,13 @@ export function Ch04Worlds() {
 
   const hover = (i: number | null) => {
     setActive(i);
+    // one tween carrying all five keys: five overwriting tweens would kill each other
+    const d = window.innerHeight * 0.04;
+    const to: Record<string, number> = {};
     SPEEDS.forEach((speed, k) => {
-      gsap.to(drift.current, { [`d${k}`]: i === k ? -window.innerHeight * 0.04 * Math.sign(speed) : 0, duration: 1.1, ease: 'power3.out', overwrite: true });
+      to[`d${k}`] = i === k ? -d * Math.sign(speed) : 0;
     });
+    gsap.to(drift.current, { ...to, duration: 1.1, ease: 'power3.out', overwrite: true });
   };
 
   const choose = (i: number, heroEl: HTMLElement | null) => {

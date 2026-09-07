@@ -83,6 +83,8 @@ export class TransitionController implements TransitionHandle {
   private readyResolve: (() => void) | null = null;
   private readyReject: ((e: Error) => void) | null = null;
   private readyPromise: Promise<void> = Promise.resolve();
+  /** Resolves the cover phase of navigate() even when its timeline is killed. */
+  private coverResolve: (() => void) | null = null;
   private popPending = false;
 
   attach(els: Elements) {
@@ -127,6 +129,7 @@ export class TransitionController implements TransitionHandle {
     const epoch = this.epoch;
     const kind = this.reduced() ? 'veil' : opts.kind === 'flip' && opts.sourceEl && this.flipAllowed() ? 'flip' : opts.kind ?? 'curtain';
     this.inFlight = { href, kind, flipKey: opts.flipKey, epoch, target };
+    const samePage = new URL(href, window.location.origin).pathname === window.location.pathname;
     this.readyPromise = new Promise<void>((resolve, reject) => {
       this.readyResolve = resolve;
       this.readyReject = reject;
@@ -191,16 +194,36 @@ export class TransitionController implements TransitionHandle {
       tl.to(veil, { opacity: 1, duration: 0.35, ease: 'none' }, 0).call(push, [], 0.2);
     }
 
+    if (samePage) {
+      // same route, new query: no destination remounts, so arrive on the push
+      tl.call(
+        () => {
+          if (this.epoch === epoch) this.ready(this.inFlight?.flipKey, null, true);
+        },
+        [],
+        kind === 'curtain' ? 0.55 : 0.35,
+      );
+    }
+
     this.forced = window.setTimeout(() => {
-      if (this.epoch === epoch && this.inFlight) this.ready(this.inFlight.flipKey, null);
+      // last resort: release the page even if the URL never matched the target
+      if (this.epoch === epoch && this.inFlight) this.ready(this.inFlight.flipKey, null, true);
     }, 4000);
 
-    await new Promise<void>((resolve) => tl.eventCallback('onComplete', resolve));
+    await new Promise<void>((resolve) => {
+      this.coverResolve = resolve;
+      tl.eventCallback('onComplete', () => {
+        this.coverResolve = null;
+        resolve();
+      });
+    });
   }
 
   private supersede() {
     if (!this.inFlight) return;
     this.tl?.kill();
+    this.coverResolve?.();
+    this.coverResolve = null;
     if (this.forced) window.clearTimeout(this.forced);
     this.readyReject?.(new SupersededError());
     this.cleanupClone(true);
@@ -219,10 +242,10 @@ export class TransitionController implements TransitionHandle {
   }
 
   /** Called by the destination once it has mounted (and, for FLIP, decoded its hero image). */
-  ready(flipKey?: FlipKey, targetEl?: HTMLElement | null) {
+  ready(flipKey?: FlipKey, targetEl?: HTMLElement | null, force = false) {
     const flight = this.inFlight;
     if (!flight || !this.els) return;
-    if (currentTarget() !== flight.target) return;
+    if (!force && currentTarget() !== flight.target) return;
     // only the first report counts: a later one (an image decoding after the fallback) must not reset the arrival
     if (flight.readied) return;
     flight.readied = true;

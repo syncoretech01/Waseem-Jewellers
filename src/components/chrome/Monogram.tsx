@@ -7,8 +7,8 @@ export function Monogram({ className, gold = true }: { className?: string; gold?
     <img
       src="/assets/waseem/brand/monogram.png"
       alt="Waseem Jewellers monogram"
-      width={320}
-      height={291}
+      width={208}
+      height={172}
       draggable={false}
       className={cn('block select-none', !gold && 'brightness-0 invert', className)}
       style={{ height: undefined }}

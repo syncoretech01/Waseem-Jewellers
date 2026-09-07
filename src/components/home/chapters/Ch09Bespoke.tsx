@@ -28,8 +28,10 @@ export function Ch09Bespoke() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const stage = root.querySelector<HTMLElement>('.bespoke-stage');
         const cards = (mobile ? root : stage ?? root).querySelectorAll<HTMLElement>('.bespoke-card');
         const words = root.querySelectorAll<HTMLElement>('.bespoke-word');
@@ -38,10 +40,10 @@ export function Ch09Bespoke() {
         const photo = root.querySelector<HTMLElement>('.bespoke-photo');
         const cta = root.querySelector<HTMLElement>('.bespoke-cta');
 
-        if (mobile || reduced) {
+        if (mobile || still) {
           gsap.set([cards, words, cta], { autoAlpha: 1, clearProps: 'transform' });
           if (photo) gsap.set(photo, { opacity: 1 });
-          if (!reduced) {
+          if (!still) {
             cards.forEach((c) => gsap.fromTo(c, { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 1, ease: 'wj.out', scrollTrigger: { trigger: c, start: 'top 85%', once: true } }));
           }
           ready();
@@ -144,7 +146,7 @@ export function Ch09Bespoke() {
       </div>
 
       {/* mobile: stacked */}
-      <div className="flex flex-col gap-12 px-gutter pb-20 pt-10 md:hidden">
+      <div className="bespoke-stack flex flex-col gap-12 px-gutter pb-20 pt-10 md:hidden">
         {COPY.bespoke.words.map((w, i) => (
           <div key={w} className="bespoke-card flex flex-col gap-4">
             <p className="flex items-baseline gap-4">

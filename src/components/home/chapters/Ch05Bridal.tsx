@@ -34,8 +34,10 @@ export function Ch05Bridal() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const film = root.querySelector<HTMLElement>('.bridal-film');
         const frame = root.querySelector<HTMLElement>('.bridal-frame');
         const ambient = root.querySelector<HTMLElement>('.bridal-ambient');
@@ -45,9 +47,12 @@ export function Ch05Bridal() {
         const opening = root.querySelector<HTMLElement>('.bridal-opening');
         if (!film || !frame || !ambient || !paper) return;
 
-        if (reduced) {
+        if (still) {
+          // composed still: the film full-bleed behind the words; no pre-roll caption, no frame
           gsap.set(film, { clipPath: 'inset(0px)' });
-          gsap.set([words, tail, opening], { autoAlpha: 1 });
+          gsap.set([words, tail], { autoAlpha: 1 });
+          gsap.set([opening, frame], { autoAlpha: 0 });
+          gsap.set(ambient, { opacity: 0.45 });
           ready();
           return;
         }

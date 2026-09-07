@@ -42,6 +42,9 @@ export function CursorLayer() {
     const angle = gsap.quickTo(bead.current, '--angle', { duration: 0.4, ease: 'power2' });
     let last = { x: 0, y: 0 };
     let visible = false;
+    let flipped = false;
+    // GSAP owns the label's offset entirely (Tailwind's `translate` would fight it)
+    gsap.set(label.current, { xPercent: 0, yPercent: -50 });
     const show = () => {
       if (visible) return;
       visible = true;
@@ -55,9 +58,13 @@ export function CursorLayer() {
       if (e.pointerType !== 'mouse') return;
       bx(e.clientX);
       by(e.clientY);
-      lx(e.clientX);
+      const flip = e.clientX > window.innerWidth - 140;
+      if (flip !== flipped) {
+        flipped = flip;
+        gsap.set(label.current, { xPercent: flip ? -100 : 0 });
+      }
+      lx(e.clientX + (flip ? -14 : 14));
       ly(e.clientY);
-      if (label.current) label.current.dataset.side = e.clientX > window.innerWidth - 140 ? 'left' : 'right';
       const dx = e.clientX - last.x;
       const dy = e.clientY - last.y;
       if (Math.hypot(dx, dy) > 2) angle((Math.atan2(dy, dx) * 180) / Math.PI);
@@ -129,7 +136,7 @@ export function CursorLayer() {
           }}
         />
       </div>
-      <div ref={label} className="micro absolute left-0 top-0 -translate-y-1/2 whitespace-nowrap text-champagne opacity-0 mix-blend-difference data-[side=left]:-translate-x-[calc(100%+14px)] data-[side=right]:translate-x-[14px]" data-side="right">
+      <div ref={label} className="micro absolute left-0 top-0 whitespace-nowrap text-champagne opacity-0 mix-blend-difference">
         {text}
       </div>
     </div>

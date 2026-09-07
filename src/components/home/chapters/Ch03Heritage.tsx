@@ -10,7 +10,7 @@ import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
 
 const RATIO: Record<string, string> = { '4:5': '4 / 5', '3:2': '3 / 2', '1:1': '1 / 1', '21:9': '21 / 9' };
-const HEIGHT: Record<string, string> = { '4:5': 'h-[58svh]', '3:2': 'h-[46svh]', '1:1': 'h-[50svh]', '21:9': 'h-[36svh]' };
+const HEIGHT: Record<string, string> = { '4:5': 'md:h-[58svh]', '3:2': 'md:h-[46svh]', '1:1': 'md:h-[50svh]', '21:9': 'md:h-[36svh]' };
 
 /**
  * CH03 — 1952. Ivory paper rises out of the dark around the numeral; then the house's
@@ -26,8 +26,10 @@ export function Ch03Heritage() {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)' }, (ctx) => {
-        const { mobile } = ctx.conditions as { mobile: boolean };
+      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
+        // the media query is the source of truth: gsap reverts the other branch when it flips
+        const still = reduce || reduced;
         const lead = root.querySelector<HTMLElement>('.heritage-lead');
         const paper = root.querySelector<HTMLElement>('.heritage-paper');
         const numeral = root.querySelector<HTMLElement>('.heritage-numeral');
@@ -38,10 +40,13 @@ export function Ch03Heritage() {
         if (!lead || !paper || !numeral || !wrap || !track) return;
 
         // lead-in: paper fades up around the numeral, which turns from champagne to ink
-        if (reduced) {
+        if (still) {
           gsap.set(paper, { opacity: 1 });
           gsap.set(numeral, { color: '#0B0A09' });
-          panels.forEach((p) => gsap.set(p.querySelectorAll('.h-mask'), { clipPath: 'inset(0 0 0 0)' }));
+          panels.forEach((p) => {
+            const masks = p.querySelectorAll('.h-mask');
+            if (masks.length) gsap.set(masks, { clipPath: 'inset(0 0 0 0)' });
+          });
           if (facade) gsap.set(facade, { filter: 'grayscale(0)' });
           ready();
           return;
@@ -117,19 +122,19 @@ export function Ch03Heritage() {
       </div>
 
       {/* the horizontal track */}
-      <div className="heritage-wrap relative h-svh overflow-hidden bg-ivory">
-        <div className="pointer-events-none absolute right-[6vw] top-1/2 w-[38vw] -translate-y-1/2 opacity-[0.06]">
+      <div className="heritage-wrap relative bg-ivory md:h-svh md:overflow-hidden">
+        <div className="pointer-events-none absolute right-[6vw] top-1/2 hidden w-[38vw] -translate-y-1/2 opacity-[0.06] md:block">
           <Monogram className="w-full" />
         </div>
-        <div className="heritage-track flex h-full items-center gap-[9vw] px-[8vw] md:flex-row" style={{ width: 'max-content' }}>
+        <div className="heritage-track flex w-full flex-col items-start gap-[14svh] px-gutter py-[12svh] md:h-full md:w-max md:flex-row md:items-center md:gap-[9vw] md:px-[8vw] md:py-0">
           <div className="heritage-travel pointer-events-none absolute left-[8vw] top-[10svh] hidden md:block">
             <p className="display text-[clamp(4rem,9vw,9rem)] leading-none text-ink/8" aria-hidden>
               1952
             </p>
           </div>
           {HERITAGE.map((m) => (
-            <article key={m.id} className={cn('heritage-panel relative flex shrink-0 items-end gap-[3vw]', m.ratio === '21:9' && 'items-center')}>
-              <div className={cn('flex flex-col gap-4', m.ratio === '21:9' ? 'order-2 w-[22vw]' : 'w-[16vw] min-w-[13rem] pb-[7svh]')}>
+            <article key={m.id} className={cn('heritage-panel relative flex w-full shrink-0 flex-col gap-8 md:w-auto md:flex-row md:items-end md:gap-[3vw]', m.ratio === '21:9' && 'md:items-center')}>
+              <div className={cn('flex flex-col gap-4', m.ratio === '21:9' ? 'md:order-2 md:w-[22vw]' : 'md:w-[16vw] md:min-w-[13rem] md:pb-[7svh]')}>
                 <p className="h-line micro text-ink/60">{m.numeral}</p>
                 <p className="h-line display text-[clamp(1.6rem,2.6vw,2.9rem)] leading-[1.04] text-ink">{m.line}</p>
                 {m.fact && (
@@ -138,15 +143,15 @@ export function Ch03Heritage() {
                   </p>
                 )}
               </div>
-              <figure className={cn('relative shrink-0', m.ratio === '21:9' ? 'w-[64vw]' : HEIGHT[m.ratio], m.treatment === 'monochrome-to-colour' && 'heritage-facade')}>
-                <div className="pointer-events-none absolute -inset-8 border border-ink/35" aria-hidden />
-                <div className={cn('h-mask relative h-full overflow-hidden', m.ratio === '21:9' && 'w-full')} style={{ aspectRatio: RATIO[m.ratio] }}>
+              <figure className={cn('relative w-full shrink-0 md:w-auto', m.ratio === '21:9' ? 'md:w-[64vw]' : HEIGHT[m.ratio], m.treatment === 'monochrome-to-colour' && 'heritage-facade')}>
+                <div className="pointer-events-none absolute -inset-4 border border-ink/35 md:-inset-8" aria-hidden />
+                <div className={cn('h-mask relative w-full overflow-hidden md:h-full', m.ratio !== '21:9' && 'md:w-auto')} style={{ aspectRatio: RATIO[m.ratio] }}>
                   <div className="h-inner absolute inset-0">
                     <Img id={m.image} sizes="(min-width: 768px) 60vw, 90vw" className="object-cover" />
                   </div>
                 </div>
                 {m.caption && (
-                  <figcaption className="h-line micro absolute -bottom-12 left-0 text-ink/60">
+                  <figcaption className="h-line micro absolute -bottom-8 left-0 text-ink/60 md:-bottom-12">
                     {m.numeral} · {m.caption}
                   </figcaption>
                 )}
@@ -154,7 +159,7 @@ export function Ch03Heritage() {
             </article>
           ))}
           {/* seal */}
-          <div className="heritage-panel relative flex h-full w-[46vw] shrink-0 flex-col items-center justify-center gap-6 text-center">
+          <div className="heritage-panel relative flex w-full shrink-0 flex-col items-center justify-center gap-6 py-[6svh] text-center md:h-full md:w-[46vw] md:py-0">
             <Monogram className="h-24 w-auto" />
             <p className="h-line micro text-ink/70">The House of Waseem · Since 1952</p>
             <p className="h-line display text-[clamp(1.5rem,2.2vw,2.4rem)] text-ink">{COPY.heritage.closing}</p>
