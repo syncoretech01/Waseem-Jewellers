@@ -7,6 +7,7 @@ import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
 import { SmoothScroll } from '@/components/motion/SmoothScroll';
 import { TransitionLayer } from '@/components/motion/TransitionLayer';
 import { CursorLayer } from '@/components/motion/CursorLayer';
+import { Loader } from '@/components/loader/Loader';
 import { Nav } from '@/components/chrome/Nav';
 import { MenuOverlay } from '@/components/chrome/MenuOverlay';
 import { Footer } from '@/components/chrome/Footer';
@@ -52,6 +53,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ConciergeRoot />
         <SelectionLedger />
         <ConsultationModal />
+        <Loader />
         <CursorLayer />
       </ReactLenis>
     </MotionConfig>

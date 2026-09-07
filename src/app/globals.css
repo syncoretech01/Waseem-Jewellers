@@ -388,3 +388,10 @@ html[data-rm="1"] .wj-orb-core { animation: none; }
   100% { opacity: 0; stroke-dashoffset: 0; }
 }
 html[data-rm="1"] .wj-ring-light { animation: none; opacity: 0.6; }
+
+/* ── the jewellery wall: pointer-following sheen on the hovered piece ─────── */
+.wall-sheen {
+  background: radial-gradient(circle at var(--sx, 50%) var(--sy, 50%), rgb(255 255 255 / 0.22) 0%, rgb(255 255 255 / 0.06) 22%, transparent 48%);
+  mix-blend-mode: screen;
+}
+.vitrine-stage:active { cursor: grabbing; }

@@ -1,0 +1,1 @@
+JSON.stringify({inv:!!document.querySelector('[data-concierge-invitation]'),orb:!!document.querySelector('button[aria-label="Open the Waseem Concierge"]'),ask:[...document.querySelectorAll('header button')].some(b=>b.textContent.trim()==='Ask')})

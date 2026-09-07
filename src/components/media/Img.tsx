@@ -23,10 +23,12 @@ interface ImgProps {
   plain?: boolean;
   /** Attribute hooks for chapters (data-flip-source etc.). */
   data?: Record<string, string>;
+  /** Load immediately without a preload hint (tiles inside pinned stages). */
+  eager?: boolean;
 }
 
 /** next/image bound to the generated asset map: exact dimensions, blur placeholder, focal object-position. */
-export function Img({ id, sizes, className, fill = true, priority, quality = 82, style, draggable = false, alt, onLoad, plain, data }: ImgProps) {
+export function Img({ id, sizes, className, fill = true, priority, quality = 82, style, draggable = false, alt, onLoad, plain, data, eager }: ImgProps) {
   const asset = getImage(id);
   const focal = `${Math.round(asset.focal[0] * 100)}% ${Math.round(asset.focal[1] * 100)}%`;
   const dataAttrs = data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v])) : {};
@@ -67,7 +69,7 @@ export function Img({ id, sizes, className, fill = true, priority, quality = 82,
         height={asset.height}
         draggable={draggable}
         decoding="async"
-        loading={priority ? 'eager' : 'lazy'}
+        loading={priority || eager ? 'eager' : 'lazy'}
         className={cn(fill ? 'absolute inset-0 h-full w-full object-cover' : 'h-auto w-full', className)}
         style={{ objectPosition: focal, ...blend, ...style }}
         onLoad={onLoad}

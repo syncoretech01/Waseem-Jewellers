@@ -1,0 +1,1 @@
+(() => { const e = [...document.querySelectorAll('#wj-menu a, #wj-menu button')].find((el) => /Our House/i.test(el.textContent)); if (e) e.click(); return !!e; })()

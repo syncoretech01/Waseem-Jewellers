@@ -57,7 +57,7 @@ const page = await context.newPage();
 const log = [];
 page.on('console', (m) => {
   const t = m.type();
-  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, 300)}`);
+  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, flag('trace') ? 2400 : 300)}`);
 });
 page.on('pageerror', (e) => log.push(`[pageerror] ${e.message}`));
 page.on('response', (r) => {
@@ -82,6 +82,18 @@ async function wheelTo(targetY) {
   await page.waitForTimeout(1100);
 }
 
+if (flag('trace')) {
+  await page.addInitScript(() => {
+    const orig = console.warn.bind(console);
+    console.warn = (...args) => {
+      const msg = args.map(String).join(' ');
+      if (/GSAP target/.test(msg)) {
+        const stack = (new Error().stack || '').split(String.fromCharCode(10)).slice(2, 9).map((l) => l.trim().replace(/^at /, '')).join(' <- ');
+        orig(msg + ' | ' + stack);
+      } else orig(...args);
+    };
+  });
+}
 const t0 = Date.now();
 await page.goto(url, { waitUntil: 'networkidle', timeout: 90000 }).catch((e) => log.push(`[goto] ${e.message}`));
 await page.mouse.move(width / 2, height / 2);
@@ -110,8 +122,14 @@ for (const act of acts) {
     } else if (kind === 'press') await page.keyboard.press(rest);
     else if (kind === 'hover') await page.hover(rest, { timeout: 5000 });
     else if (kind === 'wheel') await wheelTo((await page.evaluate(() => window.scrollY)) + Number(rest));
+    else if (kind === 'goto') {
+      const [sel, vh] = rest.split('|');
+      const top = await page.evaluate((s) => { const el = document.querySelector(s); return el ? el.getBoundingClientRect().top + window.scrollY : 0; }, sel);
+      await wheelTo(Math.round(top + Number(vh || 0) * (await page.evaluate(() => window.innerHeight))));
+    }
     else if (kind === 'shot') await page.screenshot({ path: path.join(out, `${tag}-${rest}.png`), fullPage: flag('full') });
     else if (kind === 'eval') console.log('[eval]', JSON.stringify(await page.evaluate(rest)));
+    else if (kind === 'evalfile') console.log('[eval]', JSON.stringify(await page.evaluate(fs.readFileSync(rest, 'utf8'))));
   } catch (e) {
     log.push(`[act ${act}] ${e.message}`);
   }
