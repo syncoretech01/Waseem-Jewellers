@@ -1,0 +1,274 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   WASEEM JEWELLERS — design tokens
+   Palette, type scale, spacing, easing. Gold is a material or a light source,
+   never a flat UI colour. Semantic tokens flip per chapter via [data-theme].
+   ────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  --color-ink: #0b0a09;
+  --color-charcoal: #161412;
+  --color-ivory: #f4efe6;
+  --color-pearl: #ede6d8;
+  --color-champagne: #d8c3a5;
+  --color-gold: #a8894f;
+  --color-gold-hi: #e4cfa3;
+  --color-gold-deep: #6e5527;
+  --color-burgundy: #5a1f2b;
+  --color-emerald: #12463a;
+  --color-lilac: #b9afc9;
+
+  --font-display: var(--font-display), "Bodoni Moda", "Didot", "Times New Roman", serif;
+  --font-sans: var(--font-sans), "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-urdu: var(--font-urdu), "Noto Nastaliq Urdu", serif;
+
+  --text-display-xl: clamp(4.25rem, 1.5rem + 11.5vw, 15rem);
+  --text-display-l: clamp(3rem, 1.25rem + 6.5vw, 8.5rem);
+  --text-display-m: clamp(2.125rem, 1.25rem + 3.25vw, 4.75rem);
+  --text-heading: clamp(1.5rem, 1.15rem + 1.3vw, 2.375rem);
+  --text-lead: clamp(1.125rem, 1.05rem + 0.35vw, 1.375rem);
+  --text-body: 1.0625rem;
+  --text-small: 0.9375rem;
+  --text-caption: 0.75rem;
+  --text-micro: 0.6875rem;
+
+  --leading-display: 0.92;
+  --leading-heading: 1.08;
+  --leading-body: 1.55;
+  --tracking-caption: 0.18em;
+  --tracking-micro: 0.24em;
+  --tracking-display: -0.01em;
+
+  --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --spacing-section: clamp(6rem, 12vw, 14rem);
+  --spacing-measure: 34em;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-silk: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-luxe: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --duration-micro: 300ms;
+  --duration-ui: 480ms;
+  --duration-scene: 900ms;
+  --duration-cinema: 1400ms;
+}
+
+/* z ladder — one list, referenced everywhere */
+:root {
+  --z-chapter: 1;
+  --z-chapter-ui: 5;
+  --z-nav: 20;
+  --z-orb: 40;
+  --z-ledger: 50;
+  --z-menu: 60;
+  --z-concierge: 70;
+  --z-modal: 75;
+  --z-transition: 80;
+  --z-loader: 90;
+  --z-cursor: 100;
+
+  --nav-h: 72px;
+
+  /* gold as material / light */
+  --gold-metal: linear-gradient(105deg, #6e5527 0%, #a8894f 22%, #e4cfa3 48%, #b8975a 62%, #f1e2bf 78%, #8a6d3a 100%);
+  --gold-conic: conic-gradient(from 210deg, #6e5527, #e4cfa3 25%, #a8894f 50%, #f1e2bf 72%, #6e5527);
+  --gold-hairline: linear-gradient(90deg, transparent, #e4cfa3 40%, #f1e2bf 50%, #e4cfa3 60%, transparent);
+}
+
+/* semantic tokens — dark is the default register */
+:root,
+[data-theme="dark"] {
+  --bg: var(--color-ink);
+  --bg-2: var(--color-charcoal);
+  --fg: var(--color-ivory);
+  --fg-2: var(--color-champagne);
+  --fg-muted: color-mix(in oklab, var(--color-ivory) 58%, transparent);
+  --line: color-mix(in oklab, var(--color-champagne) 22%, transparent);
+  --line-strong: color-mix(in oklab, var(--color-champagne) 45%, transparent);
+  --accent: var(--color-gold-hi);
+  --accent-text: var(--color-champagne);
+  --veil: rgb(11 10 9 / 0.62);
+  --surface: #0f0e0c;
+  color-scheme: dark;
+}
+[data-theme="ivory"] {
+  --bg: var(--color-ivory);
+  --bg-2: var(--color-pearl);
+  --fg: var(--color-ink);
+  --fg-2: var(--color-charcoal);
+  --fg-muted: color-mix(in oklab, var(--color-ink) 60%, transparent);
+  --line: color-mix(in oklab, var(--color-ink) 14%, transparent);
+  --line-strong: color-mix(in oklab, var(--color-ink) 32%, transparent);
+  --accent: var(--color-gold);
+  --accent-text: var(--color-burgundy);
+  --veil: rgb(244 239 230 / 0.7);
+  --surface: var(--color-pearl);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-surface: var(--surface);
+}
+
+@custom-variant ivory (&:where([data-theme="ivory"], [data-theme="ivory"] *));
+@custom-variant hover-fine (@media (hover: hover) and (pointer: fine));
+
+@utility hairline {
+  height: 1px;
+  background: var(--gold-hairline);
+}
+@utility rule {
+  height: 1px;
+  background: var(--line);
+}
+@utility text-gold {
+  background: var(--gold-metal);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  text-transform: uppercase;
+}
+@utility micro {
+  font-family: var(--font-sans);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+}
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  font-variation-settings: "opsz" 96;
+}
+@utility serif {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 14;
+}
+@utility grain {
+  position: relative;
+}
+@utility vignette {
+  position: relative;
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/assets/waseem/brand/grain-256.png");
+  background-size: 256px 256px;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  z-index: 2;
+}
+.vignette::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 85% at 50% 50%, transparent 55%, rgb(11 10 9 / 0.55) 100%);
+  z-index: 2;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@layer base {
+  html {
+    background: var(--color-ink);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-gold-deep) transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color 600ms var(--ease-silk), color 600ms var(--ease-silk);
+    overflow-x: clip;
+  }
+  ::selection {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-gold-hi);
+    outline-offset: 4px;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+  [lang="ur"] {
+    font-family: var(--font-urdu);
+    line-height: 2;
+  }
+}
+
+/* ── global state classes ─────────────────────────────────────────────── */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+html.is-transitioning #page-root {
+  pointer-events: none;
+}
+
+/* ── shared keyframes ─────────────────────────────────────────────────── */
+@keyframes sheen {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes travel-light {
+  0% { transform: translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(400%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen { animation: none; }
+}

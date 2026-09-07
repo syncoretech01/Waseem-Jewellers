@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local env
+.env*.local
+
+# asset pipeline caches and preserved originals (large binaries)
+.cache/
+media-originals/
+
+# reference material (not part of the product)
+reference/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# dev logs and inspection shots
+.cache-devlog.txt
+scripts/dev/shots/
