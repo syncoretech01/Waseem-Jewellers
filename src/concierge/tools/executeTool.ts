@@ -174,7 +174,11 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     }
 
     case 'removeFromWishlist': {
-      const product = resolveAnchor(args, ctx);
+      // "remove it" means a piece that is kept: the named one, else the piece in view, else the last shown
+      const explicit = str(args.slug);
+      const candidates = [explicit, ctx.focusedProduct?.slug, ctx.currentProduct?.slug, ...ctx.recentResults.map((r) => r.slug)].filter((s): s is string => !!s);
+      const slug = candidates.find((s) => site.wishlist.includes(s));
+      const product = slug ? getProduct(slug) : undefined;
       if (!product) return { result: { needsPiece: true }, label: '' };
       site.removeFromWishlist(product.slug);
       return { result: { ok: true, slug: product.slug }, runningLabel: CONCIERGE.labels.removing, label: CONCIERGE.labels.removed, ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'removed' } };
@@ -187,7 +191,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       return {
         result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.slug, name: p.editorialTitle })) },
         runningLabel: CONCIERGE.labels.selection,
-        label: pieces.length ? CONCIERGE.labels.selectionDone(n) : CONCIERGE.labels.selectionEmpty,
+        label: pieces.length ? CONCIERGE.labels.selectionDone(pieces.length, n) : CONCIERGE.labels.selectionEmpty,
         ui: { kind: 'wishlist', pieces: cardsOf(pieces) },
         compact: true,
       };
@@ -198,7 +202,10 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       if (!id) return { result: { error: 'unknown section' }, label: '' };
       const label = SECTION_LABELS[id] ?? id;
       const el = sectionElement(id);
-      if (el && (ctx.routeKind === 'home' || ['pieces', 'related', 'gallery', 'details'].includes(id))) {
+      if (id === 'footer') {
+        // the footer waits beneath every route
+        scrollTo(document.documentElement.scrollHeight, { duration: 1.6 });
+      } else if (el && (ctx.routeKind === 'home' || ['pieces', 'related', 'gallery', 'details'].includes(id))) {
         scrollTo(el, { duration: 1.6 });
       } else {
         site.setPendingSection(id);

@@ -11,6 +11,7 @@ import { Eyebrow } from '@/components/ui/primitives';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useSiteStore } from '@/state/siteStore';
+import { productElement } from '@/state/visibility';
 import { sectionsReady } from '@/state/sections';
 import { runtime, scrollTo } from '@/state/runtime';
 import { requestConcierge } from '@/concierge/bridge';
@@ -61,7 +62,7 @@ export function CollectionExperience({ collection }: { collection: Collection })
     if (!world || mode !== 'story') return;
     let cancelled = false;
     (async () => {
-      await sectionsReady();
+      await Promise.race([sectionsReady(), new Promise((r) => setTimeout(r, 1500))]);
       await (runtime.transition?.whenReady().catch(() => undefined) ?? Promise.resolve());
       if (cancelled) return;
       const el = document.querySelector<HTMLElement>(`[data-world="${world}"]`);
@@ -74,6 +75,30 @@ export function CollectionExperience({ collection }: { collection: Collection })
       cancelled = true;
     };
   }, [world, mode, navEpoch]);
+
+  // the concierge arrives with a piece in mind: glide to it, light it, and hold it in focus
+  useEffect(() => {
+    const slug = useSiteStore.getState().pendingSpotlight;
+    if (!slug) return;
+    let cancelled = false;
+    (async () => {
+      await Promise.race([sectionsReady(), new Promise((r) => setTimeout(r, 1500))]);
+      await (runtime.transition?.whenReady().catch(() => undefined) ?? Promise.resolve());
+      if (cancelled) return;
+      const site = useSiteStore.getState();
+      site.setPendingSpotlight(null);
+      const el = productElement(slug);
+      if (!el) return;
+      scrollTo(el, { offset: -(window.innerHeight - el.getBoundingClientRect().height) / 2, duration: 1.6 });
+      const host = el.closest<HTMLElement>('article, li, [data-world]') ?? el;
+      host.classList.add('is-spotlit');
+      window.setTimeout(() => host.classList.remove('is-spotlit'), 2600);
+      site.setFocusedProduct(slug);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navEpoch]);
 
   const all = productsBySlugs(collection.pieces);
   const indexProducts = edit ? productsBySlugs(collection.edits[edit]) : all.filter((p) => matchesMaterial(p, material));

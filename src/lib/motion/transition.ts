@@ -73,7 +73,7 @@ function currentTarget() {
  * unless the location matches the in-flight target.
  */
 export class TransitionController implements TransitionHandle {
-  inFlight: { href: string; kind: string; flipKey?: FlipKey; epoch: number; target: string } | null = null;
+  inFlight: { href: string; kind: string; flipKey?: FlipKey; epoch: number; target: string; readied?: boolean } | null = null;
   private epoch = 0;
   private els: Elements | null = null;
   private clone: HTMLImageElement | null = null;
@@ -223,6 +223,9 @@ export class TransitionController implements TransitionHandle {
     const flight = this.inFlight;
     if (!flight || !this.els) return;
     if (currentTarget() !== flight.target) return;
+    // only the first report counts: a later one (an image decoding after the fallback) must not reset the arrival
+    if (flight.readied) return;
+    flight.readied = true;
     if (this.forced) window.clearTimeout(this.forced);
     this.forced = null;
     const epoch = flight.epoch;

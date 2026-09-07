@@ -125,7 +125,8 @@ export const useSiteStore = create<SiteState>()(
 
       setRoute: (pathname, search) => {
         const prev = get();
-        const routeChanged = prev.pathname !== pathname;
+        // the first publish after hydration must not wipe what the page already set
+        const routeChanged = prev.navEpoch > 0 && prev.pathname !== pathname;
         set({
           route: pathname + (search ? `?${search}` : ''),
           pathname,

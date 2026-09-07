@@ -18,11 +18,14 @@ interface ChapterOptions {
 export function useChapter({ id, theme, pinned = false }: ChapterOptions) {
   const ref = useRef<HTMLElement>(null);
   const unregister = useRef<(() => void) | null>(null);
+  const readyEarly = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     unregister.current = registerSection(el, id, theme, pinned);
+    // pins are created in layout effects, before this registration: honour a ready() that already happened
+    if (readyEarly.current) markSectionReady(el);
     return () => {
       unregister.current?.();
       unregister.current = null;
@@ -30,6 +33,7 @@ export function useChapter({ id, theme, pinned = false }: ChapterOptions) {
   }, [id, theme, pinned]);
 
   const ready = useCallback(() => {
+    readyEarly.current = true;
     if (ref.current) markSectionReady(ref.current);
   }, []);
 

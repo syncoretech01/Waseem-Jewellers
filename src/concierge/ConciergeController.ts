@@ -173,6 +173,7 @@ export class ConciergeController {
     const s = this.store;
     if (s.state === 'LISTENING') this.adapter?.abort();
     this.cancelTurn();
+    this.clearTimers(); // a previous result's hold must not settle this turn
     cancelSpeech();
     s.setError(null);
     s.setTrayOpen(false);

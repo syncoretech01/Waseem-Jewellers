@@ -174,21 +174,21 @@ export const COMMANDS: Command[] = [
       reply: (o) => {
         const pieces = firstPieces(o);
         if (pieces.length === 0) return CONCIERGE.wishlistEmpty;
-        return CONCIERGE.wishlist(capitalise(countInWords(pieces.length)));
+        return CONCIERGE.wishlist(pieces.length, capitalise(countInWords(pieces.length)));
       },
     }),
   },
   {
     id: 'wishlist_remove',
     test: (t) => /\b(remove|unsave|delete|take .*out|set .*aside|hata\w*|nikal\w*)\b/.test(t),
-    plan: () => ({ id: 'wishlist_remove', tools: [{ name: 'removeFromWishlist', args: {} }], reply: (o) => (o[0]?.label ? CONCIERGE.removed : CONCIERGE.whichPieceToSave) }),
+    plan: (_t, e, ctx) => ({ id: 'wishlist_remove', tools: [{ name: 'removeFromWishlist', args: e.ordinal !== null && resolveOrdinal(e.ordinal, ctx)?.kind === 'product' ? { slug: resolveOrdinal(e.ordinal, ctx)!.slug } : {} }], reply: (o) => (o[0]?.label ? CONCIERGE.removed : CONCIERGE.whichPieceToSave) }),
   },
   {
     id: 'wishlist_save',
     test: (t) => /\b(save|keep|shortlist|wishlist|remember|hold|i (like|love) (this|that|it)|add .*(selection|wishlist))\b/.test(t),
-    plan: () => ({
+    plan: (_t, e, ctx) => ({
       id: 'wishlist_save',
-      tools: [{ name: 'saveToWishlist', args: {} }],
+      tools: [{ name: 'saveToWishlist', args: e.ordinal !== null && resolveOrdinal(e.ordinal, ctx)?.kind === 'product' ? { slug: resolveOrdinal(e.ordinal, ctx)!.slug } : {} }],
       reply: (o) => {
         const out = o[0];
         if (!out || out.label === '') return CONCIERGE.whichPieceToSave;

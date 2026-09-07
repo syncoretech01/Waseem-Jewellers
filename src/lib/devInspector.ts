@@ -3,6 +3,7 @@
  * is tree-shaken from production builds.
  */
 import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
+import { useSiteStore } from '@/state/siteStore';
 
 interface Inspector {
   gsap: typeof gsap;
@@ -11,6 +12,8 @@ interface Inspector {
   tickerFns: () => number;
   gl: () => unknown;
   glInfo: unknown[];
+  site: () => { ledgerOpen: boolean; consultationOpen: boolean; wishlist: string[]; focusedProduct: string | null; pendingSection: string | null; pendingSpotlight: string | null; section: string | null };
+  closeOverlays: () => void;
 }
 
 declare global {
@@ -32,6 +35,16 @@ export function installDevInspector() {
     gl: () => glInfo[glInfo.length - 1] ?? null,
     glInfo,
     gsap,
+    site: () => {
+      const s = useSiteStore.getState();
+      return { ledgerOpen: s.ledgerOpen, consultationOpen: s.consultation.open, wishlist: s.wishlist, focusedProduct: s.focusedProduct, pendingSection: s.pendingSection, pendingSpotlight: s.pendingSpotlight, section: s.section };
+    },
+    closeOverlays: () => {
+      const s = useSiteStore.getState();
+      s.closeConsultation();
+      s.closeLedger();
+      s.closeMenu();
+    },
   };
 }
 

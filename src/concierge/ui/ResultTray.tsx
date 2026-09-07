@@ -20,10 +20,20 @@ export function ResultTray() {
   const result = last?.result;
   const list = useRef<HTMLOListElement>(null);
   const scrollStart = useRef<number | null>(null);
+  const openedAt = useRef(0);
+
+  useEffect(() => {
+    if (open) openedAt.current = performance.now();
+  }, [open]);
 
   useLenis(({ scroll }) => {
     if (!open) {
       scrollStart.current = null;
+      return;
+    }
+    // the associate's own glide (a result that also moves the page) settles before the visitor's scroll counts
+    if (performance.now() - openedAt.current < 2600) {
+      scrollStart.current = scroll;
       return;
     }
     if (scrollStart.current === null) scrollStart.current = scroll;

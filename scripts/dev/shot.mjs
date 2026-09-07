@@ -57,7 +57,7 @@ const page = await context.newPage();
 const log = [];
 page.on('console', (m) => {
   const t = m.type();
-  if (t === 'info' && /\[loader\]/.test(m.text())) log.push(`[console.info] ${m.text()}`);
+  if (t === 'info' && /\[(loader|spotlight)\]/.test(m.text())) log.push(`[console.info] ${m.text()}`);
   if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, flag('trace') || /hydrat/i.test(m.text()) ? 2400 : 300)}`);
 });
 page.on('pageerror', (e) => log.push(`[pageerror] ${e.message}`));

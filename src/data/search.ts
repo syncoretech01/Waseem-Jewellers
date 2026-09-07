@@ -120,14 +120,14 @@ const GENERIC_NAME_WORDS = new Set([
 
 /** Distinctive words of a product's name: world names and proper descriptors, never generic jewellery words. */
 function nameTokens(p: Product): string[] {
-  const raw = `${p.editorialTitle} ${p.title} ${p.metadata.itemCode ?? ''} ${p.world ?? ''}`.toLowerCase();
+  const raw = `${p.editorialTitle} ${p.title} ${p.metadata.itemCode ?? ''} ${p.world ?? ''} ${p.slug}`.toLowerCase();
   return raw
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 2 && !GENERIC_NAME_WORDS.has(w));
 }
 
 export function findByName(text: string): Product | undefined {
-  const t = tokens(text);
+  const t = tokens(text).flatMap((w) => w.split('-')).filter((w) => w.length > 2);
   if (t.length === 0) return undefined;
   let best: { p: Product; score: number } | null = null;
   for (const p of PRODUCTS) {
