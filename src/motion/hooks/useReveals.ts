@@ -3,6 +3,18 @@
 import { useRef, type RefObject } from 'react';
 import { gsap, ScrollTrigger, SplitText, useGSAP } from '@/lib/motion/gsap';
 import { useQualityStore } from '@/state/qualityStore';
+import { isSettledArrival } from '@/state/runtime';
+
+/** True when the element is already within the viewport on a back/forward or deep-link arrival. */
+function way(type: 'lines' | 'words' | 'chars', self: SplitText) {
+  return type === 'words' ? self.words : self.lines;
+}
+
+function landsComposed(el: Element) {
+  if (!isSettledArrival()) return false;
+  const r = el.getBoundingClientRect();
+  return r.top < window.innerHeight && r.bottom > 0;
+}
 
 interface SplitRevealOptions {
   /** CSS selector inside the scope; defaults to every [data-split]. */
@@ -40,15 +52,18 @@ export function useSplitReveal(scope: RefObject<HTMLElement | null>, opts: Split
           mask: type === 'chars' ? 'chars' : type,
           autoSplit: true,
           aria: 'auto',
-          onSplit: (self) =>
-            gsap.from(type === 'chars' ? self.chars : type === 'words' ? self.words : self.lines, {
+          onSplit: (self) => {
+            const tween = gsap.from(type === 'chars' ? self.chars : way(type, self), {
               yPercent: 110,
               duration,
               stagger,
               delay,
               ease: 'wj.out',
               scrollTrigger: { trigger: el, start, once, toggleActions: 'play none none none' },
-            }),
+            });
+            if (landsComposed(el)) tween.progress(1);
+            return tween;
+          },
         });
       });
     },
@@ -96,6 +111,7 @@ export function useMaskReveal(scope: RefObject<HTMLElement | null>, opts: MaskRe
         const tl = gsap.timeline({ scrollTrigger: { trigger: wrapper, start, once: true } });
         tl.to(wrapper, { clipPath: 'inset(0 0 0 0)', duration, ease: 'wj.out' }, 0);
         if (inner) tl.to(inner, { scale: 1, duration: duration + 0.4, ease: 'wj.out' }, 0);
+        if (landsComposed(wrapper)) tl.progress(1);
       });
     },
     { scope, dependencies: [reduced] },
@@ -140,12 +156,16 @@ export function useRise(scope: RefObject<HTMLElement | null>, opts: { start?: st
         gsap.set(els, { autoAlpha: 1 });
         return;
       }
-      ScrollTrigger.batch(els, {
+      const composed = [...els].filter(landsComposed);
+      const pending = [...els].filter((el) => !composed.includes(el));
+      if (composed.length) gsap.set(composed, { autoAlpha: 1, y: 0 });
+      if (pending.length === 0) return;
+      ScrollTrigger.batch(pending, {
         start,
         once: true,
         onEnter: (batch) => gsap.to(batch, { autoAlpha: 1, y: 0, duration: 1.1, stagger: 0.08, ease: 'wj.out', overwrite: 'auto' }),
       });
-      gsap.set(els, { autoAlpha: 0, y });
+      gsap.set(pending, { autoAlpha: 0, y });
     },
     { scope, dependencies: [reduced] },
   );

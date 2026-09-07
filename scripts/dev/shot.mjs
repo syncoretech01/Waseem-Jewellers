@@ -60,6 +60,9 @@ page.on('console', (m) => {
   if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, 300)}`);
 });
 page.on('pageerror', (e) => log.push(`[pageerror] ${e.message}`));
+page.on('response', (r) => {
+  if (r.status() >= 400 && !r.url().includes('__nextjs')) log.push(`[http ${r.status()}] ${r.url()}`);
+});
 page.on('requestfailed', (r) => {
   const u = r.url();
   const err = r.failure()?.errorText ?? '';
@@ -92,6 +95,27 @@ if (hoverSel) {
   await page.waitForTimeout(900);
 }
 if (to > 0) await wheelTo(to);
+// --act "click:sel;wait:ms;type:sel|text;press:Key;hover:sel;shot:name;eval:js;wheel:px"
+const acts = (opt('act', '') || '').split(';').map((a) => a.trim()).filter(Boolean);
+for (const act of acts) {
+  const i = act.indexOf(':');
+  const kind = act.slice(0, i);
+  const rest = act.slice(i + 1);
+  try {
+    if (kind === 'click') await page.click(rest, { timeout: 5000 });
+    else if (kind === 'wait') await page.waitForTimeout(Number(rest));
+    else if (kind === 'type') {
+      const j = rest.indexOf('|');
+      await page.fill(rest.slice(0, j), rest.slice(j + 1));
+    } else if (kind === 'press') await page.keyboard.press(rest);
+    else if (kind === 'hover') await page.hover(rest, { timeout: 5000 });
+    else if (kind === 'wheel') await wheelTo((await page.evaluate(() => window.scrollY)) + Number(rest));
+    else if (kind === 'shot') await page.screenshot({ path: path.join(out, `${tag}-${rest}.png`), fullPage: flag('full') });
+    else if (kind === 'eval') console.log('[eval]', JSON.stringify(await page.evaluate(rest)));
+  } catch (e) {
+    log.push(`[act ${act}] ${e.message}`);
+  }
+}
 if (evalJs) {
   const r = await page.evaluate(evalJs).catch((e) => `eval error: ${e.message}`);
   console.log('[eval]', JSON.stringify(r));

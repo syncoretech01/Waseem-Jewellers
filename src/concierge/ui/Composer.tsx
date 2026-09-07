@@ -1,0 +1,76 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { useConciergeStore, BUSY_STATES } from '@/state/conciergeStore';
+import { useController } from '../useConcierge';
+import { CONCIERGE } from '../copy';
+import { MicGlyph } from '@/components/collection/CollectionExperience';
+import { cn } from '@/lib/cn';
+
+/** A single hairline-underlined serif field with the mic ring as the only glyph. */
+export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
+  const controller = useController();
+  const state = useConciergeStore((s) => s.state);
+  const busy = BUSY_STATES.includes(state);
+  const [draft, setDraft] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!controller) return;
+    return controller.onDraft((d) => {
+      setDraft(d);
+      input.current?.focus();
+    });
+  }, [controller]);
+
+  useEffect(() => {
+    if (autoFocus) input.current?.focus({ preventScroll: true });
+  }, [autoFocus]);
+
+  const send = () => {
+    if (!draft.trim() || !controller) return;
+    controller.submitText(draft, 'text');
+    setDraft('');
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        send();
+      }}
+      className="flex items-end gap-4 border-t border-line pt-4"
+    >
+      <label className="flex-1">
+        <span className="sr-only">Your message to the concierge</span>
+        <input
+          ref={input}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={CONCIERGE.placeholder}
+          className="w-full border-b border-line bg-transparent py-2 font-display text-[1.0625rem] text-fg placeholder:text-fg-muted/70 focus:border-line-strong focus:outline-none"
+          style={{ fontVariationSettings: '"opsz" 16' }}
+          autoComplete="off"
+          enterKeyHint="send"
+        />
+      </label>
+      {draft.trim() ? (
+        <button type="submit" disabled={busy} aria-label="Send" className="micro pb-3 text-fg-2 transition-colors hover:text-fg disabled:opacity-40">
+          →
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={CONCIERGE.voice.start}
+          onClick={() => {
+            controller?.setMode('voice');
+            controller?.startListening();
+          }}
+          className={cn('mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full border border-line-strong text-fg-2 transition-colors hover:border-gold-hi hover:text-fg')}
+        >
+          <MicGlyph />
+        </button>
+      )}
+    </form>
+  );
+}

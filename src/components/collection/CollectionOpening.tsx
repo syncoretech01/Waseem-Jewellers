@@ -6,6 +6,7 @@ import { Video } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
 import { Eyebrow, UrduAccent } from '@/components/ui/primitives';
 import { useChapter } from '@/motion/hooks/useChapter';
+import { useFlipTarget } from '@/motion/hooks/useFlipTarget';
 import { useQualityStore } from '@/state/qualityStore';
 import { COPY } from '@/data/copy';
 import type { Collection } from '@/data/types';
@@ -24,6 +25,7 @@ interface OpeningProps {
 export function CollectionOpening({ collection, edit, still }: OpeningProps) {
   const { ref, ready } = useChapter({ id: 'collection-opening', theme: 'dark', pinned: true });
   const scope = useRef<HTMLDivElement>(null);
+  const flipTarget = useFlipTarget<HTMLDivElement>('collection-hero');
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
 
   useGSAP(
@@ -76,8 +78,8 @@ export function CollectionOpening({ collection, edit, still }: OpeningProps) {
     <section ref={ref} data-theme="dark" className="relative bg-ink text-ivory" aria-label={`${collection.name} — opening`}>
       <div ref={scope} className="relative h-svh overflow-hidden">
         <div className="opening-mask absolute inset-0 grain vignette" style={{ clipPath: 'inset(9svh 19vw 9svh 19vw)' }}>
-          <div className="absolute inset-0">
-            <Img id={still} sizes="100vw" priority />
+          <div ref={flipTarget} className="absolute inset-0" data-flip-target="collection-hero">
+            <Img id={still} sizes="100vw" priority plain />
           </div>
           {collection.opening.video && (
             <div className="absolute inset-0">

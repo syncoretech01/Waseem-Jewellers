@@ -78,6 +78,16 @@ export function scrollTo(target: number | string | HTMLElement, opts: ScrollToOp
   opts.onComplete?.();
 }
 
+let settledUntil = 0;
+
+/** After a back/forward or deep-link arrival at a saved position, in-view reveals land composed rather than replaying. */
+export function markSettledArrival(ms = 2500) {
+  settledUntil = performance.now() + ms;
+}
+export function isSettledArrival() {
+  return performance.now() < settledUntil;
+}
+
 export function currentScroll() {
   return runtime.lenis?.scroll ?? window.scrollY;
 }

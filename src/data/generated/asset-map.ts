@@ -565,16 +565,16 @@ export const IMAGES = {
   "brand-monogram": {
     "id": "brand-monogram",
     "src": "/assets/waseem/brand/monogram.png",
-    "width": 320,
-    "height": 291,
+    "width": 208,
+    "height": 172,
     "alt": "Waseem Jewellers monogram",
-    "blurDataURL": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4WAoAAAAQAAAADwAADgAAQUxQSBoAAAABFyAQSGGLHBGhQSYMsWiiCe+SIKL/6R2jKFZQOCAsAAAA8AEAnQEqEAAPAA/AWiWYAHaAAyEG/rgAAP75vJb+0Ymf8LPjt5b8zAIxoAA=",
+    "blurDataURL": "data:image/webp;base64,UklGRmIBAABXRUJQVlA4WAoAAAAQAAAADwAADAAAQUxQSLMAAAABgGTbtmlnn/NtI7bNkm3btm3bttOApOTuvZ8+RMQEQCiOPTuKYPzLqNy7v9gpADsCl6/+fSwXgxwRJt7fnj97wAICI+x6aePCT0AgEEFTVC4nIhA0Bq1Or9WpNFqj2qgyaD1rPKorvXJ3NzMDy2ucmpzQZunstxftTFeYJppcG4HorIaOHM+NoeDU/tr8YBDGJ0bHcDiNmaGZfhAjMTa+CoezaA5OiAMDxMgeS0gfTYOIAABWUDggiAAAAJACAJ0BKhAADQADgFolsAJ0OIA3i0iHylQgFBAAAP7fCeRUtJe73+JtmcL5eQN2Ss+jLzmsSP7fpUadfT6lnV15+34+23gP94dsLI5ipqQfN9sEa2sTixupyPSYP9eD0vRTJ85D+ZB17u9nfiJjMd3CnD9mDvoSN2ju+DjPbeGA5wB3CfgAAAA=",
     "focal": [
       0.5,
       0.5
     ],
     "role": "brand",
-    "maxDisplayWidth": 320
+    "maxDisplayWidth": 208
   },
   "still-royal-13": {
     "id": "still-royal-13",

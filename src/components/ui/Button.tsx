@@ -17,7 +17,7 @@ interface BaseProps {
 
 type ButtonProps = BaseProps &
   (
-    | ({ href: string; kind?: 'curtain' | 'veil'; onNavigate?: () => void } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className'>)
+    | ({ href: string; kind?: 'curtain' | 'veil'; onNavigate?: () => void; target?: string } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className'>)
     | ({ href?: undefined } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className'>)
   );
 
@@ -58,9 +58,9 @@ export function Button(props: ButtonProps) {
     );
 
   if ('href' in props && props.href) {
-    const { href, kind, onNavigate } = props;
+    const { href, kind, onNavigate, target } = props;
     return (
-      <TransitionLink href={href} kind={kind} onNavigate={onNavigate} className={base} data-cursor={cursor}>
+      <TransitionLink href={href} kind={kind} onNavigate={onNavigate} target={target} className={base} data-cursor={cursor}>
         {inner}
       </TransitionLink>
     );

@@ -113,14 +113,30 @@ export function similarTo(slug: string, limit = 4): Product[] {
 }
 
 /** Finds a product by a spoken or typed name fragment ("naqsh", "sapphire suite", "lavender ring"). */
+const GENERIC_NAME_WORDS = new Set([
+  'the', 'and', 'with', 'set', 'suite', 'bridal', 'necklace', 'necklaces', 'choker', 'collar', 'ring', 'rings', 'earring', 'earrings',
+  'gold', 'diamond', 'diamonds', 'piece', 'pieces', 'jewellery', 'jewelry', 'haar', 'polki', 'kundan', 'pearl', 'emerald', 'sapphire',
+]);
+
+/** Distinctive words of a product's name: world names and proper descriptors, never generic jewellery words. */
+function nameTokens(p: Product): string[] {
+  const raw = `${p.editorialTitle} ${p.title} ${p.metadata.itemCode ?? ''} ${p.world ?? ''}`.toLowerCase();
+  return raw
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !GENERIC_NAME_WORDS.has(w));
+}
+
 export function findByName(text: string): Product | undefined {
   const t = tokens(text);
   if (t.length === 0) return undefined;
   let best: { p: Product; score: number } | null = null;
   for (const p of PRODUCTS) {
-    const hay = haystack(p);
-    const score = t.filter((w) => w.length > 2 && hay.includes(w)).length;
-    if (score > 0 && (!best || score > best.score)) best = { p, score };
+    const names = nameTokens(p);
+    const distinctive = t.filter((w) => names.includes(w)).length;
+    if (distinctive === 0) continue;
+    const generic = t.filter((w) => GENERIC_NAME_WORDS.has(w) && haystack(p).includes(w)).length;
+    const score = distinctive * 3 + generic;
+    if (!best || score > best.score) best = { p, score };
   }
   return best?.p;
 }

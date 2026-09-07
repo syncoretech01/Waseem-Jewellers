@@ -89,7 +89,18 @@ function evaluate() {
       if (!best || (e.pinned && !best.pinned)) best = e;
     }
   }
-  if (!best) return;
+  if (!best) {
+    // beneath the page: the fixed footer (ink) is what the visitor sees
+    const root = document.getElementById('page-root');
+    if (root && root.getBoundingClientRect().bottom <= mid) {
+      useSiteStore.getState().setSection('footer');
+      if (currentTheme !== 'dark') {
+        currentTheme = 'dark';
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+    return;
+  }
   useSiteStore.getState().setSection(best.id);
   if (best.theme !== currentTheme) {
     currentTheme = best.theme;

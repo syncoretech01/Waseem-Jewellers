@@ -5,11 +5,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Img } from '@/components/media/Img';
 import { InspectImage } from './InspectImage';
 import { useMaskReveal } from '@/motion/hooks/useReveals';
+import { useFlipTarget } from '@/motion/hooks/useFlipTarget';
 import type { Product } from '@/data/types';
 
 /** Desktop: stacked large frames with draw-to-the-eye hover. Mobile: snap track + lightbox. */
 export function Gallery({ product }: { product: Product }) {
   const scope = useRef<HTMLDivElement>(null);
+  const flipTarget = useFlipTarget<HTMLDivElement>('product-hero');
   const [lightbox, setLightbox] = useState<number | null>(null);
   const frames = product.media.gallery;
   useMaskReveal(scope, { selector: '[data-reveal]', from: 'bottom' });
@@ -19,7 +21,7 @@ export function Gallery({ product }: { product: Product }) {
       {/* desktop / tablet */}
       <div className="hidden flex-col gap-6 md:flex">
         {frames.map((id, i) => (
-          <div key={id} data-reveal={i === 0 ? undefined : 'bottom'} className="relative">
+          <div key={id} ref={i === 0 ? flipTarget : undefined} data-reveal={i === 0 ? undefined : 'bottom'} className="relative">
             <InspectImage
               id={id}
               slug={product.slug}
@@ -46,7 +48,7 @@ export function Gallery({ product }: { product: Product }) {
               data-flip-target={i === 0 ? 'product-hero' : undefined}
               data-flip-slug={i === 0 ? product.slug : undefined}
             >
-              <Img id={id} sizes="88vw" priority={i === 0} plain />
+              <Img id={id} sizes="88vw" plain />
             </button>
           ))}
           <div className="w-gutter shrink-0" />

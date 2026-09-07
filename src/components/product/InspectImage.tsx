@@ -26,7 +26,7 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
   const [inspecting, setInspecting] = useState(false);
   const coarse = useQualityStore((s) => s.coarse);
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
-  const setters = useRef<{ x: (v: number) => void; y: (v: number) => void; s: (v: number) => void } | null>(null);
+  const setters = useRef<{ x: (v: number) => void; y: (v: number) => void; sx: (v: number) => void; sy: (v: number) => void; s: (v: number) => void } | null>(null);
   const drag = useRef<{ active: boolean; sx: number; sy: number; ox: number; oy: number; x: number; y: number }>({ active: false, sx: 0, sy: 0, ox: 0, oy: 0, x: 0, y: 0 });
 
   useGSAP(
@@ -35,7 +35,12 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
       setters.current = {
         x: gsap.quickTo(inner.current, 'x', { duration: 0.6, ease: 'power3' }),
         y: gsap.quickTo(inner.current, 'y', { duration: 0.6, ease: 'power3' }),
-        s: gsap.quickTo(inner.current, 'scale', { duration: 1.2, ease: 'wj.out' }),
+        sx: gsap.quickTo(inner.current, 'scaleX', { duration: 1.2, ease: 'wj.out' }),
+        sy: gsap.quickTo(inner.current, 'scaleY', { duration: 1.2, ease: 'wj.out' }),
+        s: (v: number) => {
+          setters.current?.sx(v);
+          setters.current?.sy(v);
+        },
       };
     },
     { scope: box },

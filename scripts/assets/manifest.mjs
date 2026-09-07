@@ -81,7 +81,7 @@ export const IMAGES = [
   { id: 'heritage-portrait', source: CDN + '01_d6ac3aed-a529-4414-8a49-782a96c0464a.jpg', out: 'images/heritage/portrait', role: 'campaign', maxWidth: 2250, focal: [0.5, 0.36], alt: 'Antique-gold beaded choker with a peacock pendant, worn before a white fan' },
 
   // ── Brand ──
-  { id: 'brand-monogram', source: SHOP + 'files/waseem-logo.png', out: 'brand/monogram', role: 'brand', maxWidth: 600, derive: { crop: [0.0, 0, 0.32, 1] }, focal: [0.5, 0.5], alt: 'Waseem Jewellers monogram', formats: ['png'] },
+  { id: 'brand-monogram', source: SHOP + 'files/waseem-logo.png', out: 'brand/monogram', role: 'brand', maxWidth: 600, derive: { crop: [0.396, 0.02, 0.208, 0.59] }, focal: [0.5, 0.5], alt: 'Waseem Jewellers monogram', formats: ['png'] },
 ];
 
 /** Trims are input-side (-ss then -t). `portraitX` = left edge (px, at 1280 wide) of the 404×720 portrait window. */
