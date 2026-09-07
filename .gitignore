@@ -24,3 +24,6 @@ Thumbs.db
 # dev logs and inspection shots
 .cache-devlog.txt
 scripts/dev/shots/
+
+# vercel
+.vercel
