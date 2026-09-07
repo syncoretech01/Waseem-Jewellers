@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useQualityStore } from '@/state/qualityStore';
@@ -9,6 +10,9 @@ import { LoaderStone } from '@/components/loader/LoaderStone';
 import { COPY } from '@/data/copy';
 import { craftProgress, CRAFT_WINDOWS, stageAt } from './craftProgress';
 import { cn } from '@/lib/cn';
+import { useSiteStore } from '@/state/siteStore';
+
+const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), { ssr: false, loading: () => null });
 
 /**
  * CH02 — the signature craft object. Pinned 450 vh; the hero's end frame dissolves as the
@@ -19,7 +23,29 @@ import { cn } from '@/lib/cn';
 export function Ch02Craft() {
   const { ref, ready } = useChapter({ id: 'craft', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
+  const tier = useQualityStore((s) => s.tier);
+  const webgl = useQualityStore((s) => s.webgl);
+  const loaderDone = useSiteStore((s) => s.loaderDone);
   const stage = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(false);
+  const [sceneReady, setSceneReady] = useState(false);
+  const [lostOnce, setLostOnce] = useState(0);
+  const wantsScene = webgl && (tier === 'HIGH' || tier === 'MEDIUM') && loaderDone && near && lostOnce < 2;
+
+  // the object mounts when the chapter is within a viewport of the visitor
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => e.isIntersecting && setNear(true)), { rootMargin: '100% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref]);
+
+  const onSceneReady = useCallback(() => setSceneReady(true), []);
+  const onSceneLost = useCallback(() => {
+    setSceneReady(false);
+    setLostOnce((n) => n + 1);
+  }, []);
 
   useGSAP(
     () => {
@@ -115,7 +141,12 @@ export function Ch02Craft() {
       </div>
 
       {/* the stage */}
-      <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene>
+      <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady ? '1' : '0'}>
+        {wantsScene && (
+          <div className={cn('absolute inset-0 transition-opacity duration-700', sceneReady ? 'opacity-100' : 'opacity-0')}>
+            <CraftScene key={lostOnce} onReady={onSceneReady} onLost={onSceneLost} />
+          </div>
+        )}
         <div className="craft-halo pointer-events-none absolute left-1/2 top-1/2 h-[min(70vw,70svh)] w-[min(70vw,70svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ background: 'radial-gradient(circle, rgba(228,207,163,0.22) 0%, rgba(228,207,163,0.06) 38%, transparent 66%)' }} />
         <div className="craft-band pointer-events-none absolute left-1/2 top-1/2 h-[min(9vw,9svh)] w-[min(58vw,58svh)] -translate-x-1/2 -translate-y-1/2 rounded-[100%] opacity-0" style={{ background: 'linear-gradient(180deg, #f1e2bf 0%, #a8894f 45%, #4a3818 100%)', boxShadow: '0 12px 40px -10px rgba(0,0,0,.8)' }} />
         <div className="craft-ring pointer-events-none absolute left-1/2 top-1/2 h-[min(40vw,40svh)] w-[min(40vw,40svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ border: '2px solid transparent', background: 'linear-gradient(#0b0a09,#0b0a09) padding-box, conic-gradient(from 200deg, #6e5527, #f1e2bf 30%, #a8894f 55%, #f1e2bf 80%, #6e5527) border-box', boxShadow: '0 0 40px -8px rgba(228,207,163,0.35)' }} />

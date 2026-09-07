@@ -64,7 +64,7 @@ export function detectQuality(): QualitySnapshot {
     reducedMotion,
     coarse,
     saveData,
-    webgl: probe.ok && !software,
+    webgl: probe.ok && (!software || override !== null),
     renderer: probe.renderer,
   };
 }

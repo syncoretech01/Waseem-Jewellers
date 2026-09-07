@@ -57,7 +57,8 @@ const page = await context.newPage();
 const log = [];
 page.on('console', (m) => {
   const t = m.type();
-  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, flag('trace') ? 2400 : 300)}`);
+  if (t === 'info' && /\[loader\]/.test(m.text())) log.push(`[console.info] ${m.text()}`);
+  if (t === 'error' || t === 'warning') log.push(`[console.${t}] ${m.text().slice(0, flag('trace') || /hydrat/i.test(m.text()) ? 2400 : 300)}`);
 });
 page.on('pageerror', (e) => log.push(`[pageerror] ${e.message}`));
 page.on('response', (r) => {
@@ -95,7 +96,7 @@ if (flag('trace')) {
   });
 }
 const t0 = Date.now();
-await page.goto(url, { waitUntil: 'networkidle', timeout: 90000 }).catch((e) => log.push(`[goto] ${e.message}`));
+await page.goto(url, { waitUntil: (opt('waituntil', 'networkidle') || 'networkidle'), timeout: 90000 }).catch((e) => log.push(`[goto] ${e.message}`));
 await page.mouse.move(width / 2, height / 2);
 await page.waitForTimeout(wait);
 if (clickSel) {
@@ -116,6 +117,7 @@ for (const act of acts) {
   try {
     if (kind === 'click') await page.click(rest, { timeout: 5000 });
     else if (kind === 'wait') await page.waitForTimeout(Number(rest));
+    else if (kind === 'waitfor') await page.waitForSelector(rest, { timeout: 30000, state: 'attached' });
     else if (kind === 'type') {
       const j = rest.indexOf('|');
       await page.fill(rest.slice(0, j), rest.slice(j + 1));
@@ -124,7 +126,7 @@ for (const act of acts) {
     else if (kind === 'wheel') await wheelTo((await page.evaluate(() => window.scrollY)) + Number(rest));
     else if (kind === 'goto') {
       const [sel, vh] = rest.split('|');
-      const top = await page.evaluate((s) => { const el = document.querySelector(s); return el ? el.getBoundingClientRect().top + window.scrollY : 0; }, sel);
+      const top = await page.evaluate((s) => { const el = document.querySelector(s); if (!el) return 0; const spacer = el.parentElement && el.parentElement.classList.contains('pin-spacer') ? el.parentElement : el; return spacer.getBoundingClientRect().top + window.scrollY; }, sel);
       await wheelTo(Math.round(top + Number(vh || 0) * (await page.evaluate(() => window.innerHeight))));
     }
     else if (kind === 'shot') await page.screenshot({ path: path.join(out, `${tag}-${rest}.png`), fullPage: flag('full') });

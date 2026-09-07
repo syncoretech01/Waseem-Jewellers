@@ -395,3 +395,16 @@ html[data-rm="1"] .wj-ring-light { animation: none; opacity: 0.6; }
   mix-blend-mode: screen;
 }
 .vitrine-stage:active { cursor: grabbing; }
+
+/* ── the craft stage: the drawing withdraws once the object renders ────────── */
+[data-webgl="1"] .craft-stone,
+[data-webgl="1"] .craft-ring,
+[data-webgl="1"] .craft-band {
+  visibility: hidden;
+}
+[data-webgl="1"] .craft-halo {
+  opacity: 0.35 !important;
+}
+
+/* ── loading ritual: the stone rises over the drawing, which stays beneath it ─ */
+.ritual-stone[data-gem="1"] .stone-lines { opacity: 0.5; transition: opacity 900ms var(--ease-silk); }

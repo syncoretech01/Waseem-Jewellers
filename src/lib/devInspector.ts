@@ -5,6 +5,7 @@
 import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
 
 interface Inspector {
+  gsap: typeof gsap;
   triggers: () => number;
   tweens: () => number;
   tickerFns: () => number;
@@ -30,6 +31,7 @@ export function installDevInspector() {
     },
     gl: () => glInfo[glInfo.length - 1] ?? null,
     glInfo,
+    gsap,
   };
 }
 
