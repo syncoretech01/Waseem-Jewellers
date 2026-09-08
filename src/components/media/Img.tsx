@@ -60,6 +60,8 @@ export function Img({ id, sizes, className, fill = true, priority, quality = 82,
   }
 
   if (plain) {
+    // the blur stands in until the file decodes — a plain <img> gets no placeholder of its own
+    const holding = !packshot && asset.blurDataURL ? { backgroundImage: `url("${asset.blurDataURL}")`, backgroundSize: 'cover', backgroundPosition: focal } : undefined;
     const img = (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -70,9 +72,13 @@ export function Img({ id, sizes, className, fill = true, priority, quality = 82,
         draggable={draggable}
         decoding="async"
         loading={priority || eager ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         className={cn(fill ? 'absolute inset-0 h-full w-full object-cover' : 'h-auto w-full', className)}
-        style={{ objectPosition: focal, ...blend, ...style }}
-        onLoad={onLoad}
+        style={{ objectPosition: focal, ...holding, ...blend, ...style }}
+        onLoad={(e) => {
+          e.currentTarget.style.backgroundImage = '';
+          onLoad?.();
+        }}
         {...dataAttrs}
       />
     );

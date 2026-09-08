@@ -19,6 +19,11 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
 
+/** The published route is `pathname?search`; the view params are read from it, never matched as text. */
+function queryOf(route: string) {
+  return new URLSearchParams(route.split('?')[1] ?? '');
+}
+
 function navigate(href: string, kind: 'curtain' | 'flip' = 'curtain', sourceEl?: HTMLElement | null) {
   const t = runtime.transition;
   if (t) return t.navigate(href, kind === 'flip' ? { kind, sourceEl, flipKey: 'product-hero' } : { kind });
@@ -84,7 +89,9 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       const world = WORLD_BY_SLUG[slug];
       const href = world ? world.href : COLLECTION_ROUTE;
       const onRoute = ctx.route.startsWith(COLLECTION_ROUTE);
-      if (onRoute && !world) {
+      const q = queryOf(ctx.route);
+      // the Bridal House means the story: an edit or a filter still on the URL has to be left behind
+      if (onRoute && !world && !q.get('edit') && !q.get('material')) {
         const el = sectionElement('pieces');
         if (el) scrollTo(el, { offset: -24, duration: 1.6 });
       } else {
@@ -241,14 +248,17 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         site.setDualityBias(material);
         const el = sectionElement('duality');
         if (el) scrollTo(el, { duration: 1.6 });
-      } else if (!ctx.route.includes(`edit=${material}`)) {
+      } else if (queryOf(ctx.route).get('edit') === material) {
+        const el = sectionElement('pieces');
+        if (el) scrollTo(el, { offset: -24, duration: 1.6 });
+      } else {
         await navigate(`${COLLECTION_ROUTE}?edit=${material}`);
       }
       return {
         result: { material, items: results.map((p) => ({ slug: p.slug, name: p.editorialTitle })) },
         runningLabel: material === 'gold' ? CONCIERGE.labels.gold : CONCIERGE.labels.diamond,
         label: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone,
-        ui: { kind: 'pieces', title: material === 'gold' ? 'The gold edit' : 'The diamond edit', pieces: cardsOf(results) },
+        ui: { kind: 'pieces', title: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone, pieces: cardsOf(results) },
       };
     }
 

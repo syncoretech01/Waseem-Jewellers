@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { CollectionOpening } from './CollectionOpening';
 import { StoryChapterView } from './StoryBlocks';
@@ -12,16 +12,50 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useSiteStore } from '@/state/siteStore';
 import { productElement } from '@/state/visibility';
-import { sectionsReady } from '@/state/sections';
+import { sectionElement, sectionsReady } from '@/state/sections';
 import { runtime, scrollTo } from '@/state/runtime';
 import { requestConcierge } from '@/concierge/bridge';
 import { productsBySlugs, WORLD_BY_SLUG } from '@/data';
 import { COPY } from '@/data/copy';
 import type { Collection, Product } from '@/data/types';
 import { cn } from '@/lib/cn';
+import { capitalise } from '@/lib/format';
+import { ScrollTrigger } from '@/lib/motion/gsap';
 
-type Mode = 'story' | 'index';
 type MaterialFilter = 'all' | 'gold' | 'diamond' | 'polki';
+type EditKey = 'gold' | 'diamond';
+
+/**
+ * One explicit view state, never two booleans: the story, the index (with the material it is
+ * filtered by) and a curated edit are three different things, and each control names exactly one.
+ */
+type View = { kind: 'story' } | { kind: 'index'; material: MaterialFilter } | { kind: 'edit'; edit: EditKey };
+
+const MATERIALS: MaterialFilter[] = ['all', 'gold', 'diamond', 'polki'];
+const MATERIAL_LABEL: Record<MaterialFilter, string> = { all: 'All', gold: 'Gold', diamond: 'Diamond', polki: 'Polki' };
+
+/** The URL is the only source of the view. `?edit` wins over `?material`; neither means the story. */
+function viewFromParams(params: URLSearchParams): View {
+  const e = params.get('edit');
+  if (e === 'gold' || e === 'diamond') return { kind: 'edit', edit: e };
+  const m = params.get('material');
+  if (m === 'all' || m === 'gold' || m === 'diamond' || m === 'polki') return { kind: 'index', material: m };
+  return { kind: 'story' };
+}
+
+/** The view's query string, keeping every other param (`?world=`) the arrival carried. */
+function searchForView(view: View, params: URLSearchParams) {
+  const next = new URLSearchParams(params);
+  next.delete('edit');
+  next.delete('material');
+  if (view.kind === 'edit') next.set('edit', view.edit);
+  else if (view.kind === 'index') next.set('material', view.material);
+  return next.toString();
+}
+
+function keyOf(view: View) {
+  return view.kind === 'index' ? `index:${view.material}` : view.kind === 'edit' ? `edit:${view.edit}` : 'story';
+}
 
 function matchesMaterial(p: Product, m: MaterialFilter) {
   if (m === 'all') return true;
@@ -38,18 +72,24 @@ export function CollectionExperience({ collection }: { collection: Collection })
   const openConsultation = useSiteStore((s) => s.openConsultation);
 
   const params = useMemo(() => new URLSearchParams(search), [search]);
-  const edit = (params.get('edit') === 'gold' || params.get('edit') === 'diamond' ? params.get('edit') : null) as 'gold' | 'diamond' | null;
   const world = params.get('world');
-  const initialMaterial = (['gold', 'diamond', 'polki'].includes(params.get('material') ?? '') ? params.get('material') : 'all') as MaterialFilter;
+  const view = useMemo(() => viewFromParams(params), [params]);
+  const viewKey = keyOf(view);
+  const edit = view.kind === 'edit' ? view.edit : null;
 
-  // Mode/material derive from the URL; the visitor's in-page choices override until the next navigation.
-  const derivedMode: Mode = edit || initialMaterial !== 'all' ? 'index' : 'story';
-  const [override, setOverride] = useState<{ epoch: number; mode: Mode | null; material: MaterialFilter | null }>({ epoch: navEpoch, mode: null, material: null });
-  if (override.epoch !== navEpoch) setOverride({ epoch: navEpoch, mode: null, material: null });
-  const mode = override.mode ?? derivedMode;
-  const material = override.material ?? initialMaterial;
-  const setMode = useCallback((m: Mode) => setOverride((o) => ({ ...o, mode: m })), []);
-  const setMaterial = useCallback((m: MaterialFilter) => setOverride((o) => ({ ...o, material: m })), []);
+  // Every control writes the URL and the view is read back from it, so a reload, a pasted link and
+  // back/forward all land on the same state. A change of view kind is a move worth a history entry;
+  // sweeping the materials inside the index replaces the entry rather than stacking four of them.
+  const setView = useCallback(
+    (next: View) => {
+      if (keyOf(next) === viewKey) return;
+      const qs = searchForView(next, params);
+      const href = `/collections/${collection.slug}${qs ? `?${qs}` : ''}`;
+      if (next.kind === 'index' && view.kind === 'index') runtime.router?.replace(href, { scroll: false });
+      else runtime.router?.push(href, { scroll: false });
+    },
+    [collection.slug, params, view.kind, viewKey],
+  );
 
   useEffect(() => {
     setSelectedCollection(collection.slug);
@@ -57,9 +97,11 @@ export function CollectionExperience({ collection }: { collection: Collection })
     return () => setSelectedWorld(null);
   }, [collection.slug, world, setSelectedCollection, setSelectedWorld]);
 
-  // ?world= → glide to that world's first piece and pulse its edge light once
+  // ?world= → glide to that world's first piece and pulse its edge light once per arrival
+  const glidedWorld = useRef<string | null>(null);
   useEffect(() => {
-    if (!world || mode !== 'story') return;
+    if (!world || view.kind !== 'story' || glidedWorld.current === world) return;
+    glidedWorld.current = world;
     let cancelled = false;
     (async () => {
       await Promise.race([sectionsReady(), new Promise((r) => setTimeout(r, 1500))]);
@@ -74,7 +116,7 @@ export function CollectionExperience({ collection }: { collection: Collection })
     return () => {
       cancelled = true;
     };
-  }, [world, mode, navEpoch]);
+  }, [world, view.kind]);
 
   // the concierge arrives with a piece in mind: glide to it, light it, and hold it in focus
   useEffect(() => {
@@ -101,24 +143,41 @@ export function CollectionExperience({ collection }: { collection: Collection })
   }, [navEpoch]);
 
   const all = productsBySlugs(collection.pieces);
-  const indexProducts = edit ? productsBySlugs(collection.edits[edit]) : all.filter((p) => matchesMaterial(p, material));
+  const material = view.kind === 'index' ? view.material : 'all';
+  const indexProducts = view.kind === 'edit' ? productsBySlugs(collection.edits[view.edit]) : all.filter((p) => matchesMaterial(p, material));
   const worldStill = world && WORLD_BY_SLUG[world] ? WORLD_BY_SLUG[world]!.imagery.hero : collection.opening.still;
-  const editTitle = edit ? `The ${edit} edit · ${indexProducts.length} pieces` : undefined;
+  const indexTitle =
+    view.kind === 'edit'
+      ? `${COPY.duality[view.edit].title} · ${indexProducts.length} pieces`
+      : material === 'all'
+        ? `The index · ${indexProducts.length} pieces`
+        : `${capitalise(material)} · ${indexProducts.length} pieces`;
 
-  const clearEdit = useCallback(() => {
-    runtime.router?.replace(`/collections/${collection.slug}`, { scroll: false });
-    setMode('story');
-  }, [collection.slug, setMode]);
+  // The swap changes the page height: re-measure every trigger below it, and if the visitor is
+  // already past the control line, bring the new view up under it rather than leaving them below it.
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!settled.current) {
+      settled.current = true;
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+      const el = sectionElement('pieces');
+      if (el && el.getBoundingClientRect().top < 0) scrollTo(el, { offset: -64, duration: 0.9 });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [viewKey]);
 
   return (
     <main className="bg-bg text-fg">
       <CollectionOpening collection={collection} edit={edit} still={worldStill} />
       <Intro collection={collection} />
-      <ModeLine mode={mode} setMode={setMode} material={material} setMaterial={setMaterial} edit={edit} clearEdit={clearEdit} />
-      {mode === 'story' ? (
+      <ModeLine view={view} setView={setView} />
+      {view.kind === 'story' ? (
         collection.chapters.map((c, i) => <StoryChapterView key={c.id} chapter={c} index={i} />)
       ) : (
-        <IndexView products={indexProducts} title={editTitle} />
+        <IndexView products={indexProducts} title={indexTitle} />
       )}
       <Closing onConsult={() => openConsultation({ topic: 'bridal', source: 'cta' })} />
       <WornTogetherRail products={productsBySlugs(collection.wornTogether)} eyebrow="Worn together" title="The House suggests." theme="dark" />
@@ -187,50 +246,36 @@ export function MicGlyph({ className }: { className?: string }) {
   );
 }
 
-function ModeLine({ mode, setMode, material, setMaterial, edit, clearEdit }: { mode: Mode; setMode: (m: Mode) => void; material: MaterialFilter; setMaterial: (m: MaterialFilter) => void; edit: 'gold' | 'diamond' | null; clearEdit: () => void }) {
-  const modes: { id: Mode; label: string }[] = [
-    { id: 'story', label: 'Story' },
-    { id: 'index', label: 'Index' },
-  ];
-  const materials: { id: MaterialFilter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'gold', label: 'Gold' },
-    { id: 'diamond', label: 'Diamond' },
-    { id: 'polki', label: 'Polki' },
-  ];
+/**
+ * The control line names one state at a time: Story, Index, or — while it is on — the curated edit,
+ * which is marked but is not a button (it is entered from the menu, the duality chapter or the
+ * concierge). Every material word stays live inside an edit, so a single press leaves it.
+ */
+function ModeLine({ view, setView }: { view: View; setView: (v: View) => void }) {
+  const material = view.kind === 'index' ? view.material : null;
   return (
     <div className="sticky top-0 z-[5] border-b border-line bg-bg/95 text-fg" data-theme="ivory">
       <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 px-gutter py-4">
-        <div className="flex items-center gap-8" role="tablist" aria-label="View">
-          {modes.map((m) => (
-            <Word key={m.id} active={mode === m.id && !edit} onClick={() => (edit ? clearEdit() : setMode(m.id))} layoutId="mode-underline">
-              {m.label}
-            </Word>
-          ))}
+        <div className="flex items-center gap-8" role="group" aria-label="View">
+          <Word active={view.kind === 'story'} onClick={() => setView({ kind: 'story' })} layoutId="mode-underline">
+            Story
+          </Word>
+          <Word active={view.kind === 'index'} onClick={() => setView({ kind: 'index', material: view.kind === 'edit' ? view.edit : (material ?? 'all') })} layoutId="mode-underline">
+            Index
+          </Word>
+          {view.kind === 'edit' && (
+            <span className="eyebrow relative pb-1 text-fg">
+              {COPY.duality[view.edit].title}
+              <span aria-hidden className="hairline absolute inset-x-0 bottom-0" />
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-8" role="group" aria-label="Material">
-          {edit ? (
-            <>
-              <span className="eyebrow text-fg">The {edit} edit</span>
-              <Word active={false} onClick={clearEdit} layoutId="material-underline">
-                All
-              </Word>
-            </>
-          ) : (
-            materials.map((m) => (
-              <Word
-                key={m.id}
-                active={mode === 'index' && material === m.id}
-                onClick={() => {
-                  setMaterial(m.id);
-                  setMode('index');
-                }}
-                layoutId="material-underline"
-              >
-                {m.label}
-              </Word>
-            ))
-          )}
+          {MATERIALS.map((m) => (
+            <Word key={m} active={material === m} onClick={() => setView({ kind: 'index', material: m })} layoutId="material-underline">
+              {MATERIAL_LABEL[m]}
+            </Word>
+          ))}
         </div>
       </div>
     </div>
@@ -239,7 +284,7 @@ function ModeLine({ mode, setMode, material, setMaterial, edit, clearEdit }: { m
 
 function Word({ children, active, onClick, layoutId }: { children: React.ReactNode; active: boolean; onClick: () => void; layoutId: string }) {
   return (
-    <button type="button" role="tab" aria-selected={active} onClick={onClick} className={cn('eyebrow relative pb-1 transition-colors duration-300', active ? 'text-fg' : 'text-fg-muted hover:text-fg')}>
+    <button type="button" aria-pressed={active} onClick={onClick} className={cn('eyebrow relative pb-1 transition-colors duration-300', active ? 'text-fg' : 'text-fg-muted hover:text-fg')}>
       {children}
       {active && <motion.span layoutId={layoutId} aria-hidden className="hairline absolute inset-x-0 bottom-0" transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} />}
     </button>

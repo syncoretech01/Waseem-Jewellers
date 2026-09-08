@@ -29,6 +29,7 @@ export function Gallery({ product }: { product: Product }) {
               priority={i === 0}
               flipTarget={i === 0}
               macro={id === product.media.macro || i > 0}
+              frame={i}
             />
           </div>
         ))}

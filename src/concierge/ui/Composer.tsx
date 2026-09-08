@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
   const controller = useController();
   const state = useConciergeStore((s) => s.state);
+  const micAvailable = useConciergeStore((s) => s.voice.recognition && !s.voice.denied);
   const busy = BUSY_STATES.includes(state);
   const [draft, setDraft] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -47,7 +48,7 @@ export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
           ref={input}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={CONCIERGE.placeholder}
+          placeholder={CONCIERGE.composerPlaceholder}
           className="w-full border-b border-line bg-transparent py-2 font-display text-[1.0625rem] text-fg placeholder:text-fg-muted/70 focus:border-line-strong focus:outline-none"
           style={{ fontVariationSettings: '"opsz" 16' }}
           autoComplete="off"
@@ -57,6 +58,15 @@ export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
       {draft.trim() ? (
         <button type="submit" disabled={busy} aria-label="Send" className="micro pb-3 text-fg-2 transition-colors hover:text-fg disabled:opacity-40">
           →
+        </button>
+      ) : !micAvailable ? (
+        <button
+          type="button"
+          onClick={() => controller?.runExample()}
+          className="mb-1 whitespace-nowrap font-display italic text-[1.0625rem] text-fg-2 underline-offset-4 transition-colors hover:text-fg hover:underline"
+          style={{ fontVariationSettings: '"opsz" 16' }}
+        >
+          {CONCIERGE.letMeShowYou}
         </button>
       ) : (
         <button

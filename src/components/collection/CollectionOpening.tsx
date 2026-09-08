@@ -83,7 +83,7 @@ export function CollectionOpening({ collection, edit, still }: OpeningProps) {
           </div>
           {collection.opening.video && (
             <div className="absolute inset-0">
-              <Video id={collection.opening.video} preload="metadata" />
+              <Video id={collection.opening.video} preload="metadata" showStill={false} />
             </div>
           )}
           <div className="opening-ambient absolute inset-0 bg-ink opacity-0" />
@@ -92,7 +92,7 @@ export function CollectionOpening({ collection, edit, still }: OpeningProps) {
           <div className="absolute inset-0 border border-champagne/40" />
         </div>
         <div className="opening-title absolute inset-x-0 bottom-[12svh] flex flex-col items-center gap-5 px-gutter text-center">
-          <Eyebrow className="justify-center">{COPY.bridal.eyebrow}</Eyebrow>
+          <Eyebrow className="justify-center">{edit ? `${COPY.bridal.eyebrow} · ${COPY.duality[edit].title}` : COPY.bridal.eyebrow}</Eyebrow>
           {word ? (
             <>
               <h1 className="display text-display-xl" style={{ fontVariationSettings: '"opsz" 96, "wght" 560' }}>

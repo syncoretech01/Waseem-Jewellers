@@ -14,7 +14,7 @@ const OUT = path.join(PUBLIC, 'video');
 ensureDir(OUT);
 ensureDir(CACHE);
 
-const BUDGET_BYTES = 25 * 1024 * 1024;
+const BUDGET_BYTES = 42 * 1024 * 1024;
 const results = [];
 let total = 0;
 
@@ -38,10 +38,11 @@ for (const v of VIDEOS) {
   const pre = v.cropWatermark ? 'crop=1140:641:0:79,' : '';
   const portraitH = Math.min(720, src.height - (src.height % 2));
 
+  // the 1280 tier is what a desktop plays full-screen, so it is encoded for that; 720 and portrait keep the mobile budget
   const variants = [
-    { name: '1280', vf: `${pre}scale=1280:-2${fade},format=yuv420p`, crf: String(v.crf ?? 24) },
-    { name: '720', vf: `${pre}scale=720:-2${fade},format=yuv420p`, crf: String((v.crf ?? 24) + 3) },
-    { name: 'portrait', vf: `${pre}scale=-2:${portraitH},crop=404:${portraitH}:${v.portraitX}:0${fade},format=yuv420p`, crf: String((v.crf ?? 24) + 4) },
+    { name: '1280', vf: `${pre}scale=${v.scale1280 ?? '1280:-2'}${fade},format=yuv420p`, crf: String(v.crf1280 ?? 21) },
+    { name: '720', vf: `${pre}scale=720:-2${fade},format=yuv420p`, crf: String(v.crf720 ?? 27) },
+    { name: 'portrait', vf: `${pre}scale=-2:${portraitH},crop=404:${portraitH}:${v.portraitX}:0${fade},format=yuv420p`, crf: String(v.crfPortrait ?? 28) },
   ];
 
   const entry = { id: v.id, label: v.label, subject: v.subject, duration, files: {} };

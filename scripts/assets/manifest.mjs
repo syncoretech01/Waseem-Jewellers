@@ -86,11 +86,14 @@ export const IMAGES = [
 
 /** Trims are input-side (-ss then -t). `portraitX` = left edge (px, at 1280 wide) of the 404×720 portrait window. */
 export const VIDEOS = [
-  { id: 'hero-royal', input: 'media-originals/royal-wedding.mp4', start: 5, end: 36, poster: 13, subject: [0.5, 0.35], portraitX: 438, fadeEdges: 0.5, label: 'Hero (CH01), menu BRIDAL' },
+  // no fadeEdges on the hero: the loading curtain is the entrance, and a faded head would dip the loop to black every 31s
+  { id: 'hero-royal', input: 'media-originals/royal-wedding.mp4', start: 5, end: 36, poster: 13, subject: [0.5, 0.35], portraitX: 438, label: 'Hero (CH01), menu BRIDAL' },
   { id: 'bridal-cinema', input: 'media-originals/naqsh-e-gul.mp4', start: 6, end: 40, poster: 26, subject: [0.5, 0.32], portraitX: 438, label: 'Bridal cinema (CH05)' },
   { id: 'bridal-opening', input: 'media-originals/naqsh-e-gul.mp4', start: 40, end: 52, poster: 46, subject: [0.5, 0.3], portraitX: 438, label: '/collections/bridal opening + chapter II interlude' },
-  { id: 'menu-ambient', input: 'media-originals/dewaan.mp4', start: 4, end: 30, poster: 13, crf: 27, subject: [0.5, 0.4], portraitX: 438, cropWatermark: true, label: 'Menu ambient, DEWAN world' },
-  { id: 'diamond-studio', input: '.cache/assets/shopify-hero.mp4', remote: SHOPIFY_HERO_VIDEO, start: 0, end: 20.3, poster: 13, subject: [0.5, 0.4], portraitX: 758, label: 'CH08 diamond side, menu DIAMOND' },
+  // ambient only: 40% opacity behind a brightness filter and a tint, so it stays cheap on every tier
+  { id: 'menu-ambient', input: 'media-originals/dewaan.mp4', start: 4, end: 30, poster: 13, crf1280: 27, crf720: 30, crfPortrait: 31, subject: [0.5, 0.4], portraitX: 438, cropWatermark: true, label: 'Menu ambient, DEWAN world' },
+  // 1920×742 source: scale by height so the desktop encode keeps the vertical resolution CH08 needs
+  { id: 'diamond-studio', input: '.cache/assets/shopify-hero.mp4', remote: SHOPIFY_HERO_VIDEO, start: 0, end: 20.3, poster: 13, scale1280: '-2:720', crf1280: 22, subject: [0.5, 0.4], portraitX: 758, label: 'CH08 diamond side, menu DIAMOND' },
 ];
 
 /** Frames lifted from the ORIGINAL sources (seconds are absolute in the source). */

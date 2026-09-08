@@ -75,7 +75,7 @@ export function Ch04Worlds() {
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: '+=280%',
+            end: '+=180%',
             pin: true,
             scrub: true,
             anticipatePin: 1,

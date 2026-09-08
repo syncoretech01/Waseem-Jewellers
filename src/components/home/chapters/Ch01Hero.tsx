@@ -27,7 +27,8 @@ export function Ch01Hero() {
   const coarse = useQualityStore((s) => s.coarse);
   const introPlayed = useRef(false);
 
-  const onFirstFrame = useCallback(() => markHeroReady(), []);
+  // the ritual is released by whichever of the still or the film paints first — never by the film alone
+  const heroPainted = useCallback(() => markHeroReady(), []);
 
   // structure: pin + scrub (eager)
   useGSAP(
@@ -172,8 +173,8 @@ export function Ch01Hero() {
     <section ref={ref} id="ch01" className="relative h-svh overflow-hidden bg-ink text-ivory" aria-labelledby="hero-title">
       <div className="media-scale absolute inset-0 origin-center overflow-hidden will-change-transform">
         <div className="media-parallax absolute -inset-[2%]">
-          <Img id="still-royal-13" sizes="100vw" priority alt="" className="object-cover" />
-          <Video id="hero-royal" ref={video} onFirstFrame={onFirstFrame} preload="auto" ariaLabel="Royal Wedding — the house film" />
+          <Img id="still-royal-13" sizes="100vw" priority alt="" className="object-cover" onLoad={heroPainted} />
+          <Video id="hero-royal" ref={video} onFirstFrame={heroPainted} preload="auto" revealAfter={0.55} showStill={false} ariaLabel="Royal Wedding — the house film" />
         </div>
         <div className="hero-vignette pointer-events-none absolute inset-0 opacity-45" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 via-transparent to-ink/30" />

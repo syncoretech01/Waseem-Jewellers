@@ -85,7 +85,7 @@ export function Loader() {
       if (isHome && !reduced) {
         tl.to(el.querySelector('.ritual-stone'), { scale: 1.16, filter: 'brightness(1.5)', duration: 0.9, ease: 'power2.in' }, 0)
           .to(el.querySelectorAll('.ritual-fade'), { opacity: 0, duration: 0.35, ease: 'none' }, 0.15)
-          .to(el, { opacity: 0, duration: exitDuration, ease: 'power2.inOut' }, 0.45);
+          .to(el, { opacity: 0, duration: exitDuration, ease: 'power2.inOut' }, exitDuration * 0.55);
       } else {
         tl.to(el, { opacity: 0, duration: exitDuration, ease: 'power1.inOut' });
       }
@@ -117,7 +117,7 @@ export function Loader() {
       if (cancelled || !el) return;
       const returning = html.hasAttribute('data-visited');
       el.dataset.built = '1';
-      const minTime = returning ? 0.7 : 1.9;
+      const minTime = returning ? 0.45 : 1.4;
       if (DEV) console.info(`[loader] ritual starts at t=${Math.round(performance.now())} (${returning ? 'returning' : 'first visit'})`);
       const stone = el.querySelector<HTMLElement>('.ritual-stone');
       const hairline = el.querySelector<HTMLElement>('.ritual-hairline');
@@ -146,9 +146,9 @@ export function Loader() {
         });
       }
 
-      void Promise.all([fontsReady(), heroReady(), new Promise((r) => setTimeout(r, minTime * 1000 + 150))]).then(() => {
+      void Promise.all([fontsReady(), heroReady(), new Promise((r) => setTimeout(r, minTime * 1000 + 120))]).then(() => {
         if (cancelled) return;
-        gsap.to(progress, { v: 1, duration: 0.3, ease: 'none', onUpdate: write, onComplete: () => finish(0.7) });
+        gsap.to(progress, { v: 1, duration: 0.15, ease: 'none', onUpdate: write, onComplete: () => finish(returning ? 0.45 : 0.7) });
       });
     }
 

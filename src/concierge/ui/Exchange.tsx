@@ -23,7 +23,7 @@ export function ExchangeList({ latestOnly = false }: { latestOnly?: boolean }) {
   }, [turns.length, lastText, error, latestOnly]);
 
   return (
-    <div className="flex flex-col gap-7" aria-live="off">
+    <div className="flex flex-col gap-9" aria-live="off">
       {turns.map((t, i) => (
         <Exchange key={t.id} turn={t} first={i === 0} />
       ))}
@@ -64,17 +64,17 @@ function latestExchange(turns: ConciergeTurn[]): ConciergeTurn[] {
 function Exchange({ turn, first }: { turn: ConciergeTurn; first: boolean }) {
   if (turn.role === 'visitor') {
     return (
-      <div className={cn('flex flex-col gap-3', !first && 'border-t border-line pt-6')}>
-        <p className="flex items-baseline gap-2 text-fg-muted">
-          <span className="micro text-fg-2">You —</span>
-          <span className="text-[0.8125rem] leading-snug">{turn.text}</span>
+      <div className={cn('flex flex-col gap-3', !first && 'pt-2')}>
+        <p className="flex items-baseline gap-2">
+          <span className="micro shrink-0 text-fg-muted">You —</span>
+          <span className="text-[0.8125rem] leading-snug text-fg-2">{turn.text}</span>
         </p>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-3">
-      {turn.tools?.map((tool) => (
+      {turn.tools?.filter((t) => t.status !== 'done').map((tool) => (
         <div key={tool.id} className="flex items-center gap-4">
           <TravellingLight active={tool.status === 'running'} className={cn(tool.status === 'done' && 'bg-gold-hi/70', tool.status === 'error' && 'bg-burgundy')} />
           {tool.label && (
@@ -85,7 +85,7 @@ function Exchange({ turn, first }: { turn: ConciergeTurn; first: boolean }) {
         </div>
       ))}
       {turn.text && (
-        <p className="font-display text-[1.0625rem] leading-[1.55] text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
+        <p className="font-display text-[1.1875rem] leading-[1.5] text-fg" style={{ fontVariationSettings: '"opsz" 18' }}>
           {turn.text}
         </p>
       )}
@@ -99,21 +99,29 @@ function Result({ result }: { result: TurnResult }) {
   if (result.kind === 'pieces' || result.kind === 'wishlist') {
     if (result.pieces.length === 0) return null;
     return (
-      <ol className="mt-1 flex gap-3" aria-label={result.kind === 'pieces' ? result.title : 'Your selection'}>
+      <ol className="mt-3 grid grid-cols-2 gap-x-3 gap-y-6" aria-label={result.kind === 'pieces' ? result.title : 'Your selection'}>
         {result.pieces.slice(0, 4).map((p) => (
           <li key={p.slug}>
             <button
               type="button"
               onClick={() => controller?.tapCard(p.slug, p.name)}
-              className="group/recap relative block h-14 w-11 overflow-hidden bg-bg-2 outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
-              aria-label={`Open ${p.name}`}
+              className="group/recap block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+              aria-label={`Open ${p.name}, ${p.priceLabel.toLowerCase()}`}
               data-cursor="view"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.image} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover/recap:scale-105" loading="lazy" />
-              <span className="absolute bottom-0.5 left-1 font-display text-[0.6875rem] text-ivory drop-shadow" style={{ fontVariationSettings: '"opsz" 12' }}>
-                {String(p.ordinal).padStart(2, '0')}
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '4 / 5', background: 'var(--salon-well)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/recap:scale-[1.03]" loading="lazy" />
               </span>
+              <span className="mt-3 flex items-baseline gap-2">
+                <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
+                  {String(p.ordinal).padStart(2, '0')}
+                </span>
+                <span className="font-display text-[0.9375rem] leading-snug text-fg" style={{ fontVariationSettings: '"opsz" 14' }}>
+                  {p.name}
+                </span>
+              </span>
+              <span className="micro mt-1 block text-fg-2">{p.priceLabel}</span>
             </button>
           </li>
         ))}

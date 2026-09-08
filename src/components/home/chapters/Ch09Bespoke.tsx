@@ -59,7 +59,7 @@ export function Ch09Bespoke() {
         });
 
         const tl = gsap.timeline({
-          scrollTrigger: { trigger: root, start: 'top top', end: '+=320%', pin: true, scrub: 0.5, anticipatePin: 1, invalidateOnRefresh: true },
+          scrollTrigger: { trigger: root, start: 'top top', end: '+=175%', pin: true, scrub: 0.5, anticipatePin: 1, invalidateOnRefresh: true },
         });
         const step = 0.19;
         cards.forEach((card, k) => {

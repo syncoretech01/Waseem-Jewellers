@@ -71,7 +71,7 @@ export function Ch05Bridal() {
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: '+=240%',
+            end: '+=155%',
             pin: true,
             scrub: true,
             anticipatePin: 1,

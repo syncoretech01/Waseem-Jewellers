@@ -37,7 +37,7 @@ export function TravellingLight({ active, className }: { active: boolean; classN
   return (
     <span aria-hidden className={cn('relative block h-px w-6 overflow-hidden bg-line', className)}>
       <span
-        className="absolute inset-y-0 left-0 w-1/4 bg-gold-hi"
+        className="wj-travel absolute inset-y-0 left-0 w-1/4 bg-gold-hi"
         style={active ? { animation: 'travel-light 1.4s ease-in-out infinite' } : { transform: 'translateX(300%)', opacity: 0 }}
       />
     </span>

@@ -70,6 +70,16 @@
 
   --nav-h: 72px;
 
+  /* the jewel's corner: 56px gem + its 28px inset. Nothing interactive may sit beneath it;
+     a page column clears it with padding-right: max(0px, var(--orb-clear)). */
+  --orb-lane: 84px;
+  --orb-clear: calc(var(--orb-lane) + 16px - var(--spacing-gutter));
+
+  /* the concierge rail's lane: the panel's own width, its inset from the edge, and 24px of air.
+     A page marked [data-rail-inset] reserves it while the panel is open so nothing is covered. */
+  --rail-w: 468px;
+  --rail-inset: calc(var(--rail-w) + 52px - var(--spacing-gutter));
+
   /* gold as material / light */
   --gold-metal: linear-gradient(105deg, #6e5527 0%, #a8894f 22%, #e4cfa3 48%, #b8975a 62%, #f1e2bf 78%, #8a6d3a 100%);
   --gold-conic: conic-gradient(from 210deg, #6e5527, #e4cfa3 25%, #a8894f 50%, #f1e2bf 72%, #6e5527);
@@ -105,6 +115,26 @@
   --veil: rgb(244 239 230 / 0.7);
   --surface: var(--color-pearl);
   color-scheme: light;
+}
+
+/* ── the salon ────────────────────────────────────────────────────────────
+   The concierge keeps the house's ink register on every chapter, so a
+   conversation never changes material when the page beneath it does. Its
+   surface sits clearly above --bg (#14110e on #0b0a09), its lines are quieter
+   than the page's, and only its shadow answers the page theme.
+   Used together with data-theme="dark" on the same element; declared after the
+   theme blocks so it wins at equal specificity. ── */
+[data-salon] {
+  --surface: #14110e;
+  --salon-well: #100e0c;
+  --line: color-mix(in oklab, var(--color-champagne) 16%, transparent);
+  --line-strong: color-mix(in oklab, var(--color-champagne) 34%, transparent);
+  --salon-shadow: 0 32px 90px -36px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(228 207 163 / 0.09);
+  --salon-lift: 0 -32px 90px -36px rgb(0 0 0 / 0.9), 0 -1px 0 0 rgb(228 207 163 / 0.09);
+}
+[data-theme="ivory"] [data-salon] {
+  --salon-shadow: 0 32px 90px -40px rgb(11 10 9 / 0.42), 0 0 0 1px rgb(11 10 9 / 0.10);
+  --salon-lift: 0 -32px 90px -40px rgb(11 10 9 / 0.42), 0 -1px 0 0 rgb(11 10 9 / 0.10);
 }
 
 @theme inline {
@@ -367,6 +397,8 @@ html.is-transitioning #page-root {
 .wj-orb[data-state="ERROR"] { --orb-glow: 0.08; --orb-tint: rgb(90 31 43 / 0.55); }
 .wj-orb[data-state="ERROR"] .wj-orb-core { animation: none; }
 html[data-rm="1"] .wj-orb-core { animation: none; }
+/* the travelling hairline parks mid-rail: the status still reads, nothing moves */
+html[data-rm="1"] .wj-travel { animation: none !important; transform: translateX(150%); opacity: 0.55; }
 
 @keyframes orb-gather {
   0%, 100% { transform: scale(1); filter: saturate(1); }
@@ -448,4 +480,21 @@ html[data-rm="1"] .slider-hint {
 html[data-rm="1"] .slider-rail,
 html[data-rm="1"] .bespoke-stack {
   display: flex;
+}
+
+/* while the salon panel is open, a page steps out from beneath it rather than letting the rail
+   cover the piece's own controls. Only above 1280, where a page has the width to give. */
+[data-rail-inset] {
+  transition: margin-right 700ms var(--ease-out-expo), grid-template-columns 700ms var(--ease-out-expo);
+}
+
+@media (min-width: 1280px) {
+  html[data-rail="1"] [data-rail-inset] {
+    margin-right: var(--rail-inset);
+    grid-template-columns: minmax(0, 62fr) minmax(316px, 38fr);
+  }
+}
+
+html[data-rm="1"] [data-rail-inset] {
+  transition: none;
 }

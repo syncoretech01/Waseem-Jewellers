@@ -139,7 +139,7 @@ export class ConciergeController {
     s.setTrayOpen(false);
     s.setPanel('closed');
     s.setTranscript({ interim: '', final: '', active: false });
-    s.setVoice({ sessionLive: false });
+    s.setVoice({ sessionLive: false, preparing: false });
     s.transition('IDLE', 'close');
   }
 
@@ -171,11 +171,16 @@ export class ConciergeController {
     const trimmed = text.trim();
     if (!trimmed) return;
     const s = this.store;
-    if (s.state === 'LISTENING') this.adapter?.abort();
+    if (s.state === 'LISTENING' || s.voice.preparing) {
+      this.adapter?.abort();
+      s.setVoice({ preparing: false, sessionLive: false });
+    }
     this.cancelTurn();
     this.clearTimers(); // a previous result's hold must not settle this turn
     cancelSpeech();
     s.setError(null);
+    // only a spoken turn leaves its words on the voice stage as "heard —"
+    if (source !== 'voice' && source !== 'example') s.setTranscript({ interim: '', final: '', active: false });
     s.setTrayOpen(false);
     s.setLastVisitorText(trimmed);
     if (source !== 'card') s.appendTurn({ id: uid('v'), role: 'visitor', text: trimmed, source, createdAt: Date.now() });
@@ -341,20 +346,31 @@ export class ConciergeController {
     const s = this.store;
     if (s.mode !== 'voice') s.setMode('voice');
     if (s.state === 'CHAT' || s.state === 'RESULT' || s.state === 'ERROR' || s.state === 'SPEAKING') s.transition('VOICE_READY', 'listen');
-    if (this.store.state !== 'VOICE_READY') return;
+    if (this.store.state !== 'VOICE_READY' || this.store.voice.preparing) return;
     cancelSpeech();
     this.cancelTurn();
     this.adapter?.abort();
     const adapter = this.chooseAdapter(forceScripted);
     this.adapter = adapter;
     s.setError(null);
-    s.setTranscript({ interim: '', final: '', active: true });
-    s.setVoice({ sessionLive: true });
-    if (!s.transition('LISTENING', 'mic')) return;
+    s.setTranscript({ interim: '', final: '', active: false });
+    // the machine holds at VOICE_READY until the microphone is truly open: "Listening."
+    // must never be shown while the browser is still asking the visitor for permission
+    s.setVoice({ sessionLive: true, preparing: true });
+    this.later(7000, () => {
+      if (!this.store.voice.preparing || this.adapter !== adapter) return;
+      adapter.abort();
+      this.store.setVoice({ preparing: false, sessionLive: false });
+      this.store.setError({ code: 'MIC_DENIED', message: CONCIERGE.micNoAnswer });
+    });
     const lang = navigator.language && /^(en|ur)/i.test(navigator.language) ? navigator.language : 'en-IN';
     void adapter.start({
       lang,
-      onStart: () => undefined,
+      onStart: () => {
+        this.store.setVoice({ preparing: false, denied: false });
+        this.store.setTranscript({ active: true });
+        this.store.transition('LISTENING', 'mic');
+      },
       onInterim: (text) => this.store.setTranscript({ interim: text, active: true }),
       onFinal: (text) => {
         this.store.setTranscript({ interim: '', final: text, active: false });
@@ -362,11 +378,13 @@ export class ConciergeController {
       },
       onEnd: () => {
         this.store.setTranscript({ active: false });
+        this.store.setVoice({ preparing: false });
         if (this.store.state === 'LISTENING') this.store.transition('VOICE_READY', 'end');
       },
       onError: ({ code }) => {
         const st = this.store;
         st.setTranscript({ active: false });
+        st.setVoice({ preparing: false });
         if (code === 'NO_SPEECH') {
           st.setError({ code: 'NO_SPEECH', message: CONCIERGE.noSpeech });
           st.transition('VOICE_READY', 'no-speech');
@@ -379,7 +397,7 @@ export class ConciergeController {
           return;
         }
         st.setError({ code: 'MIC_DENIED', message: CONCIERGE.micDenied });
-        st.setVoice({ sessionLive: false });
+        st.setVoice({ sessionLive: false, denied: true });
         st.transition('ERROR', code);
         this.later(3200, () => {
           if (this.store.state === 'ERROR') this.store.transition('VOICE_READY', 'error.auto');
@@ -390,7 +408,7 @@ export class ConciergeController {
 
   stopListening() {
     this.adapter?.stop();
-    this.store.setVoice({ sessionLive: false });
+    this.store.setVoice({ sessionLive: false, preparing: false });
   }
 
   runExample() {

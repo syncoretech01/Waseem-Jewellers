@@ -12,7 +12,7 @@ import { bindPointer, pointer } from '@/lib/motion/pointer';
 import { COPY } from '@/data/copy';
 
 /**
- * CH08 — Gold / Diamond. Two materials share one frame: gold beneath, diamond above
+ * CH08 — the two bridal edits. Two materials share one frame: gold beneath, diamond above
  * behind a mask whose edge follows the pointer and breathes at rest. The words weigh
  * with their side; choosing one lets the material fill the frame and flies into its edit.
  */
@@ -111,7 +111,7 @@ export function Ch08Duality() {
   return (
     <section ref={ref} id="ch08" className="relative h-[110svh] overflow-hidden bg-ink text-ivory" aria-labelledby="duality-title">
       <h2 id="duality-title" className="sr-only">
-        Gold and Diamond
+        {COPY.duality.heading}
       </h2>
       <div className="duality-gold absolute inset-0">
         <Img id="p05-hero" sizes="100vw" plain className="h-full w-full object-cover" data={{ 'flip-source': 'gold' }} />
@@ -132,7 +132,7 @@ export function Ch08Duality() {
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.7, duration: 0.8 })}
           className="group/side flex flex-col items-start justify-end p-gutter text-left outline-none md:justify-center md:pl-[8vw]"
           data-cursor="discover"
-          aria-label="Gold — kundan, polki and pleated gold. Open the gold edit."
+          aria-label="The Gold Edit — bridal pieces in kundan, polki and pleated gold."
         >
           <span className="block origin-left">
             <span className="duality-word-gold display block text-[clamp(3.5rem,12vw,13rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 480' }}>
@@ -147,7 +147,7 @@ export function Ch08Duality() {
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.3, duration: 0.8 })}
           className="group/side flex flex-col items-end justify-start p-gutter text-right outline-none md:justify-center md:pr-[8vw]"
           data-cursor="discover"
-          aria-label="Diamond — pavé, cluster and uncut stones. Open the diamond edit."
+          aria-label="The Diamond Edit — bridal pieces in pavé, cluster and uncut stones."
         >
           <span className="block origin-right">
             <span className="duality-word-diamond display block text-[clamp(3.5rem,12vw,13rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 480' }}>

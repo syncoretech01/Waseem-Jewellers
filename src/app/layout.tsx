@@ -36,10 +36,10 @@ export const metadata: Metadata = {
     template: '%s — Waseem Jewellers',
   },
   description:
-    'Waseem Jewellers, Lahore. Gold, diamond and bridal high jewellery from a house founded in 1952.',
+    'Waseem Jewellers, Lahore. Bridal jewellery in gold, polki and diamonds, from a house founded in 1952.',
   openGraph: {
     title: 'Waseem Jewellers — The House of Waseem',
-    description: 'Gold, diamond and bridal high jewellery from Lahore, since 1952.',
+    description: 'Bridal jewellery in gold, polki and diamonds. Lahore, since 1952.',
     images: ['/assets/waseem/og/home.jpg'],
     type: 'website',
   },

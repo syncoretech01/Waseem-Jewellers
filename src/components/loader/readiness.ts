@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * What the loading ritual waits for: fonts, and the hero's first frame (or its poster),
- * reported by the hero itself. Each is a one-shot promise with a bounded fallback.
+ * What the loading ritual waits for: fonts, and the hero's first painted frame — its still if
+ * the film is still arriving. Each is a one-shot promise with a short, bounded fallback, so a
+ * slow film never holds the visitor in front of the wordmark.
  */
 let heroResolve: (() => void) | null = null;
 let heroDone = false;
@@ -16,11 +17,11 @@ export function markHeroReady() {
   heroResolve?.();
 }
 
-export function heroReady(timeoutMs = 2500) {
+export function heroReady(timeoutMs = 1500) {
   return Promise.race([heroPromise, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
 }
 
-export function fontsReady(timeoutMs = 1800) {
+export function fontsReady(timeoutMs = 1200) {
   if (typeof document === 'undefined' || !('fonts' in document)) return Promise.resolve();
   return Promise.race([document.fonts.ready.then(() => undefined), new Promise<void>((r) => setTimeout(r, timeoutMs))]);
 }

@@ -94,7 +94,7 @@ export function Ch02Craft() {
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: mobile ? '+=260%' : '+=450%',
+            end: mobile ? '+=180%' : '+=230%',
             pin: true,
             scrub: 0.6,
             anticipatePin: 1,

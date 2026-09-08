@@ -88,7 +88,7 @@ export function MenuOverlay() {
       } else {
         openConsultation({ topic: 'bespoke', source: 'menu' });
       }
-    }, 220);
+    }, 140);
   };
 
   const activeItem = MENU.find((m) => m.id === active) ?? MENU[2]!;
@@ -107,8 +107,8 @@ export function MenuOverlay() {
           className="fixed inset-0 overflow-y-auto text-ivory"
           style={{ zIndex: 'var(--z-menu)' }}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.5 } }}
-          exit={{ opacity: 0, transition: { duration: 0.45, delay: 0.1 } }}
+          animate={{ opacity: 1, transition: { duration: 0.3 } }}
+          exit={{ opacity: 0, transition: { duration: 0.38 } }}
         >
           {/* ambient */}
           <div className="absolute inset-0 overflow-hidden bg-ink">
@@ -140,26 +140,26 @@ export function MenuOverlay() {
           </div>
 
           {/* items */}
-          <div className="relative flex min-h-full flex-col justify-between px-gutter pb-10 pt-[calc(var(--nav-h)+2vh)] md:pt-[calc(var(--nav-h)+6vh)]">
-            <motion.ul className="flex flex-col" initial="closed" animate="open" exit="closed" variants={{ open: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }, closed: { transition: { staggerChildren: 0.03, staggerDirection: -1 } } }}>
+          <div className="relative flex min-h-full flex-col justify-between px-gutter pb-10 pt-[calc(var(--nav-h)+2vh)]">
+            <motion.ul className="flex flex-col" initial="closed" animate="open" exit="closed" variants={{ open: { transition: { staggerChildren: 0.022, delayChildren: 0.015 } }, closed: { transition: { staggerChildren: 0.025, staggerDirection: -1 } } }}>
               {MENU.map((item) => {
                 const isActive = active === item.id;
                 return (
                   <li key={item.id} className="overflow-hidden border-b border-champagne/10 last:border-0">
-                    <motion.div variants={{ open: { y: 0, transition: { duration: 0.9, ease: EASE.out } }, closed: { y: '110%', transition: { duration: 0.45, ease: EASE.silk } } }}>
+                    <motion.div variants={{ open: { y: 0, transition: { duration: 0.34, ease: EASE.out } }, closed: { y: '110%', transition: { duration: 0.34, ease: EASE.silk } } }}>
                       <button
                         type="button"
                         onClick={() => go(item)}
                         onPointerEnter={() => setActive(item.id)}
                         onFocus={() => setActive(item.id)}
                         onTouchStart={() => setActive(item.id)}
-                        className={cn('group/item flex w-full items-baseline gap-6 py-3 text-left transition-opacity duration-500 md:py-4', !isActive && 'opacity-45 hover:opacity-100')}
+                        className={cn('group/item flex w-full items-baseline gap-6 py-3 text-left transition-opacity duration-500', !isActive && 'opacity-45 hover:opacity-100')}
                         data-cursor="discover"
                       >
                         <span className="font-display text-[0.9rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 12' }}>
                           {item.numeral}
                         </span>
-                        <span className="display text-[clamp(2.6rem,8.5vw,8.5rem)] leading-[0.95]">{item.label}</span>
+                        <span className="display text-[clamp(2.4rem,min(6.2vw,9svh),6.5rem)] leading-[0.95]">{item.label}</span>
                         {item.id === 'collections' && <UrduAccent text={undefined} />}
                         <span className={cn('hidden font-display italic text-[1rem] text-champagne/80 transition-opacity duration-500 md:inline', isActive ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 16' }}>
                           {item.line}
@@ -172,7 +172,7 @@ export function MenuOverlay() {
               })}
             </motion.ul>
 
-            <motion.div className="mt-10 flex flex-col gap-6 text-[0.75rem] text-ivory/70 md:flex-row md:items-end md:justify-between" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.6, duration: 0.6 } }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>
+            <motion.div className="mt-6 flex flex-col gap-6 text-[0.75rem] text-ivory/70 md:flex-row md:items-end md:justify-between" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.16, duration: 0.34 } }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>
               <div className="flex flex-col gap-1">
                 {SITE.showrooms.map((s) => (
                   <span key={s.id}>{s.address}</span>

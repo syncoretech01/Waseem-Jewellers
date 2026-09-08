@@ -10,6 +10,7 @@ import { formatPrice, formatGrams } from '@/lib/format';
 import { requestConcierge } from '@/concierge/bridge';
 import { useSiteStore } from '@/state/siteStore';
 import { SITE } from '@/data';
+import { COPY } from '@/data/copy';
 import { WORLD_BY_SLUG } from '@/data/worlds';
 import { useRise } from '@/motion/hooks/useReveals';
 import { EASE } from '@/lib/motion/easings';
@@ -46,6 +47,8 @@ export function InfoColumn({ product }: { product: Product }) {
     if (specs.stones?.length) rows.push(['Stones', specs.stones.join(', ')]);
     if (specs.technique?.length) rows.push(['Technique', specs.technique.join(', ')]);
   }
+  // verified measurements, as opposed to descriptive attributes — decides whether the absence is named
+  const measured = Boolean(specs.karat || specs.grossWeightGrams || specs.carat);
 
   return (
     <div ref={scope} className="flex flex-col gap-8">
@@ -68,7 +71,7 @@ export function InfoColumn({ product }: { product: Product }) {
       <div data-rise className="flex flex-col gap-2">
         <p className="eyebrow text-fg">{formatPrice(product.price)}</p>
         <p className="text-[0.75rem] text-fg-muted">
-          {product.price.kind === 'fixed' ? 'Indicative, subject to the gold rate · ' : ''}Prices in Pakistani rupees · Private viewing available in Lahore
+          {product.price.kind === 'fixed' ? 'Indicative, subject to the gold rate · Prices in Pakistani rupees · Private viewing available in Lahore' : COPY.product.priceNote}
         </p>
       </div>
 
@@ -89,11 +92,14 @@ export function InfoColumn({ product }: { product: Product }) {
         <p className="max-w-[34em] text-fg-muted">{product.story.craft}</p>
       </div>
 
-      <dl data-rise className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-3 border-t border-line pt-6">
-        {rows.map(([k, v]) => (
-          <Row key={k} k={k} v={v} />
-        ))}
-      </dl>
+      <div data-rise className="flex flex-col gap-5 border-t border-line pt-6">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-3">
+          {rows.map(([k, v]) => (
+            <Row key={k} k={k} v={v} />
+          ))}
+        </dl>
+        {!measured && <p className="text-[0.75rem] text-fg-muted">{COPY.product.specsNote}</p>}
+      </div>
 
       <div data-rise>
         <Accordion
@@ -170,6 +176,7 @@ function Accordion({ items }: { items: { title: string; body: React.ReactNode }[
               aria-controls={`acc-${i}`}
               onClick={() => setOpen(isOpen ? null : i)}
               className="flex w-full items-center justify-between py-4 text-left"
+              style={{ paddingRight: 'max(0px, var(--orb-clear))' }}
             >
               <span className="eyebrow text-fg">{it.title}</span>
               <span aria-hidden className={cn('font-display text-[1.25rem] leading-none text-fg-2 transition-transform duration-500', isOpen && 'rotate-45')}>

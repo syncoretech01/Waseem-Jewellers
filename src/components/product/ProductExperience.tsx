@@ -27,7 +27,7 @@ export function ProductExperience({ product }: { product: Product }) {
   return (
     <main className="bg-bg text-fg">
       <section ref={ref} data-theme="dark" className="pt-[calc(var(--nav-h)+1rem)] md:pt-[calc(var(--nav-h)+2rem)]" aria-label={product.editorialTitle}>
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,55fr)_minmax(340px,45fr)] md:gap-gutter md:px-gutter xl:grid-cols-[minmax(0,62fr)_minmax(360px,38fr)]">
+        <div data-rail-inset className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,55fr)_minmax(340px,45fr)] md:gap-gutter md:px-gutter xl:grid-cols-[minmax(0,62fr)_minmax(360px,38fr)]">
           <div className="md:pb-section">
             <Gallery product={product} />
           </div>

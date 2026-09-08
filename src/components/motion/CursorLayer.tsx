@@ -19,8 +19,8 @@ const LABELS: Record<string, string> = {
 };
 
 /**
- * A 9px metallic bead whose specular highlight follows the pointer's velocity, with bare
- * caption labels beside it. Fine pointers only; never a dependency (every target is a real control).
+ * A 7px champagne bead with bare caption labels beside it. No glow, no specular, no blend
+ * modes. Fine pointers only; never a dependency (every target is a real control).
  */
 export function CursorLayer() {
   const coarse = useQualityStore((s) => s.coarse);
@@ -39,11 +39,10 @@ export function CursorLayer() {
     const by = gsap.quickTo(bead.current, 'y', { duration: 0.12, ease: 'power3' });
     const lx = gsap.quickTo(label.current, 'x', { duration: 0.25, ease: 'power3' });
     const ly = gsap.quickTo(label.current, 'y', { duration: 0.25, ease: 'power3' });
-    const angle = gsap.quickTo(bead.current, '--angle', { duration: 0.4, ease: 'power2' });
-    let last = { x: 0, y: 0 };
     let visible = false;
     let flipped = false;
-    // GSAP owns the label's offset entirely (Tailwind's `translate` would fight it)
+    // GSAP owns both offsets entirely (Tailwind's `translate` would fight its transform)
+    gsap.set(bead.current, { xPercent: -50, yPercent: -50 });
     gsap.set(label.current, { xPercent: 0, yPercent: -50 });
     const show = () => {
       if (visible) return;
@@ -65,10 +64,6 @@ export function CursorLayer() {
       }
       lx(e.clientX + (flip ? -14 : 14));
       ly(e.clientY);
-      const dx = e.clientX - last.x;
-      const dy = e.clientY - last.y;
-      if (Math.hypot(dx, dy) > 2) angle((Math.atan2(dy, dx) * 180) / Math.PI);
-      last = { x: e.clientX, y: e.clientY };
       show();
     };
     const onOver = (e: Event) => {
@@ -121,22 +116,17 @@ export function CursorLayer() {
     <div aria-hidden className="pointer-events-none fixed inset-0" style={{ zIndex: 'var(--z-cursor)' }}>
       <div
         ref={bead}
-        className="absolute left-0 top-0 h-[9px] w-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 will-change-transform"
+        className="absolute left-0 top-0 h-[7px] w-[7px] rounded-full opacity-0 will-change-transform"
         style={{
-          ['--angle' as string]: '0',
-          background: 'radial-gradient(circle at 35% 30%, #fbf3e0 0%, #e4cfa3 28%, #a8894f 62%, #5a4520 100%)',
-          boxShadow: '0 0 0 0.5px rgba(228,207,163,0.55), 0 1px 3px rgba(0,0,0,0.5)',
+          background: 'radial-gradient(circle at 50% 38%, #f1e2bf 0%, #d8c3a5 58%, #b8975a 100%)',
+          boxShadow: '0 0 0 0.5px rgb(11 10 9 / 0.35)',
         }}
+      />
+      <div
+        ref={label}
+        className="micro absolute left-0 top-0 whitespace-nowrap text-champagne opacity-0"
+        style={{ textShadow: '0 1px 3px rgb(11 10 9 / 0.6)' }}
       >
-        <span
-          className="absolute inset-0 rounded-full"
-          style={{
-            background: 'conic-gradient(from calc(var(--angle) * 1deg), rgba(255,255,255,0.55) 0deg, transparent 70deg, transparent 290deg, rgba(255,255,255,0.35) 360deg)',
-            mixBlendMode: 'screen',
-          }}
-        />
-      </div>
-      <div ref={label} className="micro absolute left-0 top-0 whitespace-nowrap text-champagne opacity-0 mix-blend-difference">
         {text}
       </div>
     </div>

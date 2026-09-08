@@ -114,6 +114,10 @@ export interface VoiceFlags {
   synthesis: boolean;
   spokenReplies: boolean;
   sessionLive: boolean;
+  /** The microphone has been asked for and has not opened yet — the browser may be asking the visitor. */
+  preparing: boolean;
+  /** The microphone was refused, or is blocked for this site; latched for the session. */
+  denied: boolean;
 }
 
 interface ConciergeStoreState {
@@ -168,7 +172,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   recentCollections: [],
   lastVisitorText: null,
   providerId: 'mock',
-  voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false },
+  voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false, preparing: false, denied: false },
   error: null,
   greeted: false,
   trayOpen: false,

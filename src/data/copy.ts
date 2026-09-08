@@ -50,12 +50,18 @@ export const COPY = {
     hint: 'Drag',
   },
   duality: {
-    gold: { word: 'Gold', line: 'Kundan · Polki · Pleated gold' },
-    diamond: { word: 'Diamond', line: 'Pavé · Cluster · Uncut' },
+    // the giant word names the material; every label around it names the edit it belongs to
+    heading: 'Two edits from the Bridal House',
+    gold: { word: 'Gold', title: 'The Gold Edit', line: 'The Gold Edit · Kundan, polki, pleated gold' },
+    diamond: { word: 'Diamond', title: 'The Diamond Edit', line: 'The Diamond Edit · Pavé, cluster, uncut' },
     landing: {
-      gold: 'Kundan, polki and pleated gold.',
-      diamond: 'Pavé, cluster and uncut stones.',
+      gold: 'A bridal edit — kundan, polki and pleated gold.',
+      diamond: 'A bridal edit — pavé, cluster and uncut stones.',
     },
+  },
+  product: {
+    specsNote: 'The House publishes only what it has verified for this piece. Weight, purity and stone grading are confirmed at a private viewing.',
+    priceNote: 'Priced on request · Private viewing available in Lahore',
   },
   bespoke: {
     eyebrow: 'Bespoke',

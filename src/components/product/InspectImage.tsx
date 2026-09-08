@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { Img } from '@/components/media/Img';
+import { getImage } from '@/data';
 import { useQualityStore } from '@/state/qualityStore';
 import { cn } from '@/lib/cn';
 
@@ -14,13 +15,29 @@ interface InspectImageProps {
   slug: string;
   macro?: boolean;
   className?: string;
+  /** Position in the sequence: the opening frame is the tall one; the rest answer it. */
+  frame?: number;
+}
+
+/**
+ * A frame is shaped by what the photograph is, not by one house ratio. A campaign portrait opens
+ * tall and its answers sit square; a macro takes the band its own subject asks for; a studio
+ * cut-out is mounted on a pearl plate with real margin, so the piece is never enlarged past what
+ * the negative can carry.
+ */
+function frameOf(role: string, w: number, h: number, frame: number) {
+  if (role === 'packshot') return { ratio: '5 / 4', mount: true };
+  if (role === 'macro' || role === 'still') return { ratio: w / h >= 1.2 ? '3 / 2' : '4 / 5', mount: false };
+  return { ratio: frame > 0 ? '1 / 1' : '4 / 5', mount: false };
 }
 
 /**
  * Gallery image. Hover draws the whole image to the eye (scale 1.35, the point under the
  * pointer stays put) — no magnifier lens. Click on a macro enters drag-to-inspect at 2.4×.
  */
-export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, className }: InspectImageProps) {
+export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, className, frame = 0 }: InspectImageProps) {
+  const asset = getImage(id);
+  const { ratio, mount } = frameOf(asset.role, asset.width, asset.height, frame);
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [inspecting, setInspecting] = useState(false);
@@ -129,8 +146,8 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
             },
           }
         : {})}
-      className={cn('relative w-full overflow-hidden bg-bg-2 outline-none focus-visible:ring-1 focus-visible:ring-gold-hi', inspecting && 'cursor-grab active:cursor-grabbing', className)}
-      style={{ aspectRatio: '4 / 5', maxHeight: '100svh' }}
+      className={cn('relative w-full overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-gold-hi', mount ? 'bg-pearl' : 'bg-bg-2', inspecting && 'cursor-grab active:cursor-grabbing', className)}
+      style={{ aspectRatio: ratio, maxHeight: '100svh' }}
       data-cursor={inspecting ? 'drag' : macro ? 'inspect' : undefined}
       data-flip-target={flipTarget ? 'product-hero' : undefined}
       data-flip-slug={flipTarget ? slug : undefined}
@@ -147,8 +164,8 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
       }}
       onClick={toggleInspect}
     >
-      <div ref={inner} className="absolute inset-0 will-change-transform">
-        <Img id={id} sizes={sizes} priority={priority} plain />
+      <div ref={inner} className="absolute will-change-transform" style={mount ? { top: '9%', bottom: '9%', left: '18%', right: '18%' } : { inset: 0 }}>
+        <Img id={id} sizes={sizes} priority={priority} plain style={mount ? { objectFit: 'contain' } : undefined} />
       </div>
       {macro && (
         <p className="micro pointer-events-none absolute bottom-4 left-4 text-ivory/80 mix-blend-difference">

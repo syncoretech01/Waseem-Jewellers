@@ -16,7 +16,7 @@ export function IndexView({ products, title }: { products: Product[]; title?: st
   useRise(scope);
   return (
     <section ref={ref} data-theme="ivory" className="bg-bg py-section text-fg" aria-label={title ?? 'Index'}>
-      <motion.div ref={scope} key={products.map((p) => p.slug).join('|')} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.48, ease: EASE.out }} className="px-gutter">
+      <motion.div ref={scope} key={`${title ?? ''}|${products.map((p) => p.slug).join('|')}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.48, ease: EASE.out }} className="px-gutter">
         {title && (
           <p className="eyebrow mb-12 text-fg-2" data-rise>
             {title}

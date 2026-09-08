@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn';
 export function ResultTray() {
   const controller = useController();
   const open = useConciergeStore((s) => s.trayOpen);
+  const panel = useConciergeStore((s) => s.panel);
   const turns = useConciergeStore((s) => s.turns);
   const last = [...turns].reverse().find((t) => t.result && (t.result.kind === 'pieces' || t.result.kind === 'wishlist' || t.result.kind === 'collections'));
   const result = last?.result;
@@ -69,8 +70,9 @@ export function ResultTray() {
         <motion.section
           key="tray"
           aria-label={title}
-          className="fixed inset-x-0 bottom-0 bg-[#0d0b0a] text-ivory"
-          style={{ zIndex: 'calc(var(--z-concierge) - 1)' }}
+          data-salon
+          className="fixed inset-x-0 bottom-0 bg-surface text-fg"
+          style={{ zIndex: 'calc(var(--z-concierge) - 1)', boxShadow: 'var(--salon-lift)' }}
           initial={{ y: '100%' }}
           animate={{ y: 0, transition: { duration: 0.7, ease: EASE.out } }}
           exit={{ y: '100%', transition: { duration: 0.45, ease: EASE.silk } }}
@@ -78,19 +80,25 @@ export function ResultTray() {
           data-lenis-prevent
         >
           <div className="hairline absolute inset-x-0 top-0" />
-          <div className="flex items-center justify-between px-gutter pt-5">
-            <p className="font-display italic text-[1.0625rem] text-champagne" style={{ fontVariationSettings: '"opsz" 16' }}>
+          <div className="flex items-center justify-between px-gutter pt-6">
+            <p className="font-display italic text-[1.0625rem] text-fg-2" style={{ fontVariationSettings: '"opsz" 16' }}>
               {title}
             </p>
-            <button type="button" onClick={() => controller?.dismissTray()} className="micro text-ivory/60 transition-colors hover:text-ivory" data-cursor="close">
+            <button type="button" onClick={() => controller?.dismissTray()} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close">
               Close
             </button>
           </div>
-          <ol ref={list} className="no-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto px-gutter pb-28 pt-4 md:gap-10 md:pb-7" style={{ scrollPaddingLeft: 'var(--spacing-gutter)' }} data-lenis-prevent-wheel role="list">
+          <ol
+            ref={list}
+            className={cn('no-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto px-gutter pb-28 pt-5 md:gap-8 md:pb-8', panel === 'full' && 'lg:pr-[496px] xl:pr-[512px]')}
+            style={{ scrollPaddingLeft: 'var(--spacing-gutter)' }}
+            data-lenis-prevent-wheel
+            role="list"
+          >
             {pieces?.map((p, i) => (
               <motion.li
                 key={p.slug}
-                className="w-[160px] shrink-0 snap-start md:w-[clamp(168px,12.5vw,196px)]"
+                className="w-[172px] shrink-0 snap-start md:w-[clamp(208px,16vw,264px)]"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.15 + i * 0.08 } }}
               >
@@ -104,28 +112,30 @@ export function ResultTray() {
                   aria-label={`Piece ${p.ordinal} of ${pieces.length}, ${p.name}, ${p.priceLabel.toLowerCase()}`}
                   data-cursor="view"
                 >
-                  <span className="relative block w-full overflow-hidden bg-charcoal" style={{ aspectRatio: '3 / 4' }}>
+                  <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '4 / 5', background: 'var(--salon-well)' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={p.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/tray:scale-[1.04]" loading="lazy" />
-                    <span className="absolute left-2 top-2 font-display text-[0.8125rem] text-pearl drop-shadow" style={{ fontVariationSettings: '"opsz" 12' }}>
+                  </span>
+                  <span className="mt-4 flex items-baseline gap-2">
+                    <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
                       {String(p.ordinal).padStart(2, '0')}
                     </span>
+                    <span className="font-display text-[1.0625rem] leading-snug text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
+                      {p.name}
+                    </span>
                   </span>
-                  <span className="mt-3 block font-display text-[0.9375rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
-                    {p.name}
-                  </span>
-                  <span className="micro mt-1 block text-champagne/80">{p.priceLabel}</span>
+                  <span className="micro mt-1 block text-fg-2">{p.priceLabel}</span>
                 </button>
               </motion.li>
             ))}
             {collections?.map((c, i) => (
-              <motion.li key={c.slug} className="w-[200px] shrink-0 snap-start" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.15 + i * 0.08 } }}>
+              <motion.li key={c.slug} className="w-[240px] shrink-0 snap-start md:w-[300px]" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.15 + i * 0.08 } }}>
                 <button type="button" data-ordinal={c.ordinal} data-slug={c.slug} data-name={c.name} onClick={() => controller?.submitText(`Show me ${c.name}`, 'card')} className={cn('group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi')} aria-label={`World ${c.ordinal} of ${collections.length}, ${c.name}`} data-cursor="explore">
-                  <span className="relative block w-full overflow-hidden bg-charcoal" style={{ aspectRatio: '3 / 2' }}>
+                  <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '3 / 2', background: 'var(--salon-well)' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={c.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/tray:scale-[1.04]" loading="lazy" />
                   </span>
-                  <span className="mt-3 block font-display text-[0.9375rem] text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
+                  <span className="mt-4 block font-display text-[1.0625rem] text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
                     {c.name}
                   </span>
                 </button>

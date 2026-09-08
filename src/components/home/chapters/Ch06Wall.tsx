@@ -33,12 +33,12 @@ const SLOTS: Slot[] = [
   { slot: 'W2', slug: 'lavender-halo-ring-r11912', alt: 'p09-second', col: 'md:col-start-2 md:col-span-3', aspect: '1 / 1', offset: 'md:-mt-[10svh]', parallax: -0.06 },
   { slot: 'W3', slug: 'timeless-feathered-cluster-ring', image: 'p10-macro', col: 'md:col-start-9 md:col-span-3', aspect: '4 / 5', offset: 'md:mt-[8svh]', parallax: 0.08 },
   { slot: 'W4', slug: 'aks-e-noor-satlada-haar', col: 'md:col-start-1 md:col-span-4', aspect: '4 / 5', parallax: 0.04 },
-  { slot: 'W5', image: 'wall-campaign', col: 'md:col-start-7 md:col-span-6', aspect: '3 / 2', offset: 'md:mt-[22svh]', parallax: -0.05, campaign: true },
+  { slot: 'W5', image: 'wall-campaign', col: 'md:col-start-7 md:col-span-6', aspect: '3 / 2', offset: 'md:mt-[13svh]', parallax: -0.05, campaign: true },
   { slot: 'W6', slug: 'emerald-tassel-earrings-t06768', col: 'md:col-start-3 md:col-span-3', aspect: '4 / 5', offset: 'md:-mt-[6svh]', parallax: 0.07 },
-  { slot: 'W7', slug: 'naqsh-e-gul-pearl-blossom-choker', col: 'md:col-start-6 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[14svh]', parallax: -0.04 },
+  { slot: 'W7', slug: 'naqsh-e-gul-pearl-blossom-choker', col: 'md:col-start-6 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[9svh]', parallax: -0.04 },
   { slot: 'W8', slug: 'dewan-bridal-suite', col: 'md:col-start-10 md:col-span-3', aspect: '4 / 5', parallax: 0.09 },
   { slot: 'W9', slug: 'rang-e-jamal-emerald-suite', col: 'md:col-start-1 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[6svh]', parallax: 0.03 },
-  { slot: 'W10', slug: 'rukh-e-jana-pleated-collar', col: 'md:col-start-6 md:col-span-3', aspect: '4 / 5', offset: 'md:mt-[18svh]', parallax: -0.07 },
+  { slot: 'W10', slug: 'rukh-e-jana-pleated-collar', col: 'md:col-start-6 md:col-span-3', aspect: '4 / 5', offset: 'md:mt-[11svh]', parallax: -0.07 },
   { slot: 'W11', slug: 'royal-wedding-polki-raani-haar', col: 'md:col-start-9 md:col-span-4', aspect: '4 / 5', parallax: 0.05 },
 ];
 
@@ -121,8 +121,8 @@ export function Ch06Wall() {
   );
 
   return (
-    <section ref={ref} id="ch06" className="relative bg-ivory px-gutter pb-[14svh] pt-[10svh] text-ink md:pb-[18svh] md:pt-[6svh]" aria-labelledby="wall-title">
-      <div className="mb-[8svh] flex flex-col gap-4 md:mb-[10svh] md:flex-row md:items-end md:justify-between">
+    <section ref={ref} id="ch06" className="relative bg-ivory px-gutter pb-[10svh] pt-[8svh] text-ink md:pb-[12svh] md:pt-[5svh]" aria-labelledby="wall-title">
+      <div className="mb-[6svh] flex flex-col gap-4 md:mb-[7svh] md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-3" data-rise>
           <p className="micro text-ink/60">{COPY.wall.eyebrow}</p>
           <h2 id="wall-title" className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ink">
@@ -132,7 +132,7 @@ export function Ch06Wall() {
         <span className="wall-rule rule block w-full origin-left md:w-[28vw]" />
       </div>
 
-      <div className="grid grid-cols-1 gap-x-[2vw] gap-y-[10svh] md:grid-cols-12 md:gap-y-[6svh]">
+      <div className="grid grid-cols-1 gap-x-[2vw] gap-y-[8svh] md:grid-cols-12 md:gap-y-[4svh]">
         {SLOTS.map((s) => {
           const product = s.slug ? getProduct(s.slug) : undefined;
           const world = product?.world ? WORLDS.find((w) => w.slug === product.world) : undefined;
