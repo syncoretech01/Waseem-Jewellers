@@ -21,7 +21,14 @@ export function heroReady(timeoutMs = 1500) {
   return Promise.race([heroPromise, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
 }
 
-export function fontsReady(timeoutMs = 1200) {
+export function fontsReady(timeoutMs = 900) {
   if (typeof document === 'undefined' || !('fonts' in document)) return Promise.resolve();
-  return Promise.race([document.fonts.ready.then(() => undefined), new Promise<void>((r) => setTimeout(r, timeoutMs))]);
+  // The ritual draws one face. Waiting on document.fonts.ready waits on every face the page will
+  // ever want — Nastaliq included — and holds the visitor in front of the wordmark for no gain.
+  const word = document.querySelector<HTMLElement>('.ritual-word');
+  const family = word ? getComputedStyle(word).fontFamily.split(',')[0]!.trim() : '';
+  const wanted = family
+    ? document.fonts.load(`600 96px ${family}`).then(() => undefined, () => undefined)
+    : document.fonts.ready.then(() => undefined);
+  return Promise.race([wanted, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
 }
