@@ -68,6 +68,16 @@ const config = [
               message:
                 'The merged catalogue is a megabyte and belongs to the server. In the browser use @/data/clientIndex, which is fetched on demand; on the server reach it through @/data/repository.',
             },
+            /**
+             * The second of three layers keeping the API key out of the browser. The first is
+             * `import 'server-only'` in every `src/server` module; the third is
+             * `scripts/dev/secret-scan.mjs`, which greps the built client chunks for the key's
+             * actual value before `npm run check` passes.
+             */
+            {
+              group: ['@/server/*', '@/server/**'],
+              message: 'Server modules hold the API key. The browser reaches them through /api routes, never by importing them.',
+            },
           ],
         },
       ],

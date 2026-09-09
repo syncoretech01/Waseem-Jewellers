@@ -273,7 +273,15 @@ class SnapshotRepository implements CatalogueRepository {
 
   async rows(department?: Department) {
     const from = department ? this.inDepartment(department) : LISTABLE_PRODUCTS;
-    return from.map(rowOf);
+    /**
+     * Featured order, not file order.
+     *
+     * The browser's index inherits whatever sequence this returns, and everything downstream
+     * of it — the concierge's four results, the ledger, the story — reads the head of that
+     * sequence. Unordered, "show me a gold ring" answered with children's rings, because they
+     * happened to come first in the catalogue.
+     */
+    return order(from, 'featured').map(rowOf);
   }
 
   async wallCuts(perCut = 10) {

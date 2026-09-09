@@ -12,7 +12,7 @@
     "start": "next start -p 3300",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run copy:check && npm run nlu:check && npm run build",
+    "check": "npm run typecheck && npm run lint && npm run copy:check && npm run nlu:check && npm run build && npm run secret:scan",
     "assets:images": "node scripts/assets/localize.mjs",
     "assets:videos": "node scripts/assets/encode-videos.mjs",
     "assets": "npm run assets:videos && npm run assets:images",
@@ -32,7 +32,8 @@
     "catalogue:verify": "node scripts/catalogue/verify-migration.mjs",
     "catalogue:build": "npm run catalogue:parse && npm run catalogue:classify && npm run catalogue:media && npm run catalogue:emit",
     "catalogue": "npm run catalogue:fetch && npm run catalogue:build && npm run catalogue:verify && npm run catalogue:audit",
-    "nlu:check": "node scripts/dev/nlu-check.mjs"
+    "nlu:check": "node scripts/dev/nlu-check.mjs",
+    "secret:scan": "node scripts/dev/secret-scan.mjs"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
@@ -45,6 +46,7 @@
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "three": "0.185.1",
     "zustand": "5.0.15"
   },
