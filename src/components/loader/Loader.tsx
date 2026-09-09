@@ -1,21 +1,33 @@
 'use client';
 
-import { useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { gsap, ScrollTrigger, SplitText } from '@/lib/motion/gsap';
+import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
 import { useSiteStore } from '@/state/siteStore';
 import { startScroll, stopScroll } from '@/state/runtime';
-import { LoaderStone } from './LoaderStone';
+import { WaseemLockup } from '@/components/brand/WaseemLockup';
 import { fontsReady, heroReady } from './readiness';
-import { useQualityStore } from '@/state/qualityStore';
 
-type GemComponent = ComponentType<{ progress: () => number; exiting: () => boolean; onFirstFrame?: () => void }>;
 const DEV = process.env.NODE_ENV === 'development';
+
+/** Sets a path up to be drawn and returns its length, or 0 if it cannot be measured. */
+function prepareDraw(path: SVGPathElement | null) {
+  if (!path || typeof path.getTotalLength !== 'function') return 0;
+  const len = path.getTotalLength();
+  if (!len) return 0;
+  gsap.set(path, { strokeDasharray: len, strokeDashoffset: len, opacity: 1 });
+  return len;
+}
 
 /**
  * The loading ritual (CH00). Server-rendered so the first paint is already ink; runs once per
- * document load. Home: hairline, wordmark, SINCE 1952 and the stone filling with light, then the
- * hand-off to the hero. Any other route: a 0.6 s lift. Returning visitors get the short path.
+ * document load.
+ *
+ * Home: Waseem's own mark engraves itself — the crest's silhouette draws, then the WJW
+ * ligature, then the wordmark rises, then a band of light travels through the gold. Any
+ * other route: a 0.6 s lift. Returning visitors get the short path.
+ *
+ * The mark is drawn, not a stone: see BRAND.md.
  */
 export function Loader() {
   const pathname = usePathname();
@@ -23,38 +35,6 @@ export function Loader() {
   const root = useRef<HTMLDivElement>(null);
   const setLoaderDone = useSiteStore((s) => s.setLoaderDone);
   const isHome = pathname === '/';
-  const progressRef = useRef(0);
-  const exitingRef = useRef(false);
-  const [Gem, setGem] = useState<GemComponent | null>(null);
-  const [gemShown, setGemShown] = useState(false);
-  const tier = useQualityStore((s) => s.tier);
-  const webgl = useQualityStore((s) => s.webgl);
-  const detected = useQualityStore((s) => s.detected);
-
-  // Progressive enhancement: the stone's chunk is requested the moment the ritual mounts
-  // (400 ms in production; development compiles on demand and gets longer). It joins only on
-  // the high tier with WebGL, and only while the facets are still filling.
-  const chunk = useRef<Promise<GemComponent | null> | null>(null);
-  useEffect(() => {
-    if (!isHome || chunk.current || document.documentElement.hasAttribute('data-rm')) return;
-    const started = performance.now();
-    chunk.current = Promise.race([import('./LoaderGem').then((m) => m.LoaderGem), new Promise<null>((r) => setTimeout(() => r(null), DEV ? 2500 : 400))]).then((mod) => {
-      if (DEV) console.info(`[loader] stone chunk ${mod ? 'arrived' : 'late'} after ${Math.round(performance.now() - started)} ms (t=${Math.round(performance.now())})`);
-      return mod;
-    });
-  }, [isHome]);
-  useEffect(() => {
-    if (!isHome || !detected || !webgl || tier !== 'HIGH' || !chunk.current) return;
-    let cancelled = false;
-    void chunk.current.then((mod) => {
-      const joins = !cancelled && !!mod && progressRef.current < (DEV ? 0.97 : 0.75);
-      if (DEV) console.info(`[loader] stone ${joins ? 'joins' : 'skipped'} at t=${Math.round(performance.now())} (progress ${progressRef.current.toFixed(2)}, tier ${tier})`);
-      if (joins && mod) setGem(() => mod);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isHome, detected, webgl, tier]);
 
   useEffect(() => {
     const el = root.current;
@@ -72,7 +52,6 @@ export function Loader() {
 
     const finish = (exitDuration: number) => {
       if (cancelled) return;
-      exitingRef.current = true;
       setLoaderDone(true);
       const tl = gsap.timeline({
         onComplete: () => {
@@ -83,7 +62,7 @@ export function Loader() {
         },
       });
       if (isHome && !reduced) {
-        tl.to(el.querySelector('.ritual-stone'), { scale: 1.16, filter: 'brightness(1.5)', duration: 0.9, ease: 'power2.in' }, 0)
+        tl.to(el.querySelector('.ritual-mark'), { scale: 1.06, duration: 0.9, ease: 'power2.in' }, 0)
           .to(el.querySelectorAll('.ritual-fade'), { opacity: 0, duration: 0.35, ease: 'none' }, 0.15)
           .to(el, { opacity: 0, duration: exitDuration, ease: 'power2.inOut' }, exitDuration * 0.55);
       } else {
@@ -97,6 +76,8 @@ export function Loader() {
         return;
       }
       if (reduced) {
+        // No drawing at all: the finished mark, plainly. Never call getTotalLength here —
+        // the dasharray setup is skipped entirely rather than tweened to completion.
         void Promise.all([fontsReady(), heroReady(), new Promise((r) => setTimeout(r, 400))]).then(() => finish(0.3));
         return;
       }
@@ -119,36 +100,68 @@ export function Loader() {
       el.dataset.built = '1';
       const minTime = returning ? 0.45 : 1.4;
       if (DEV) console.info(`[loader] ritual starts at t=${Math.round(performance.now())} (${returning ? 'returning' : 'first visit'})`);
-      const stone = el.querySelector<HTMLElement>('.ritual-stone');
-      const hairline = el.querySelector<HTMLElement>('.ritual-hairline');
-      const light = el.querySelector<HTMLElement>('.ritual-light');
-      const since = el.querySelector<HTMLElement>('.ritual-since');
-      const word = el.querySelector<HTMLElement>('.ritual-word');
-      const progress = { v: 0 };
-      const setReveal = gsap.quickSetter(stone!, '--reveal');
-      const write = () => {
-        if (cancelled) return;
-        setReveal(progress.v);
-        progressRef.current = progress.v;
-      };
+
+      const q = <T extends Element>(sel: string) => el!.querySelector<T>(sel);
+      const crestDraw = q<SVGPathElement>('[data-mark="crest-draw"]');
+      const monoDraw = q<SVGPathElement>('[data-mark="monogram-draw"]');
+      const crestFill = q<SVGPathElement>('[data-mark="crest-fill"]');
+      const monoFill = q<SVGPathElement>('[data-mark="monogram-fill"]');
+      const words = el.querySelectorAll<SVGGElement>('[data-mark="word-1"], [data-mark="word-2"]');
+      const specular = el.querySelectorAll<SVGElement>('[data-mark="specular"]');
+      const speculars = el.querySelectorAll<SVGPathElement>('[data-mark$="-specular"]');
+      const hairline = q<HTMLElement>('.ritual-hairline');
+      const since = q<HTMLElement>('.ritual-since');
+
+      const crestLen = prepareDraw(crestDraw);
+      const monoLen = prepareDraw(monoDraw);
+      // only the drawn parts start hidden; the word lines are revealed by their group
+      gsap.set([crestFill, monoFill].filter(Boolean), { opacity: 0 });
+      gsap.set(speculars, { opacity: 0 });
+      gsap.set(words, { opacity: 0, yPercent: 26 });
 
       const tl = gsap.timeline();
-      tl.fromTo(hairline, { scaleX: 0 }, { scaleX: 1, duration: returning ? 0.5 : 0.9, ease: 'wj.out' }, 0)
-        .fromTo(light, { xPercent: -100, opacity: 0 }, { xPercent: 100, opacity: 1, duration: returning ? 0.6 : 1.1, ease: 'power2.inOut' }, 0.05)
-        .fromTo(since, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.6, ease: 'wj.out' }, returning ? 0.3 : 0.7)
-        .to(progress, { v: 1, duration: minTime, ease: 'power1.inOut', onUpdate: write }, 0);
+      const drawFor = returning ? 0.55 : 0.9;
 
-      if (word) {
-        SplitText.create(word, {
-          type: 'chars',
-          mask: 'chars',
-          onSplit: (self) => gsap.from(self.chars, { yPercent: 110, duration: 0.9, stagger: 0.035, ease: 'wj.out', delay: 0.15 }),
-        });
+      // 1 — the crest engraves itself, the way it would be drawn by hand
+      if (crestLen) {
+        tl.to(crestDraw, { strokeDashoffset: 0, duration: drawFor, ease: 'power1.inOut' }, 0)
+          .to(crestFill, { opacity: 1, duration: 0.4, ease: 'none' }, drawFor * 0.72)
+          .to(crestDraw, { opacity: 0, duration: 0.35, ease: 'none' }, drawFor * 0.82);
+      } else {
+        tl.to(crestFill, { opacity: 1, duration: 0.5 }, 0);
       }
+
+      // 2 — the ligature follows
+      if (monoLen) {
+        tl.to(monoDraw, { strokeDashoffset: 0, duration: drawFor * 0.9, ease: 'power1.inOut' }, drawFor * 0.55)
+          .to(monoFill, { opacity: 1, duration: 0.4, ease: 'none' }, drawFor * 1.2)
+          .to(monoDraw, { opacity: 0, duration: 0.35, ease: 'none' }, drawFor * 1.3);
+      } else {
+        tl.to(monoFill, { opacity: 1, duration: 0.5 }, drawFor * 0.55);
+      }
+
+      // 3 — the two lines of the wordmark rise (SplitText cannot split path letters)
+      tl.to(words, { opacity: 1, yPercent: 0, duration: 0.7, stagger: 0.09, ease: 'wj.out' }, drawFor * 1.25);
+
+      // 4 — light travels through the metal rather than beside it
+      if (specular.length) {
+        tl.to(speculars, { opacity: 1, duration: 0.3 }, drawFor * 1.5)
+          .fromTo(
+            specular,
+            { attr: { gradientTransform: 'translate(-1.15 0)' } },
+            { attr: { gradientTransform: 'translate(1.15 0)' }, duration: 1.15, ease: 'power2.inOut' },
+            drawFor * 1.5,
+          )
+          .to(speculars, { opacity: 0, duration: 0.3 }, drawFor * 1.5 + 1.0);
+      }
+
+      // 5 — the house's own line, beneath
+      tl.fromTo(hairline, { scaleX: 0 }, { scaleX: 1, duration: returning ? 0.5 : 0.9, ease: 'wj.out' }, drawFor * 0.6)
+        .fromTo(since, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.6, ease: 'wj.out' }, returning ? 0.6 : 1.2);
 
       void Promise.all([fontsReady(), heroReady(), new Promise((r) => setTimeout(r, minTime * 1000 + 120))]).then(() => {
         if (cancelled) return;
-        gsap.to(progress, { v: 1, duration: 0.15, ease: 'none', onUpdate: write, onComplete: () => finish(returning ? 0.45 : 0.7) });
+        finish(returning ? 0.45 : 0.7);
       });
     }
 
@@ -171,19 +184,12 @@ export function Loader() {
     >
       {isHome ? (
         <>
-          <div className="ritual-stone ritual-fade relative h-[min(34vw,30svh)] w-[min(34vw,30svh)]" style={{ ['--reveal' as string]: 0 }} data-gem={gemShown ? '1' : '0'}>
-            <LoaderStone id="ritual" />
-            {Gem && (
-              <div className="absolute -inset-[6%]">
-                <Gem progress={() => progressRef.current} exiting={() => exitingRef.current} onFirstFrame={() => setGemShown(true)} />
-              </div>
-            )}
+          <div className="ritual-mark ritual-fade w-[min(78vw,760px)]">
+            <WaseemLockup animatable title={null} className="w-full" />
           </div>
-          <div className="ritual-fade mt-[6svh] flex flex-col items-center gap-4">
-            <p className="ritual-word display text-[clamp(2.5rem,11vw,10rem)] leading-none tracking-[0.12em]">WASEEM</p>
-            <div className="relative h-px w-[min(56vw,420px)] overflow-visible">
+          <div className="ritual-fade mt-[5svh] flex flex-col items-center gap-4">
+            <div className="relative h-px w-[min(44vw,340px)]">
               <span className="ritual-hairline hairline absolute inset-0 origin-center" />
-              <span className="ritual-light absolute -top-px h-[3px] w-24 bg-gradient-to-r from-transparent via-gold-hi to-transparent opacity-0" />
             </div>
             <p className="ritual-since micro text-champagne opacity-0">Since 1952</p>
           </div>

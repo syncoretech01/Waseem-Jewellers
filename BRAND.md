@@ -68,8 +68,10 @@ every variant shares one geometry and no float reaches the bundle.
   the crest never falls below ~416 nodes while IoU stays flat at ~0.973. The knotwork
   genuinely has that many segments. svgo then halves it losslessly (2231 → 1022 total).
 - **The mark is one filled shape with holes**, not a set of strokable lines. That decides
-  how it animates: a stroked twin of the silhouette draws it, and light travels through
-  the gradient — sub-groups are not separately fillable without destroying the counters.
+  how it animates: the same geometry is stroked with `fill="none"` so every contour draws
+  itself — the interior linework is what makes it read as engraving rather than a traced
+  silhouette — and light travels through the gradient. Sub-groups are not separately
+  fillable without destroying the counters.
 
 ## Fidelity
 
@@ -136,7 +138,25 @@ only the full lockup needs — this keeps them out of every chunk that only show
 `tone`: `gold` (the sampled sweep) · `current` (inherits `currentColor`, so the mark follows
 a chapter's theme) · `ink` · `ivory`. `title` names the mark for assistive technology;
 `null` marks it decorative. `animatable` inlines addressable `data-mark` groups plus a
-stroked twin of each silhouette and a travelling specular band.
+stroked twin of the linework and a travelling specular band; `drawWeight` (default 12,
+matching the artwork's own stroke) sets the engraved line's weight.
+
+The draw and specular layers ship at `opacity: 0`, so the static mark is correct on its own
+— under reduced motion no timeline ever runs.
+
+Only the crest and the ligature engrave. A word band is set type, not linework: its largest
+contour is just its widest letter, so drawing it would trace a stray W. The wordmark rises
+instead.
+
+### The loading ritual
+
+Waseem's mark is server-rendered, but the timeline that draws it cannot run until React has
+hydrated. Showing the finished mark and then resetting it to draw reads as a fault, so the
+waiting state — set in `globals.css` on `#loader:not([data-built])` — is the **engraved
+outline**: the brand is present from the first paint and the ritual completes it. The crest
+fills, the ligature follows, the two lines of type rise, and a band of light travels through
+the gold. Under reduced motion the finished mark simply fades in and `getTotalLength()` is
+never called.
 
 ### Where it appears
 

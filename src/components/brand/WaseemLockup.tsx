@@ -11,6 +11,8 @@ export interface WaseemLockupProps {
   title?: string | null;
   /** Inline addressable groups for the loading ritual: crest, ligature, two word lines. */
   animatable?: boolean;
+  /** Weight of the engraved line, in mark units. 12 matches the artwork's own strokes. */
+  drawWeight?: number;
   /** Drop the crest and ligature and set only the two lines of type. */
   wordmarkOnly?: boolean;
   className?: string;
@@ -23,7 +25,7 @@ export interface WaseemLockupProps {
  * only this variant needs — keeping them here keeps them out of every chunk that
  * only shows the mark.
  */
-export function WaseemLockup({ tone = 'gold', title = 'Waseem Jewellers', animatable = false, wordmarkOnly = false, className }: WaseemLockupProps) {
+export function WaseemLockup({ tone = 'gold', title = 'Waseem Jewellers', animatable = false, drawWeight = 12, wordmarkOnly = false, className }: WaseemLockupProps) {
   const uid = useId().replace(/:/g, '');
   const goldId = `wjlg-${uid}`;
   const specId = `wjls-${uid}`;
@@ -65,17 +67,25 @@ export function WaseemLockup({ tone = 'gold', title = 'Waseem Jewellers', animat
         </defs>
       )}
 
-      {parts.map(([id, part]) => (
-        <g key={id} transform={`translate(${part.offset.x} ${part.offset.y})`} data-mark={id}>
-          <path d={part.fill} fill={fill} fillRule="evenodd" data-mark={`${id}-fill`} />
-          {animatable && (
-            <>
-              <path d={part.outline} fill="none" stroke={fill} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" data-mark={`${id}-draw`} />
-              {tone === 'gold' && <path d={part.fill} fill={`url(#${specId})`} fillRule="evenodd" data-mark={`${id}-specular`} />}
-            </>
-          )}
-        </g>
-      ))}
+      {parts.map(([id, part]) => {
+        // Only the crest and the ligature are engraved. Every contour is stroked, not just
+        // the silhouette — the interior linework is what makes it read as engraving. A word
+        // band is set type, not linework, so it rises rather than drawing itself.
+        const drawable = id === 'crest' || id === 'monogram';
+        return (
+          <g key={id} transform={`translate(${part.offset.x} ${part.offset.y})`} data-mark={id}>
+            <path d={part.fill} fill={fill} fillRule="evenodd" data-mark={`${id}-fill`} />
+            {animatable && (
+              <>
+                {drawable && (
+                  <path d={part.fill} fill="none" stroke={fill} strokeWidth={drawWeight} strokeLinecap="round" strokeLinejoin="round" opacity={0} data-mark={`${id}-draw`} />
+                )}
+                {tone === 'gold' && <path d={part.fill} fill={`url(#${specId})`} fillRule="evenodd" opacity={0} data-mark={`${id}-specular`} />}
+              </>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }

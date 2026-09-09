@@ -498,3 +498,37 @@ html[data-rm="1"] .bespoke-stack {
 html[data-rm="1"] [data-rail-inset] {
   transition: none;
 }
+
+/* The ritual before hydration.
+   The mark is server-rendered, but the timeline that draws it cannot run until React has
+   hydrated. Showing the finished mark and then resetting it to draw reads as a fault, so
+   the waiting state is the engraved outline — the brand is present from the first paint
+   and the ritual completes it. GSAP's inline styles take over once [data-built] is set.
+   Under reduced motion no timeline ever runs, so the finished mark stands. */
+#loader:not([data-built]) [data-mark$="-fill"] {
+  opacity: 0;
+}
+
+#loader:not([data-built]) [data-mark$="-draw"] {
+  opacity: 1;
+}
+
+/* the type waits with them: the ritual raises it */
+#loader:not([data-built]) [data-mark="word-1"],
+#loader:not([data-built]) [data-mark="word-2"] {
+  opacity: 0;
+}
+
+html[data-rm="1"] #loader [data-mark="word-1"],
+html[data-rm="1"] #loader [data-mark="word-2"] {
+  opacity: 1;
+}
+
+html[data-rm="1"] #loader [data-mark$="-fill"] {
+  opacity: 1;
+}
+
+html[data-rm="1"] #loader [data-mark$="-draw"],
+html[data-rm="1"] #loader [data-mark$="-specular"] {
+  opacity: 0;
+}

@@ -17,6 +17,8 @@ export interface WaseemMarkProps {
    * Adds `data-mark` to every part and a stroked twin of each silhouette.
    */
   animatable?: boolean;
+  /** Weight of the engraved line, in mark units. 12 matches the artwork's own strokes. */
+  drawWeight?: number;
   className?: string;
 }
 
@@ -35,7 +37,7 @@ const PART = {
  * wanted too — it lives in its own module so the letterforms stay out of chunks
  * that only show the mark.
  */
-export function WaseemMark({ variant = 'crest-monogram', tone = 'gold', title = null, animatable = false, className }: WaseemMarkProps) {
+export function WaseemMark({ variant = 'crest-monogram', tone = 'gold', title = null, animatable = false, drawWeight = 12, className }: WaseemMarkProps) {
   const uid = useId().replace(/:/g, '');
   const goldId = `wjg-${uid}`;
   const specId = `wjs-${uid}`;
@@ -81,9 +83,11 @@ export function WaseemMark({ variant = 'crest-monogram', tone = 'gold', title = 
             <path d={part.fill} fill={fill} fillRule="evenodd" data-mark={`${id}-fill`} />
             {animatable && (
               <>
-                {/* the stroked twin the ritual draws before the fill arrives */}
-                <path d={part.outline} fill="none" stroke={fill} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" data-mark={`${id}-draw`} />
-                {tone === 'gold' && <path d={part.fill} fill={`url(#${specId})`} fillRule="evenodd" data-mark={`${id}-specular`} />}
+                {/* The stroked twin the ritual draws before the fill arrives, and the band of
+                    light that travels through the metal. Both start hidden so the static mark is
+                    correct on its own — under reduced motion no timeline ever runs. */}
+                <path d={part.fill} fill="none" stroke={fill} strokeWidth={drawWeight} strokeLinecap="round" strokeLinejoin="round" opacity={0} data-mark={`${id}-draw`} />
+                {tone === 'gold' && <path d={part.fill} fill={`url(#${specId})`} fillRule="evenodd" opacity={0} data-mark={`${id}-specular`} />}
               </>
             )}
           </g>

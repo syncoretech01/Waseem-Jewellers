@@ -1,6 +1,6 @@
 'use client';
 
-import { facetOrder, facetPath, GEM_OUTLINE, GEM_FACETS } from '@/lib/three/gemGeometry';
+import { facetOrder, facetPath, linePath, GEM_OUTLINE, GEM_STEPS, GEM_RADIALS } from '@/lib/three/gemGeometry';
 import { cn } from '@/lib/cn';
 
 interface LoaderStoneProps {
@@ -61,9 +61,13 @@ export function LoaderStone({ className, reveal, outlineOnly = false, id = 'ston
           ))}
         </g>
       )}
-      <g className="stone-lines" fill="none" stroke="#e4cfa3" strokeWidth="0.45" strokeLinejoin="round" strokeOpacity={outlineOnly ? 0.9 : 0.42}>
-        {GEM_FACETS.map((f) => (
-          <path key={f.id} d={facetPath(f.points)} className="stone-facet" />
+      <g className="stone-lines" fill="none" stroke="#e4cfa3" strokeLinejoin="round">
+        {/* the radials are the join between steps, not eight spokes: they stay faint */}
+        {GEM_RADIALS.map((pts, i) => (
+          <path key={`r${i}`} d={linePath(pts)} strokeWidth="0.32" strokeOpacity={outlineOnly ? 0.22 : 0.14} className="stone-facet" />
+        ))}
+        {GEM_STEPS.map((pts, i) => (
+          <path key={`s${i}`} d={facetPath(pts)} strokeWidth="0.45" strokeOpacity={outlineOnly ? 0.72 : 0.4} className="stone-facet" />
         ))}
         <path d={facetPath(GEM_OUTLINE)} strokeWidth="0.7" strokeOpacity={outlineOnly ? 1 : 0.7} className="stone-outline" />
       </g>

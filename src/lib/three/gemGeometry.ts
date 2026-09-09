@@ -55,6 +55,31 @@ export const GEM_FACETS: GemFacet[] = buildFacets();
 export const GEM_OUTLINE: [number, number][] = octagon(RINGS[0]!.inset, RINGS[0]!.cut);
 export const GEM_RING_COUNT = RINGS.length;
 
+/**
+ * The step lines, separated from the radial edges.
+ *
+ * A step cut's visible lines are the concentric ones. Stroking every facet quad on all
+ * four sides double-draws each ring boundary and turns the radial edges into eight
+ * spokes, which reads as a web rather than a stone — so the two are drawn apart, the
+ * steps firmly and the radials faintly.
+ */
+export const GEM_STEPS: [number, number][][] = RINGS.map((r) => octagon(r.inset, r.cut));
+
+export const GEM_RADIALS: [number, number][][] = (() => {
+  const out: [number, number][][] = [];
+  for (let r = 0; r < RINGS.length - 1; r++) {
+    const outer = octagon(RINGS[r]!.inset, RINGS[r]!.cut);
+    const inner = octagon(RINGS[r + 1]!.inset, RINGS[r + 1]!.cut);
+    for (let i = 0; i < 8; i++) out.push([outer[i]!, inner[i]!]);
+  }
+  return out;
+})();
+
+/** An open polyline, for the radial connectors (facetPath closes its subject). */
+export function linePath(points: [number, number][]) {
+  return points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+}
+
 export function facetPath(points: [number, number][]) {
   return points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ') + ' Z';
 }
