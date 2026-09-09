@@ -21,7 +21,10 @@
     "brand:build": "node scripts/brand/extract.mjs && node scripts/brand/assemble.mjs && node scripts/brand/icons.mjs",
     "brand:check": "node scripts/brand/verify.mjs",
     "brand": "npm run brand:build && npm run brand:check",
-    "copy:check": "node scripts/dev/copy-guard.mjs"
+    "copy:check": "node scripts/dev/copy-guard.mjs",
+    "catalogue:fetch": "node scripts/catalogue/fetch.mjs",
+    "catalogue:parse": "node scripts/catalogue/parse.mjs",
+    "catalogue:classify": "node scripts/catalogue/classify.mjs"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
