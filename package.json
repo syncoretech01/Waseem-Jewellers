@@ -15,7 +15,12 @@
     "check": "npm run typecheck && npm run lint && npm run build",
     "assets:images": "node scripts/assets/localize.mjs",
     "assets:videos": "node scripts/assets/encode-videos.mjs",
-    "assets": "npm run assets:videos && npm run assets:images"
+    "assets": "npm run assets:videos && npm run assets:images",
+    "brand:extract": "node scripts/brand/extract.mjs",
+    "brand:trace": "node scripts/brand/trace.mjs",
+    "brand:build": "node scripts/brand/extract.mjs && node scripts/brand/assemble.mjs && node scripts/brand/icons.mjs",
+    "brand:check": "node scripts/brand/verify.mjs",
+    "brand": "npm run brand:build && npm run brand:check"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
@@ -40,7 +45,9 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.4",
     "playwright": "^1.52.0",
+    "potrace": "^2.1.8",
     "sharp": "0.35.4",
+    "svgo": "^4.1.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
   }

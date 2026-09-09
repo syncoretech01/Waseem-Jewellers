@@ -7,7 +7,7 @@ import { useSiteStore } from '@/state/siteStore';
 import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { requestConcierge } from '@/concierge/bridge';
 import { TransitionLink } from '@/components/motion/TransitionLink';
-import { Monogram } from './Monogram';
+import { WaseemMark } from '@/components/brand/WaseemMark';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
@@ -55,7 +55,7 @@ export function Nav() {
         <AnimatePresence mode="wait" initial={false}>
           {showMonogram ? (
             <motion.span key="mono" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.4, ease: EASE.out }} className="inline-flex">
-              <Monogram className="h-5 w-auto" />
+              <WaseemMark variant="crest" tone="current" className="h-6 w-auto" />
             </motion.span>
           ) : (
             <motion.span

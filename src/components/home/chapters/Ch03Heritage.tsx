@@ -4,7 +4,8 @@ import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useQualityStore } from '@/state/qualityStore';
 import { Img } from '@/components/media/Img';
-import { Monogram } from '@/components/chrome/Monogram';
+import { WaseemMark } from '@/components/brand/WaseemMark';
+import { WaseemLockup } from '@/components/brand/WaseemLockup';
 import { HERITAGE } from '@/data/heritage';
 import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
@@ -124,7 +125,7 @@ export function Ch03Heritage() {
       {/* the horizontal track */}
       <div className="heritage-wrap relative bg-ivory md:h-svh md:overflow-hidden">
         <div className="pointer-events-none absolute right-[6vw] top-1/2 hidden w-[38vw] -translate-y-1/2 opacity-[0.06] md:block">
-          <Monogram className="w-full" />
+          <WaseemMark variant="crest" tone="ink" className="w-full" />
         </div>
         <div className="heritage-track flex w-full flex-col items-start gap-[14svh] px-gutter py-[12svh] md:h-full md:w-max md:flex-row md:items-center md:gap-[5vw] md:px-[6vw] md:py-0">
           <div className="heritage-travel pointer-events-none absolute left-[8vw] top-[10svh] hidden md:block">
@@ -160,7 +161,7 @@ export function Ch03Heritage() {
           ))}
           {/* seal */}
           <div className="heritage-panel relative flex w-full shrink-0 flex-col items-center justify-center gap-6 py-[6svh] text-center md:h-full md:w-[26vw] md:py-0">
-            <Monogram className="h-24 w-auto" />
+            <WaseemLockup tone="ink" className="h-28 w-auto" />
             <p className="h-line micro text-ink/70">The House of Waseem · Since 1952</p>
             <p className="h-line display text-[clamp(1.5rem,2.2vw,2.4rem)] text-ink">{COPY.heritage.closing}</p>
           </div>

@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { Button } from '@/components/ui/Button';
-import { Monogram } from './Monogram';
+import { WaseemMark } from '@/components/brand/WaseemMark';
 import { useSiteStore } from '@/state/siteStore';
 import { runtime, scrollTo } from '@/state/runtime';
 import { sectionElement } from '@/state/sections';
@@ -72,7 +72,7 @@ export function Footer() {
       <div className="flex flex-col items-start gap-4">
         <p className="display text-[clamp(2.75rem,9.5vw,12rem)] leading-[0.9] text-ivory">{COPY.footer.mark}</p>
         <div className="flex items-center gap-5">
-          <Monogram className="h-8 w-auto" />
+          <WaseemMark variant="crest" className="h-8 w-auto" />
           <span className="micro text-champagne">{COPY.footer.since}</span>
         </div>
       </div>

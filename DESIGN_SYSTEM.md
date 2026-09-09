@@ -287,9 +287,22 @@ Also asset-map bound (`getVideo(id)`). Always `muted`, `playsInline`, `loop`, po
 
 Video sits under film: the hero, bridal and duality chapters lay a `grain` plane over the frame (the hero adds its own radial `.hero-vignette`), and the collection opening, the menu overlay's item preview and the collection interlude put the video inside a `grain` / `grain vignette` box.
 
-### `Monogram` — `src/components/chrome/Monogram.tsx`
+### `WaseemMark` / `WaseemLockup` — `src/components/brand/`
 
-The WJW mark as an inline `<img>` from `/assets/waseem/brand/monogram.png` (gold on transparent), sized by the caller's `className`. `gold={false}` applies `brightness-0 invert` for a flat white silhouette; nothing passes it in Stage 1.
+Waseem's own mark as inline SVG, generated from the brand master by `scripts/brand` and
+gated by `npm run brand:check`. `WaseemMark` covers `crest`, `monogram` and
+`crest-monogram`; `WaseemLockup` adds the two-line wordmark and lives in a separate module
+so ~10 kB of letterform paths stay out of chunks that only show the mark.
+
+`tone`: `gold` (a horizontal metallic sweep sampled from the artwork), `current`
+(inherits `currentColor`, so the mark follows a chapter's theme), `ink`, `ivory`.
+`title` names it for assistive technology; `null` marks it decorative. `animatable`
+inlines addressable `data-mark` groups, a stroked twin of each silhouette for
+draw-on, and a travelling specular band.
+
+Always drawn with `fill-rule="evenodd"` — without it the counters fill in. Never put a
+Tailwind `translate-*` or `scale-*` class on a `[data-mark]` element. See **BRAND.md**
+for the pipeline, the fidelity gates and the sign-off record.
 
 ---
 
