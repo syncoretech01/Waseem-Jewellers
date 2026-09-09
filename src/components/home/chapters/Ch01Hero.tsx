@@ -174,7 +174,7 @@ export function Ch01Hero() {
       <div className="media-scale absolute inset-0 origin-center overflow-hidden will-change-transform">
         <div className="media-parallax absolute -inset-[2%]">
           <Img id="still-royal-13" sizes="100vw" priority alt="" className="object-cover" onLoad={heroPainted} />
-          <Video id="hero-royal" ref={video} onFirstFrame={heroPainted} preload="auto" revealAfter={0.55} showStill={false} ariaLabel="Royal Wedding — the house film" />
+          <Video id="hero-royal" ref={video} onFirstFrame={heroPainted} preload="auto" revealAfter={0.55} showStill={false} ariaLabel="Royal Wedding — the Waseem film" />
         </div>
         <div className="hero-vignette pointer-events-none absolute inset-0 opacity-45" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 via-transparent to-ink/30" />

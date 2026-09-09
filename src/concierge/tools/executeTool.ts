@@ -90,7 +90,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       const href = world ? world.href : COLLECTION_ROUTE;
       const onRoute = ctx.route.startsWith(COLLECTION_ROUTE);
       const q = queryOf(ctx.route);
-      // the Bridal House means the story: an edit or a filter still on the URL has to be left behind
+      // bridal means the story: an edit or a filter still on the URL has to be left behind
       if (onRoute && !world && !q.get('edit') && !q.get('material')) {
         const el = sectionElement('pieces');
         if (el) scrollTo(el, { offset: -24, duration: 1.6 });
@@ -99,7 +99,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       const card: CollectionCard = world
         ? { slug: world.slug, name: world.name, image: getImage(world.imagery.hero).src, href: world.href, ordinal: WORLDS.indexOf(world) + 1 }
-        : { slug: 'bridal', name: 'The Bridal House', image: getImage(getCollection('bridal')?.opening.still ?? 'p03-hero').src, href: COLLECTION_ROUTE, ordinal: 0 };
+        : { slug: 'bridal', name: 'Bridal', image: getImage(getCollection('bridal')?.opening.still ?? 'p03-hero').src, href: COLLECTION_ROUTE, ordinal: 0 };
       return {
         result: { ok: true, collection: slug, href },
         runningLabel: world ? CONCIERGE.labels.opening(world.name) : CONCIERGE.labels.bridal,
@@ -266,7 +266,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       const path = str(args.path) ?? '/';
       const ok = path === '/' || /^\/collections\/[a-z0-9-]+(\?.*)?$/.test(path) || /^\/jewellery\/[a-z0-9-]+$/.test(path);
       if (!ok) return { result: { error: 'invalid path' }, label: '' };
-      const label = path === '/' ? 'The House' : path.startsWith('/collections') ? 'The Bridal House' : (getProduct(path.split('/')[2] ?? '')?.editorialTitle ?? 'the piece');
+      const label = path === '/' ? 'Waseem Jewellers' : path.startsWith('/collections') ? 'Bridal' : (getProduct(path.split('/')[2] ?? '')?.editorialTitle ?? 'the piece');
       await navigate(path);
       return { result: { ok: true, path }, runningLabel: CONCIERGE.labels.navigating(label), label, navigateTo: path, ui: { kind: 'navigation', label, href: path }, compact: true };
     }

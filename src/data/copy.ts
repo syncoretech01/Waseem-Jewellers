@@ -1,8 +1,11 @@
-/** Consumer-facing copy for the homepage chapters. House register: no exclamation marks, no superlatives. */
+/**
+ * Consumer-facing copy for the homepage chapters. Register: no exclamation marks, no
+ * superlatives — and "House" is not Waseem's name for itself. Say Waseem, Waseem Jewellers,
+ * our jewellers, our team, a Waseem consultant. See BRAND.md.
+ */
 export const COPY = {
   hero: {
-    eyebrow: 'The House of Waseem',
-    title: 'The House of Waseem',
+    eyebrow: 'Waseem Jewellers · Lahore · Since 1952',
     collection: 'Rukh-e-Jana',
     line: 'A celebration of heritage, devotion and eternal beauty.',
     cta: 'Discover the collection',
@@ -25,7 +28,7 @@ export const COPY = {
     closing: ['MADE', 'ONLY ONCE.'],
   },
   heritage: {
-    eyebrow: 'Our House',
+    eyebrow: 'Since 1952',
     closing: 'CRAFTED ACROSS GENERATIONS.',
   },
   collections: {
@@ -33,10 +36,10 @@ export const COPY = {
     cursor: 'Explore',
   },
   bridal: {
-    eyebrow: 'The Waseem Bridal House',
+    eyebrow: 'Bridal',
     opening: 'For the day that becomes forever',
     closing: ['FOR THE DAY', 'THAT BECOMES', 'FOREVER.'],
-    house: 'The Waseem Bridal House',
+    house: 'CRAFTED ACROSS GENERATIONS',
     ctaDiscover: 'Discover Bridal',
     ctaConsult: 'Private consultation',
   },
@@ -51,7 +54,7 @@ export const COPY = {
   },
   duality: {
     // the giant word names the material; every label around it names the edit it belongs to
-    heading: 'Two edits from the Bridal House',
+    heading: 'Gold and Diamond',
     gold: { word: 'Gold', title: 'The Gold Edit', line: 'The Gold Edit · Kundan, polki, pleated gold' },
     diamond: { word: 'Diamond', title: 'The Diamond Edit', line: 'The Diamond Edit · Pavé, cluster, uncut' },
     landing: {
@@ -60,7 +63,7 @@ export const COPY = {
     },
   },
   product: {
-    specsNote: 'The House publishes only what it has verified for this piece. Weight, purity and stone grading are confirmed at a private viewing.',
+    specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed at a private viewing.',
     priceNote: 'Priced on request · Private viewing available in Lahore',
   },
   bespoke: {
@@ -69,21 +72,21 @@ export const COPY = {
     cta: 'Begin your bespoke journey',
   },
   footer: {
-    invitation: 'The House receives by appointment.',
+    invitation: 'We receive by appointment.',
     cta: 'Private consultation',
-    mark: 'The House of Waseem',
+    mark: 'Waseem Jewellers',
     since: 'Since 1952',
-    correspondence: 'Occasional letters from the House.',
+    correspondence: 'Occasional letters from Waseem.',
     correspondenceSuccess: 'Thank you. The first letter will find you soon.',
     legal: '© 2026 Waseem Jewellers · Lahore',
   },
   consultation: {
     eyebrow: 'Private consultation',
-    title: 'Meet the House.',
+    title: 'Meet us in Lahore.',
     sub: 'Lahore · By appointment',
     success: {
       title: 'Your request has been received.',
-      line: 'A member of the House will be in touch to confirm your private consultation.',
+      line: 'A Waseem consultant will be in touch to confirm your private consultation.',
       whatsapp: 'Continue on WhatsApp',
       close: 'Close',
     },
@@ -94,6 +97,6 @@ export const COPY = {
     viewing: 'Arrange a private viewing for these pieces',
     concierge: 'Ask the concierge about these',
     remove: 'Remove',
-    discover: 'Discover the Bridal House',
+    discover: 'Discover Bridal',
   },
 } as const;

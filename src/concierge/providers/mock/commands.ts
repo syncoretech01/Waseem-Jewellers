@@ -105,7 +105,7 @@ function firstPieces(outcomes: ToolOutcome[]) {
 function searchReply(outcomes: ToolOutcome[], what: string) {
   const pieces = firstPieces(outcomes);
   if (pieces.length === 0) return CONCIERGE.nothing;
-  const houses = [...new Set(pieces.map((p) => p.collection).filter((c) => c && c !== 'The House'))];
+  const houses = [...new Set(pieces.map((p) => p.collection).filter(Boolean))];
   return CONCIERGE.searchResult(capitalise(countInWords(pieces.length)), what, houses);
 }
 
@@ -135,6 +135,7 @@ export const COMMANDS: Command[] = [
   { id: 'watches', test: (t) => /\b(watches|wrist ?watch|tag heuer|rado|tissot)\b/.test(t) || /\bwatch\b(?=\s*(salon|department|brands?|collection))/.test(t), plan: () => ({ id: 'watches', tools: [], reply: () => CONCIERGE.watches }) },
   {
     id: 'about_house',
+    // copy-guard-allow: matches what a visitor might say, not what we say
     test: (t) => (/\b(tell me about|about|who (are|is)|history|heritage|story|founder|founded|1952|generations?|the house)\b/.test(t) && /\b(waseem|house|you|yourself|jewellers|brand)\b/.test(t)) || /^(waseem|waseem jewellers)$/.test(t),
     plan: () => ({ id: 'about_house', tools: [{ name: 'scrollToSection', args: { section: 'heritage' } }], reply: () => CONCIERGE.house }),
   },

@@ -1,4 +1,4 @@
-# Photography — what the House has, and what it still needs
+# Photography — what Waseem has, and what it still needs
 
 Every image on this site is Waseem Jewellers' own. Nothing has been generated,
 retouched into something it is not, or borrowed. Where a photograph is below the
@@ -69,7 +69,7 @@ nothing. They are the benchmark the rest should be shot against.
 
 ## Also absent
 
-No archival photography from the House exists in any form. The heritage chapter
+No archival photography from Waseem exists in any form. The heritage chapter
 is built from the showroom facade, a gold vitrine, a kundan macro and campaign
 stills. A 1952-era photograph, a portrait of Chaudhry Muhammad Afzal, or an early
 workshop image would carry that chapter far better than anything framing can do.
@@ -80,4 +80,4 @@ workshop image would carry that chapter far better than anything framing can do.
   answers sit square; a macro takes the band its subject asks for; a studio
   cut-out is mounted on a plate with margin.
 - No image is enlarged past what its negative carries.
-- No specification is shown that the House has not verified for that piece.
+- No specification is shown that Waseem has not verified for that piece.

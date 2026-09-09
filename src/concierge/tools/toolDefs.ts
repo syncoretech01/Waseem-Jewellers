@@ -7,7 +7,7 @@ const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dew
 export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'searchProducts',
-    description: 'Find pieces in the house catalogue. Prefer this before opening a piece by name.',
+    description: 'Find pieces in the Waseem catalogue. Prefer this before opening a piece by name.',
     parameters: {
       type: 'object',
       properties: {
@@ -35,9 +35,9 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string' } } },
     runtime: 'browser',
   },
-  { name: 'showBridal', description: 'Enter the Bridal House.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'showGold', description: 'Open The Gold Edit — a curated selection of bridal pieces in gold. The house has no separate gold department; this is an edit of the Bridal House.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'showDiamond', description: 'Open The Diamond Edit — a curated selection of bridal pieces set with diamonds. The house has no separate diamond department; this is an edit of the Bridal House.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'showBridal', description: 'Open the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'showGold', description: 'Open The Gold Edit — a curated selection of bridal pieces in gold. There is no separate gold department yet; this is an edit of the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'showDiamond', description: 'Open The Diamond Edit — a curated selection of bridal pieces set with diamonds. There is no separate diamond department yet; this is an edit of the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   { name: 'navigate', description: 'Move to a page of the site.', parameters: { type: 'object', properties: { path: { type: 'string', description: '/, /collections/<slug> or /jewellery/<slug>' } }, required: ['path'] }, runtime: 'browser' },
   { name: 'getCurrentContext', description: 'What the visitor is looking at right now.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
 ];

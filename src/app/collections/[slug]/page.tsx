@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!collection) return {};
   const still = getImage(collection.opening.still);
   return {
-    title: `The ${collection.name} House`,
+    title: collection.name,
     description: collection.intro[0],
     openGraph: { images: still.src ? [still.src] : [] },
   };

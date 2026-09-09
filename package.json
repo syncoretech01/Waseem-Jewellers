@@ -12,7 +12,7 @@
     "start": "next start -p 3300",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run build",
+    "check": "npm run typecheck && npm run lint && npm run copy:check && npm run build",
     "assets:images": "node scripts/assets/localize.mjs",
     "assets:videos": "node scripts/assets/encode-videos.mjs",
     "assets": "npm run assets:videos && npm run assets:images",
@@ -20,7 +20,8 @@
     "brand:trace": "node scripts/brand/trace.mjs",
     "brand:build": "node scripts/brand/extract.mjs && node scripts/brand/assemble.mjs && node scripts/brand/icons.mjs",
     "brand:check": "node scripts/brand/verify.mjs",
-    "brand": "npm run brand:build && npm run brand:check"
+    "brand": "npm run brand:build && npm run brand:check",
+    "copy:check": "node scripts/dev/copy-guard.mjs"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",

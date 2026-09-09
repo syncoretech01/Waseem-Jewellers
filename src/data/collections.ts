@@ -1,13 +1,13 @@
 import type { Collection } from './types';
 
-/** The Bridal House — the one collection route of Stage 1. More collections are added here by data only. */
+/** Bridal — the one collection route of Stage 1. More collections are added here by data only. */
 export const COLLECTIONS: Collection[] = [
   {
     slug: 'bridal',
     name: 'Bridal',
     tagline: 'Worn once. Kept for a lifetime.',
     intro: [
-      'The Bridal House gathers the pieces made for the day itself: chokers and long haars, tikkas, earrings and rings, in gold, uncut stones and diamonds.',
+      'Bridal gathers the pieces made for the day itself: chokers and long haars, tikkas, earrings and rings, in gold, uncut stones and diamonds.',
       'Each suite is composed to be worn together and kept apart — the pieces of one set, seen again on other days.',
     ],
     opening: { video: 'bridal-opening', still: 'p03-hero' },

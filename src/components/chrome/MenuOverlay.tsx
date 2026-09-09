@@ -149,6 +149,7 @@ export function MenuOverlay() {
                     <motion.div variants={{ open: { y: 0, transition: { duration: 0.34, ease: EASE.out } }, closed: { y: '110%', transition: { duration: 0.34, ease: EASE.silk } } }}>
                       <button
                         type="button"
+                        data-menu-id={item.id}
                         onClick={() => go(item)}
                         onPointerEnter={() => setActive(item.id)}
                         onFocus={() => setActive(item.id)}

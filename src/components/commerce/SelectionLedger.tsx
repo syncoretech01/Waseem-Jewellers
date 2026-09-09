@@ -24,7 +24,7 @@ export function SelectionLedger() {
     <Dialog open={open} onClose={close} label={COPY.ledger.title} variant="right" theme="ivory" zIndex={50} className="px-gutter py-10 md:px-12">
       <div className="flex items-baseline justify-between">
         <div>
-          <p className="micro text-fg-muted">The House of Waseem</p>
+          <p className="micro text-fg-muted">Waseem Jewellers</p>
           <h2 className="display mt-3 text-display-m">{COPY.ledger.title}</h2>
         </div>
         <button type="button" onClick={close} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close">

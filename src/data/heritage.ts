@@ -30,7 +30,7 @@ export const HERITAGE: HeritageMoment[] = [
     id: 'h3',
     numeral: '03',
     line: 'THEN ANOTHER.',
-    fact: 'Chaudhry Waseem Afzal expanded the house with modern showrooms.',
+    fact: 'Chaudhry Waseem Afzal expanded Waseem with modern showrooms.',
     image: 'heritage-kundan',
     treatment: 'mounted',
     ratio: '1:1',
@@ -50,7 +50,7 @@ export const HERITAGE: HeritageMoment[] = [
   {
     id: 'h5',
     numeral: '05',
-    line: 'ONE HOUSE. LAHORE.',
+    line: 'ONE NAME. LAHORE.',
     fact: 'MM Alam Road · Liberty Market · DHA',
     image: 'heritage-portrait',
     treatment: 'mounted',

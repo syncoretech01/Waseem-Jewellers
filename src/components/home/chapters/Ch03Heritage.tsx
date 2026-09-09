@@ -117,7 +117,7 @@ export function Ch03Heritage() {
             1952
           </p>
           <h2 id="heritage-title" className="sr-only">
-            Our House, since 1952
+            Waseem Jewellers, since 1952
           </h2>
         </div>
       </div>
@@ -162,7 +162,6 @@ export function Ch03Heritage() {
           {/* seal */}
           <div className="heritage-panel relative flex w-full shrink-0 flex-col items-center justify-center gap-6 py-[6svh] text-center md:h-full md:w-[26vw] md:py-0">
             <WaseemLockup tone="ink" className="h-28 w-auto" />
-            <p className="h-line micro text-ink/70">The House of Waseem · Since 1952</p>
             <p className="h-line display text-[clamp(1.5rem,2.2vw,2.4rem)] text-ink">{COPY.heritage.closing}</p>
           </div>
         </div>

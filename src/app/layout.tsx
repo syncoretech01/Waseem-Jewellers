@@ -32,13 +32,13 @@ const urdu = Noto_Nastaliq_Urdu({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3300'),
   title: {
-    default: 'Waseem Jewellers — The House of Waseem, Since 1952',
+    default: 'Waseem Jewellers — Jewellery, Crafted Across Generations',
     template: '%s — Waseem Jewellers',
   },
   description:
     'Waseem Jewellers, Lahore. Bridal jewellery in gold, polki and diamonds, from a house founded in 1952.',
   openGraph: {
-    title: 'Waseem Jewellers — The House of Waseem',
+    title: 'Waseem Jewellers — A Legacy in Jewellery Since 1952',
     description: 'Bridal jewellery in gold, polki and diamonds. Lahore, since 1952.',
     images: ['/assets/waseem/og/home.jpg'],
     type: 'website',

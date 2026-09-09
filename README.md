@@ -1,6 +1,6 @@
 # Waseem Jewellers — Digital Flagship, Stage 1
 
-Stage 1 is a high-fidelity flagship experience that runs on a laptop with no credentials and no backend: the complete cinematic homepage, the Bridal House collection route, a reusable product route, full-screen navigation, and the Waseem Concierge in writing and by voice. Ten pieces are curated in `src/data/products.ts`, and every image and film is real Waseem material, localised into `public/assets/waseem` and committed. Nothing is fetched from a third party at runtime.
+Stage 1 is a high-fidelity flagship experience that runs on a laptop with no credentials and no backend: the complete cinematic homepage, Bridal collection route, a reusable product route, full-screen navigation, and the Waseem Concierge in writing and by voice. Ten pieces are curated in `src/data/products.ts`, and every image and film is real Waseem material, localised into `public/assets/waseem` and committed. Nothing is fetched from a third party at runtime.
 
 ## Requirements
 
@@ -30,17 +30,17 @@ Follow this in order the first time; it is the intended path through the work.
 | Hero | Let the film run; move the pointer for drift. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the jewel at the bottom right takes over. |
 | Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels. The WebGL object mounts here on high and medium tiers; the SVG stone stands in below that. |
 | 1952 | Ivory paper rises around the numeral, then the house's moments pass horizontally. The facade scrubs from monochrome into colour. |
-| Worlds | Five columns at opposing speeds. Hover or tab into a column to raise its name; choose one and its middle tile flies into the Bridal House. |
+| Worlds | Five columns at opposing speeds. Hover or tab into a column to raise its name; choose one and its middle tile flies into Bridal. |
 | Bridal cinema | A portrait window opens into full cinema and closes by contracting to the first portrait of the wall. |
 | The wall | Twelve-column composition: all ten pieces and one campaign photograph. Hover a tile for tilt and sheen; a piece tile opens its page. |
 | Slider | Eight pieces in a vitrine. The wheel moves it, a drag releases with inertia into a snap, the arrow keys step, and Enter opens the centred piece. |
-| Gold / Diamond | Move the pointer across the frame — the mask edge follows it. Choosing a side fills the frame and flies into that edit on the Bridal House. |
+| Gold / Diamond | Move the pointer across the frame — the mask edge follows it. Choosing a side fills the frame and flies into that edit on Bridal. |
 | Bespoke | Five cards, one per step. The consultation is the only door out of this chapter. |
 | Footer | Showrooms, hours and contact, revealed from beneath the page. |
 
-**The menu.** MENU at the top right. Six entries with hover media: Gold and Diamond open the Bridal House edits, Bridal the house itself, Collections and Our House jump to homepage chapters, Bespoke opens the consultation. Escape closes it.
+**The menu.** MENU at the top right. Six entries with hover media: Gold and Diamond open Bridal edits, Bridal the house itself, Collections and Heritage jump to homepage chapters, Bespoke opens the consultation. Escape closes it.
 
-**The Bridal House** — `/collections/bridal`. The opening film, the intro, then a sticky line: Story runs the four chapters (I–IV), Index lays the pieces out, and Gold / Diamond / Polki filter the index. `?edit=gold` and `?edit=diamond` (what the menu and the duality chapter use) open the named edit directly. The page closes with a consultation and a "Worn together" rail.
+**Bridal** — `/collections/bridal`. The opening film, the intro, then a sticky line: Story runs the four chapters (I–IV), Index lays the pieces out, and Gold / Diamond / Polki filter the index. `?edit=gold` and `?edit=diamond` (what the menu and the duality chapter use) open the named edit directly. The page closes with a consultation and a "Worn together" rail.
 
 **A piece** — for example `/jewellery/lavender-halo-ring-r11912`. Hovering a gallery image draws it to the eye; clicking a macro enters drag-to-inspect at 2.4×, Escape leaves it. In the column that sticks on desktop: Enquire hands the piece to the concierge, Private viewing opens the consultation with the piece attached, Save piece keeps it in your selection. A piece from the worn-together rail transitions straight into the next product.
 
@@ -114,9 +114,9 @@ No environment file is required. `.env.example` documents the variables reserved
 
 - Commerce: there is no cart, checkout, pricing feed or stock; eight of the ten pieces are priced on request and two carry a figure, all held in `src/data/products.ts`.
 - Backend: the consultation is not transmitted anywhere, and there is no CMS, account or search index.
-- Collections beyond Bridal: the five collection worlds exist as data and imagery and route into the Bridal House; each becomes its own route by adding an entry to `src/data/collections.ts`.
+- Collections beyond Bridal: the five collection worlds exist as data and imagery and route into Bridal; each becomes its own route by adding an entry to `src/data/collections.ts`.
 - The OpenAI Realtime concierge: the provider interface, tool registry and API routes are in place, but the shipped concierge is keyless.
-- Urdu across the interface: Nastaliq is used only for the two accents verified against the house's own material — دیوان on the Dewan world, نقش گل in the Bridal House interlude.
+- Urdu across the interface: Nastaliq is used only for the two accents verified against the house's own material — دیوان on the Dewan world, نقش گل in Bridal interlude.
 
 ## Known limitations
 

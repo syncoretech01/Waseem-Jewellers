@@ -1,6 +1,6 @@
 # Site Architecture — Waseem Jewellers (Stage 1)
 
-The digital flagship of Waseem Jewellers: a cinematic homepage, the Bridal House, a page for every
+The digital flagship of Waseem Jewellers: a cinematic homepage, Bridal, a page for every
 piece, and the Waseem Concierge. It runs entirely from the repository — no credentials, no external
 services, no network calls at runtime.
 
@@ -25,7 +25,7 @@ As the production build reports them (alongside Next's own `/_global-error`):
 | Route | Kind | Renders |
 |---|---|---|
 | `/` | Static | `Home` — chapters CH01–CH09 in one continuous scroll; the loading ritual (CH00) and the footer (CH10) mount in `Providers` |
-| `/_not-found` | Static | `src/app/not-found.tsx` — two links back into the House |
+| `/_not-found` | Static | `src/app/not-found.tsx` — two links back into the site |
 | `/collections/[slug]` → `/collections/bridal` | SSG | `CollectionExperience` for the one collection in `src/data/collections.ts` |
 | `/jewellery/[slug]` → ten paths | SSG | `ProductExperience` for each of the ten products |
 | `/api/concierge/realtime-token` | Dynamic | 503 without `OPENAI_API_KEY`, 501 with one |
@@ -156,7 +156,7 @@ generated asset map. Adding a piece or a collection is a data edit, not a compon
 |---|---|
 | `types.ts` | The contract: `Product`, `Collection`, `CollectionChapter`/`StoryBlock`, `CollectionWorld`, `HeritageMoment`, `MenuItem`, `SiteInfo`, `ImageAsset`, `VideoAsset`, plus the `Material` / `Category` / `StyleTag` / `Karat` / `WorldSlug` / `AssetRole` unions |
 | `products.ts` | Ten curated pieces, `p01`–`p10`, each with editorial title, house, category, material, tags, metadata, price (`onRequest` or `fixed`), media ids, a three-part story, exactly three `complementary` slugs, `featuredRank`, and the `source` handle and URL it was drawn from |
-| `collections.ts` | The Bridal House: tagline, intro, opening media, eight pieces, four story chapters of `solo`/`duet`/`interlude` blocks, the gold and diamond edits, and the worn-together rail |
+| `collections.ts` | Bridal: tagline, intro, opening media, eight pieces, four story chapters of `solo`/`duet`/`interlude` blocks, the gold and diamond edits, and the worn-together rail |
 | `worlds.ts` | The five signature worlds of CH04 — `rukh-e-jana`, `aks-e-noor`, `rang-e-jamal`, `dewan`, `royal-wedding` — each with a palette, three column tiles, a hero tile (always the middle one, so the FLIP lands on the same image) and its `?world=` href |
 | `heritage.ts` | The five moments of CH03, from 1952 to the three showrooms |
 | `menu.ts` | The six full-screen navigation items; each `target` exists in Stage 1 |

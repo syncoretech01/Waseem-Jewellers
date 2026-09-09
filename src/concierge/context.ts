@@ -27,7 +27,7 @@ export function cardsOf(products: Product[]): PieceCard[] {
   return products.map((p, i) => ({
     slug: p.slug,
     name: p.editorialTitle,
-    collection: p.house ?? 'The House',
+    collection: p.house ?? 'Waseem Jewellers',
     priceLabel: formatPrice(p.price),
     image: getImage(p.media.hero).src,
     ordinal: i + 1,

@@ -180,7 +180,7 @@ export function CollectionExperience({ collection }: { collection: Collection })
         <IndexView products={indexProducts} title={indexTitle} />
       )}
       <Closing onConsult={() => openConsultation({ topic: 'bridal', source: 'cta' })} />
-      <WornTogetherRail products={productsBySlugs(collection.wornTogether)} eyebrow="Worn together" title="The House suggests." theme="dark" />
+      <WornTogetherRail products={productsBySlugs(collection.wornTogether)} eyebrow="Worn together" title="Pieces that answer this one." theme="dark" />
     </main>
   );
 }
@@ -299,7 +299,7 @@ function Closing({ onConsult }: { onConsult: () => void }) {
     <section ref={ref} data-theme="ivory" className="bg-bg py-section text-fg">
       <div ref={scope} className="flex flex-col items-start gap-8 px-gutter" data-rise>
         <Eyebrow>{COPY.consultation.eyebrow}</Eyebrow>
-        <h2 className="display max-w-[12em] text-display-m">The House receives by appointment.</h2>
+        <h2 className="display max-w-[12em] text-display-m">{COPY.footer.invitation}</h2>
         <Button variant="bracket" onClick={onConsult}>
           Private consultation
         </Button>

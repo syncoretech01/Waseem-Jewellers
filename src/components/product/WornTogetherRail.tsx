@@ -28,7 +28,7 @@ export function WornTogetherRail({ products, eyebrow = 'Worn together', title, t
           <div>
             <Eyebrow>{eyebrow}</Eyebrow>
             <h2 id="rail-title" className="display mt-4 text-display-m">
-              {title ?? 'The House suggests.'}
+              {title ?? 'Pieces that answer this one.'}
             </h2>
           </div>
         </div>

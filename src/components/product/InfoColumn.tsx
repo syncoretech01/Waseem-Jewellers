@@ -34,7 +34,8 @@ export function InfoColumn({ product }: { product: Product }) {
   useRise(scope, { start: 'top 95%' });
 
   const backHref = '/collections/bridal';
-  const backLabel = lastRoute ? 'The Bridal House' : 'The House';
+  // S2B replaces this with the piece's real department
+  const backLabel = lastRoute ? 'Bridal' : 'Waseem Jewellers';
   const specs = product.metadata;
   const rows: [string, string][] = [];
   if (specs.karat) rows.push(['Purity', specs.karat]);
@@ -61,7 +62,7 @@ export function InfoColumn({ product }: { product: Product }) {
 
       <div data-rise className="flex flex-col gap-3">
         <Eyebrow>
-          {world ? world.name : 'The House'} · {CATEGORY_LABEL[product.category]}
+          {world ? world.name : 'Bridal'} · {CATEGORY_LABEL[product.category]}
           {world?.urdu && <UrduAccent text={world.urdu} className="ml-3 text-[0.95rem]" />}
         </Eyebrow>
         {product.house && <p className="micro text-fg-muted">{product.house}</p>}

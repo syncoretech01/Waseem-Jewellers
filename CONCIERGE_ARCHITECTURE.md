@@ -213,17 +213,17 @@ One registry, `TOOL_DEFS`, with JSON-schema parameters. The same array feeds the
 | --- | --- | --- |
 | `searchProducts` | Scores the catalogue (`searchCatalogue`), opens the result tray and collapses the panel. | "Exploring bridal necklaces…" → "Four bridal necklaces" (or "Nothing quite like that") |
 | `showCollection` | Navigates to the world's route; already on `/collections/bridal` with no named world, glides to the Pieces section instead. | "Opening Rukh-e-Jana…" → "Rukh-e-Jana" |
-| `showBridal` | The same executor, forced to `bridal`. | "Exploring Bridal…" → "The Bridal House" |
+| `showBridal` | The same executor, forced to `bridal`. | "Exploring Bridal…" → "Bridal" |
 | `focusProduct` | Scrolls the piece to the centre of the viewport and spotlights it (`is-spotlit` for 2.6 s); if it is not on this page, queues the spotlight and navigates to the bridal route. | "Showing the Satlada Haar…" → "Satlada Haar" |
 | `openProduct` | Navigates to `/jewellery/<slug>` — a FLIP transition from the card's image when one is on screen, a curtain otherwise. | "Opening Satlada Haar…" → "Satlada Haar" |
 | `showSimilarPieces` | `similarTo` the anchor piece; on a product page also glides to the Worn Together section. | "Pieces in the same spirit…" → "Four pieces in the same spirit" |
 | `saveToWishlist` | Adds the piece to the persisted selection. | "Keeping this piece…" → "Saved to your selection" / "Already in your selection" |
 | `removeFromWishlist` | Removes the first candidate that is actually kept: the named slug, then the focused piece, the piece in view, then recent results. | "Setting it aside…" → "Removed from your selection" |
 | `openWishlist` | Opens the Selection Ledger and shows the kept pieces in the tray. | "Your selection…" → "Your selection · three pieces" / "Your selection is empty" |
-| `scrollToSection` | Glides to a chapter. The footer scrolls to the document end; a section that is not on this route is queued and the home route is opened. | "Taking you to Our House, since 1952…" → "Our House, since 1952" |
+| `scrollToSection` | Glides to a chapter. The footer scrolls to the document end; a section that is not on this route is queued and the home route is opened. | "Taking you to Since 1952…" → "Since 1952" |
 | `openPrivateConsultation` | Opens the consultation form with `topic`, the piece in view, and `source: 'concierge'`. | "Arranging a private consultation…" → "Private consultation" |
 | `showGold` / `showDiamond` | On the home route, biases the gold/diamond duality chapter and glides to it; elsewhere opens `/collections/bridal?edit=<material>`. Either way the four matching pieces go to the tray. | "Exploring Gold…" → "Gold" |
-| `navigate` | Moves to `/`, `/collections/<slug>` or `/jewellery/<slug>`; any other path is refused. | "Opening The Bridal House…" → "The Bridal House" |
+| `navigate` | Moves to `/`, `/collections/<slug>` or `/jewellery/<slug>`; any other path is refused. | "Opening Bridal…" → "Bridal" |
 | `getCurrentContext` | Returns the site context. No visible action, empty label. | — |
 
 Labels come from `CONCIERGE.labels` in `copy.ts`. They are the only text the UI shows for an action, and they are written as an associate would say them — never as a function name.

@@ -144,7 +144,7 @@ export function ConsultationModal() {
               <Field label="Preferred date" type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
               <ChoiceRow label="Time" options={WINDOWS} value={window_} onChange={setWindow} />
             </div>
-            <Field label="A note for the House" multiline value={message} onChange={(e) => setMessage(e.target.value)} />
+            <Field label="A note for us" multiline value={message} onChange={(e) => setMessage(e.target.value)} />
             <div className="mt-8 flex items-center gap-8">
               <Button variant="bracket" type="submit" disabled={stage === 'submitting'}>
                 {stage === 'submitting' ? 'A moment' : 'Request a consultation'}

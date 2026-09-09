@@ -79,7 +79,7 @@ export function Footer() {
 
       <div className="grid grid-cols-1 gap-10 border-t border-champagne/15 pt-8 text-[0.75rem] text-ivory/70 md:grid-cols-3">
         <div className="flex flex-col gap-2">
-          <p className="micro mb-2 text-champagne">The House</p>
+          <p className="micro mb-2 text-champagne">Explore</p>
           {MENU.map((m) => (
             <button key={m.id} type="button" onClick={() => go(m)} className="w-fit text-left transition-colors hover:text-ivory">
               {m.label}
