@@ -51,6 +51,19 @@ export const CONCIERGE = {
   gold: 'Gold — pendants, chains, bracelets, bangles and rings, mostly twenty-one karat. Shall I open one?',
   traditional: 'For a traditional hand I would begin with polki and kundan — these are closest to how our jewellers have always worked.',
   consultation: 'With pleasure. Choose a showroom and a time that suits you — MM Alam Road, Liberty or DHA.',
+  /**
+   * Below the confidence floor the engine asks rather than acts. It names both readings, so
+   * the visitor answers a question instead of correcting a mistake — and no piece opens that
+   * nobody asked for.
+   */
+  clarify: (a: string, b: string) => `Forgive me — did you mean ${a}, or ${b}?`,
+  /** 583 of 599 pieces carry no published price, so a budget is carried rather than filtered on. */
+  budgetNoted: 'I have noted the figure you mentioned — most pieces here are priced on request, so I will bring it to our team with your enquiry.',
+  byWeight: (n: number) => `${n === 1 ? 'One piece' : `${n} pieces`}, ordered by the weight Waseem publishes. The actual weight is confirmed at a viewing.`,
+  similarResult: (n: number) => `${n === 1 ? 'One piece' : `${n} pieces`} in the same spirit.`,
+  matchingResult: (n: number) => `${n === 1 ? 'One piece' : `${n} pieces`} that would be worn with it.`,
+  priceOf: (name: string, label: string) => `${name} — ${label.toLowerCase()}. I can arrange a viewing whenever suits you.`,
+  restart: 'Begun again. What would you like to see?',
   consultationKnown: (code: string) => `Your request ${code} is with our team. I can arrange a further viewing whenever you wish.`,
   priceOnRequest: 'This piece is priced on request — we share full details at a private viewing, which I can arrange.',
   priceKnown: (label: string, karat?: string) => `This piece is ${label}${karat ? `, in ${karat}` : ''}. Shall I arrange a viewing?`,

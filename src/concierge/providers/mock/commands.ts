@@ -3,6 +3,7 @@ import { getProduct, productsBySlugs, WORLDS, nameOf, describe } from '@/data';
 import { formatPrice, countInWords, capitalise } from '@/lib/format';
 import { CONCIERGE } from '../../copy';
 import { ordinalFromWord, resolveOrdinal } from '../../tools/executeTool';
+import { corePlan } from './corePlan';
 import type { SiteContext, ToolName, ToolOutcome } from '../../types';
 
 /** A plan the mock executes: zero or more tool calls, then a reply built from their outcomes. */
@@ -299,6 +300,15 @@ export const COMMANDS: Command[] = [
 ];
 
 export function planFor(text: string, ctx: SiteContext): Plan {
+  /**
+   * The twelve core actions are answered first, by a parser that scores every reading of
+   * the sentence in five languages and acts only above a confidence floor. Everything else
+   * falls through to the table below, which is ordered and where first match wins — the
+   * shape that once let the bare word "watch" pre-empt every command after it.
+   */
+  const core = corePlan(text, ctx);
+  if (core) return core;
+
   const t = normalise(text);
   const e = extract(t);
   for (const c of COMMANDS) {

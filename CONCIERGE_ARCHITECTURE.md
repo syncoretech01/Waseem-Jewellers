@@ -366,3 +366,49 @@ The provider's job ends at emitting `ProviderEvent`s. Tools, labels, the transcr
 5. Move any tool that needs a server behind `/api/concierge/tool` and change its `runtime` to `'server'` in `TOOL_DEFS`.
 
 Keep `MockConciergeProvider` in the tree. It is the fallback when a key is missing, and it is how the eleven states are exercised without a network.
+
+## The keyless engine's understanding layer
+
+`src/concierge/nlu/` replaces a table of Roman-Urdu regex synonyms that had no Urdu script,
+no Punjabi, no numbers, and — worse — was tried in source order, so the bare word "watch"
+pre-empted every command written after it.
+
+**Nothing picks a language.** A Lahore customer writes "mujhe 21K ka haar چاہیے 4 lakh ke
+andar" and expects to be understood. So the text is folded into one comparable form, every
+script it contains is recorded, and the lexicon carries its entries in Urdu, Roman Urdu,
+Shahmukhi, Gurmukhi, Roman Punjabi and English *at once*. Code-switching then costs nothing,
+because there was never a switch to detect.
+
+**Deliberately narrow.** Twelve actions — show by kind, material, department or occasion;
+open by ordinal or by pointing; similar; matching; save; remove; selection; price;
+consultation; begin again — and 490 surface forms, not the nine hundred an earlier plan
+called for. Natural phrasing is unbounded and a hand-maintained lexicon chasing it never
+closes. Everything outside the twelve falls through to the ordered table, and from there to
+the model when a key is present. A confident answer on the twelve beats a vague answer on
+everything.
+
+**A confidence floor, not an ordering.** `parse` scores every reading; the best wins only
+above 0.45. Below it the reply names both readings and asks, because acting wrongly is worse
+than admitting confusion. `npm run nlu:check` compiles the folder on its own — the point of
+its being isomorphic and DOM-free — and gates on intent ≥95%, slots ≥90% and **zero
+wrong-slug actions**. The third has no tolerance: its failures are not degradations.
+
+**Two bugs this found, both in the fold, and both of the worst kind.**
+
+The character filter kept letters and numbers. Gurmukhi dependent vowels and Urdu marks are
+non-spacing *marks*, so every one of them became a space: ਹਾਰ (necklace) and ਹੀਰੇ (diamond)
+both folded to "ਹ ਰ", and asking for diamonds returned necklaces. The class now keeps
+`\p{M}`.
+
+The first attempt to fix that stripped Gurmukhi vowel signs deliberately, on the reasoning
+that input is inconsistently marked. It produced the same collision from the other direction,
+and it passed the fixture set because both sides of the comparison were being destroyed
+identically. Vowels carry meaning; they stay. What actually needed fixing was that the
+lexicon was not folded at all, so no non-Latin entry could ever match.
+
+**The acceptance gate is a person, not a number.** The fixtures and the lexicon were written
+by the same hand, so passing proves the engine self-consistent — not that a Lahore customer
+is understood. A separate blind set, written by native speakers who have seen neither the
+lexicon nor the intent list, scored on whether the visitor got what they asked for, is a
+formal Stage 2 gate. Where the keyless engine fails there and the model succeeds, that is the
+expected division of labour: it gets recorded, not fixed by growing the lexicon.

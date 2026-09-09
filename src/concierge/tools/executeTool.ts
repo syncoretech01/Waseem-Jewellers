@@ -2,7 +2,8 @@
 
 import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, nameOf } from '@/data';
 import { searchCatalogue, similarTo, asCategory, asMaterial, asDepartment, asStyle, asWorld, asKarat } from '@/data/search';
-import { DEPARTMENT_LABEL } from '@/data/labels';
+import { DEPARTMENT_LABEL, CATEGORY_PLURAL } from '@/data/labels';
+import type { Category } from '@/data/types';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
 import { productElement } from '@/state/visibility';
 import { runtime, scrollTo } from '@/state/runtime';
@@ -37,11 +38,14 @@ function worldCards(): CollectionCard[] {
   return WORLDS.map((w, i) => ({ slug: w.slug, name: w.name, image: { kind: 'local' as const, id: w.imagery.hero }, href: w.href, ordinal: i + 1 }));
 }
 
+/** One pluralisation, shared with every other surface that names a kind. */
 function describeQuery(args: Record<string, unknown>) {
   const style = str(args.style);
   const material = str(args.material);
-  const category = str(args.category);
-  const parts = [style === 'bridal' ? 'bridal' : style === 'traditional' ? 'traditional' : style, material, category ? (category === 'set' ? 'sets' : category === 'ring' ? 'rings' : category === 'necklace' || category === 'choker' ? 'necklaces' : category) : 'pieces'];
+  const department = asDepartment(args.department);
+  const category = asCategory(args.category);
+  const kind = category ? (CATEGORY_PLURAL[category as Category] ?? category).toLowerCase() : 'pieces';
+  const parts = [style === 'bridal' ? 'bridal' : style === 'traditional' ? 'traditional' : style, material, department ? DEPARTMENT_LABEL[department].toLowerCase() : undefined, kind];
   return parts.filter(Boolean).join(' ');
 }
 
@@ -71,6 +75,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         campaign: asWorld(collection) ? undefined : collection,
         style: asStyle(args.style),
         purity: asKarat(args.purity),
+        maxWeightGrams: typeof args.maxWeightGrams === 'number' ? args.maxWeightGrams : undefined,
         limit,
       });
       const what = describeQuery(args);
