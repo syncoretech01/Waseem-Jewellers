@@ -53,14 +53,10 @@ export const COPY = {
     hint: 'Drag',
   },
   duality: {
-    // the giant word names the material; every label around it names the edit it belongs to
+    // the giant word names the material; the line beneath names the department it opens
     heading: 'Gold and Diamond',
-    gold: { word: 'Gold', title: 'The Gold Edit', line: 'The Gold Edit · Kundan, polki, pleated gold' },
-    diamond: { word: 'Diamond', title: 'The Diamond Edit', line: 'The Diamond Edit · Pavé, cluster, uncut' },
-    landing: {
-      gold: 'A bridal edit — kundan, polki and pleated gold.',
-      diamond: 'A bridal edit — pavé, cluster and uncut stones.',
-    },
+    gold: { word: 'Gold', title: 'Gold', line: 'Pendants, chains, bangles, rings — mostly 21 karat' },
+    diamond: { word: 'Diamond', title: 'Diamond', line: 'Set in gold, graded as published' },
   },
   product: {
     specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed at a private viewing.',

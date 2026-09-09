@@ -1,7 +1,8 @@
 import type { ToolDef } from '../types';
 
-const SECTIONS = ['hero', 'craft', 'heritage', 'collections', 'bridal', 'wall', 'slider', 'duality', 'bespoke', 'footer', 'pieces', 'related'];
+const SECTIONS = ['hero', 'craft', 'heritage', 'collections', 'bridal', 'wall', 'slider', 'duality', 'bespoke', 'footer', 'department', 'pieces', 'related'];
 const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dewan', 'royal-wedding'];
+const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
 
 /** One registry, JSON-schema parameters. The same array feeds the mock and, later, the Realtime session. */
 export const TOOL_DEFS: readonly ToolDef[] = [
@@ -12,9 +13,11 @@ export const TOOL_DEFS: readonly ToolDef[] = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'free words from the visitor' },
-        category: { type: 'string', enum: ['necklace', 'choker', 'set', 'earrings', 'ring', 'bangle', 'bracelet'] },
+        category: { type: 'string', enum: ['necklace', 'choker', 'set', 'earrings', 'ring', 'bangle', 'bracelet', 'pendant', 'chain', 'nose-pin', 'cufflink'] },
         material: { type: 'string', enum: ['gold', 'diamond', 'polki', 'kundan', 'emerald', 'pearl', 'sapphire'] },
         collection: { type: 'string', enum: COLLECTIONS },
+        department: { type: 'string', enum: DEPARTMENTS },
+        purity: { type: 'string', enum: ['18K', '21K', '22K'] },
         style: { type: 'string', enum: ['bridal', 'traditional', 'contemporary', 'everyday', 'statement'] },
         limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 },
       },
@@ -36,9 +39,16 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     runtime: 'browser',
   },
   { name: 'showBridal', description: 'Open the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'showGold', description: 'Open The Gold Edit — a curated selection of bridal pieces in gold. There is no separate gold department yet; this is an edit of the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'showDiamond', description: 'Open The Diamond Edit — a curated selection of bridal pieces set with diamonds. There is no separate diamond department yet; this is an edit of the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'navigate', description: 'Move to a page of the site.', parameters: { type: 'object', properties: { path: { type: 'string', description: '/, /collections/<slug> or /jewellery/<slug>' } }, required: ['path'] }, runtime: 'browser' },
+  {
+    name: 'showDepartment',
+    description: 'Open a department of the shop: Gold, Diamond, Bridal, Men or Kids. Each is a real page with its own pieces, filters and counts.',
+    parameters: { type: 'object', properties: { department: { type: 'string', enum: DEPARTMENTS } }, required: ['department'] },
+    runtime: 'browser',
+  },
+  // deprecated aliases for showDepartment — kept so fixtures and a model's habits keep working
+  { name: 'showGold', description: 'Deprecated. Prefer showDepartment with department "gold".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'showDiamond', description: 'Deprecated. Prefer showDepartment with department "diamond".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'navigate', description: 'Move to a page of the site.', parameters: { type: 'object', properties: { path: { type: 'string', description: '/, /<department>, /<department>/<kind>, /collections/<slug> or /jewellery/<slug>' } }, required: ['path'] }, runtime: 'browser' },
   { name: 'getCurrentContext', description: 'What the visitor is looking at right now.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
 ];
 

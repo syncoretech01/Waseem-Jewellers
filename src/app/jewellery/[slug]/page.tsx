@@ -30,7 +30,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = await getRepository().getProduct(slug);
+  const repo = getRepository();
+  const product = await repo.getProduct(slug);
   if (!product) notFound();
-  return <ProductExperience product={product} />;
+  /**
+   * Three relations, each a different question, each answered by the repository rather than
+   * by an authored list — ten pieces have companions written for them and 589 do not, so a
+   * page that only read `complementary` printed a heading over an empty row.
+   */
+  const [suite, matching, similar] = await Promise.all([repo.setMembers(slug), repo.matching(slug, 3), repo.similar(slug, 3)]);
+  return <ProductExperience product={product} suite={suite} matching={matching} similar={similar} />;
 }

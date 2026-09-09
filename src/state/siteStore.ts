@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type RouteKind = 'home' | 'collection' | 'product' | 'other';
+export type RouteKind = 'home' | 'collection' | 'department' | 'product' | 'other';
 
 export type SectionId =
   | 'loader'
@@ -17,6 +17,7 @@ export type SectionId =
   | 'footer'
   | 'collection-opening'
   | 'collection-intro'
+  | 'department'
   | 'pieces'
   | 'gallery'
   | 'details'
@@ -84,10 +85,14 @@ interface SiteState {
   setHydrated: () => void;
 }
 
+/** The five department roots, as paths. Kept here so route classification needs no data import. */
+const DEPARTMENT_PATHS = ['/gold', '/diamond', '/bridal', '/men', '/kids'];
+
 export function routeKindOf(pathname: string): RouteKind {
   if (pathname === '/') return 'home';
   if (pathname.startsWith('/collections/')) return 'collection';
   if (pathname.startsWith('/jewellery/')) return 'product';
+  if (DEPARTMENT_PATHS.some((d) => pathname === d || pathname.startsWith(`${d}/`))) return 'department';
   return 'other';
 }
 

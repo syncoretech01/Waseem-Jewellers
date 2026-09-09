@@ -12,6 +12,8 @@ export type ToolName =
   | 'openWishlist'
   | 'scrollToSection'
   | 'openPrivateConsultation'
+  | 'showDepartment'
+  /** Deprecated aliases for `showDepartment`, kept so fixtures and model habits keep working. */
   | 'showBridal'
   | 'showGold'
   | 'showDiamond'

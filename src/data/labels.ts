@@ -64,6 +64,27 @@ export const OCCASION_LABEL: Record<Occasion, string> = {
   gift: 'A gift',
 };
 
+/**
+ * Campaign names the shop's own slug does not spell correctly.
+ *
+ * `range-jamal` is a typo for Rang-e-Jamal in the shop's collection handle. Correcting it
+ * here is the same kind of accommodation the parser makes for `Gold Pursity`: the data is
+ * Waseem's, the spelling of their own campaign is not something to reproduce faithfully.
+ */
+const CAMPAIGN_LABEL: Record<string, string> = {
+  'range-jamal': 'Rang-e-Jamal',
+  'rang-e-jamal': 'Rang-e-Jamal',
+  'aks-e-noor': 'Aks-e-Noor',
+  'rukh-e-jana': 'Rukh-e-Jana',
+  'naqsh-e-gul': 'Naqsh-e-Gul',
+  'royal-wedding': 'Royal Wedding',
+  dewan: 'Dewan',
+  'bespoke-elegance': 'Bespoke Elegance',
+};
+
+export const campaignLabel = (slug: string) =>
+  CAMPAIGN_LABEL[slug] ?? slug.replace(/-/g, ' ').replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());
+
 /** What to call a piece: its authored name where one exists, otherwise the published title. */
 export const nameOf = (p: Product) => p.editorialTitle ?? p.title;
 

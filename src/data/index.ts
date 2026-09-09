@@ -1,14 +1,14 @@
 import { IMAGES, VIDEOS } from './generated/asset-map';
-import type { Collection, ImageAsset, Product, VideoAsset, ImageRef } from './types';
+import type { AssetRole, Collection, ImageAsset, Product, VideoAsset, ImageRef } from './types';
 import { PRODUCTS, LISTABLE_PRODUCTS, ORPHANED_EDITORIAL, CATALOGUE_DATE } from './products';
 import { COLLECTIONS, COLLECTION_BY_SLUG } from './collections';
 import { WORLDS, WORLD_BY_SLUG } from './worlds';
 import { HERITAGE } from './heritage';
-import { MENU } from './menu';
+import { MENU, MENU_SECONDARY, MENU_ALL } from './menu';
 import { SITE } from './site';
 export * from './labels';
 
-export { PRODUCTS, LISTABLE_PRODUCTS, ORPHANED_EDITORIAL, CATALOGUE_DATE, COLLECTIONS, WORLDS, WORLD_BY_SLUG, HERITAGE, MENU, SITE };
+export { PRODUCTS, LISTABLE_PRODUCTS, ORPHANED_EDITORIAL, CATALOGUE_DATE, COLLECTIONS, WORLDS, WORLD_BY_SLUG, HERITAGE, MENU, MENU_SECONDARY, MENU_ALL, SITE };
 
 const PRODUCT_BY_SLUG = Object.fromEntries(PRODUCTS.map((p) => [p.slug, p])) as Record<string, Product>;
 
@@ -27,7 +27,7 @@ export function getCollection(slug: string): Collection | undefined {
  * blur placeholder. A long-tail image is a source the optimiser resizes for us, so it has
  * no placeholder and no focal point, and the caller must not pretend otherwise.
  */
-export function resolveImage(ref: ImageRef, alt?: string): ImageAsset {
+export function resolveImage(ref: ImageRef, alt?: string, role?: AssetRole): ImageAsset {
   if (ref.kind === 'local') {
     const asset = getImage(ref.id);
     return alt ? { ...asset, alt } : asset;
@@ -40,7 +40,9 @@ export function resolveImage(ref: ImageRef, alt?: string): ImageAsset {
     alt: alt ?? '',
     blurDataURL: '',
     focal: [0.5, 0.5],
-    role: 'packshot',
+    // a long-tail photograph is a studio cut-out unless the shop filed it under a campaign;
+    // the difference decides whether it is mounted on pearl or shown full-bleed
+    role: role ?? 'packshot',
     // half, as the localiser does for a packshot: a studio cut-out is never shown full-bleed
     maxDisplayWidth: Math.round(ref.width / 2),
   };
@@ -94,7 +96,7 @@ export function assertCatalogue() {
     }
   }
   for (const c of COLLECTIONS) {
-    for (const s of [...c.pieces, ...c.edits.gold, ...c.edits.diamond, ...c.wornTogether]) {
+    for (const s of [...c.pieces, ...c.wornTogether]) {
       if (!PRODUCT_BY_SLUG[s]) problems.push(`collection ${c.slug}: unknown piece ${s}`);
     }
   }

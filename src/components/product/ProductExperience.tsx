@@ -6,23 +6,34 @@ import { InfoColumn } from './InfoColumn';
 import { WornTogetherRail } from './WornTogetherRail';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useSiteStore } from '@/state/siteStore';
-import { productsBySlugs } from '@/data';
 import type { Product } from '@/data/types';
 
+interface ProductExperienceProps {
+  product: Product;
+  /** The other pieces of the same suite, where the piece belongs to one. */
+  suite: Product[];
+  /** Complementary kinds — what is worn with this. */
+  matching: Product[];
+  /** More of the same kind — what else is like this. */
+  similar: Product[];
+}
+
 /** /jewellery/[slug] — imagery first: 62 / 38 on desktop, gallery on top on phones, sticky CTA bar. */
-export function ProductExperience({ product }: { product: Product }) {
+export function ProductExperience({ product, suite, matching, similar }: ProductExperienceProps) {
   const { ref } = useChapter({ id: 'gallery', theme: 'dark' });
   const setCurrent = useSiteStore((s) => s.setCurrentProduct);
   const setCollection = useSiteStore((s) => s.setSelectedCollection);
   const setVisible = useSiteStore((s) => s.setVisibleProducts);
-  const complementary = productsBySlugs(product.complementary);
+  const nearby = [...suite, ...matching, ...similar].map((p) => p.slug);
 
   useEffect(() => {
     setCurrent(product.slug);
     setCollection(product.departments[0] ?? null);
-    setVisible([product.slug, ...product.complementary]);
+    // everything the concierge can be asked to open by ordinal while this page is in view
+    setVisible([product.slug, ...nearby]);
     return () => setCurrent(null);
-  }, [product, setCurrent, setCollection, setVisible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, setCurrent, setCollection, setVisible, nearby.join('|')]);
 
   return (
     <main className="bg-bg text-fg">
@@ -38,7 +49,10 @@ export function ProductExperience({ product }: { product: Product }) {
           </div>
         </div>
       </section>
-      <WornTogetherRail products={complementary} theme="ivory" />
+      {/* each rail renders only if it has something; most pieces show one, some show none */}
+      <WornTogetherRail products={suite} eyebrow="The suite" title="The rest of the set." theme="ivory" />
+      <WornTogetherRail products={matching} eyebrow="Worn together" title="Pieces that answer this one." theme="ivory" />
+      <WornTogetherRail products={similar} eyebrow="In the same spirit" title="More like this one." theme={suite.length || matching.length ? 'dark' : 'ivory'} />
     </main>
   );
 }

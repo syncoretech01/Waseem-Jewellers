@@ -234,7 +234,6 @@ export interface Collection {
   opening: { video?: string; still: string };
   pieces: string[];
   chapters: CollectionChapter[];
-  edits: { gold: string[]; diamond: string[] };
   wornTogether: string[];
 }
 
@@ -251,12 +250,21 @@ export interface HeritageMoment {
 }
 
 export interface MenuItem {
-  id: 'gold' | 'diamond' | 'bridal' | 'collections' | 'bespoke' | 'house';
+  /**
+   * Free-form, not a closed union. A closed union meant that adding a menu entry required
+   * editing a component; a department is data, and the menu should be able to gain one.
+   */
+  id: string;
   label: string;
   numeral: string;
   kind: 'route' | 'chapter' | 'modal';
   target: string;
-  media: { still: string; video?: string };
+  /**
+   * Optional, because Waseem has campaign photography for some departments and not others.
+   * An entry with no still shows the ambient scene rather than a photograph of the wrong
+   * kind of jewellery.
+   */
+  media: { still?: string; video?: string };
   line: string;
 }
 

@@ -20,6 +20,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   footer: 'Visit Us',
   'collection-opening': 'Bridal',
   'collection-intro': 'Bridal',
+  department: 'The Collection',
   pieces: 'The Pieces',
   gallery: 'The Piece',
   details: 'Details',

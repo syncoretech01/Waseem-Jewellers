@@ -12,9 +12,13 @@ import { bindPointer, pointer } from '@/lib/motion/pointer';
 import { COPY } from '@/data/copy';
 
 /**
- * CH08 — the two bridal edits. Two materials share one frame: gold beneath, diamond above
- * behind a mask whose edge follows the pointer and breathes at rest. The words weigh
- * with their side; choosing one lets the material fill the frame and flies into its edit.
+ * CH08 — the department gate. Two materials share one frame: gold beneath, diamond above
+ * behind a mask whose edge follows the pointer and breathes at rest. The words weigh with
+ * their side; choosing one lets that material fill the frame and flies into its department.
+ *
+ * The bias the concierge writes is read here rather than ignored: asked for gold from
+ * another page, it sets the bias, brings the visitor to this chapter, and the chapter opens
+ * with the gold side already forward.
  */
 export function Ch08Duality() {
   const { ref } = useChapter({ id: 'duality', theme: 'dark' });
@@ -22,6 +26,7 @@ export function Ch08Duality() {
   const coarse = useQualityStore((s) => s.coarse);
   const go = useFlipNavigate();
   const setBias = useSiteStore((s) => s.setDualityBias);
+  const bias = useSiteStore((s) => s.dualityBias);
   const split = useRef({ pointer: 0.5, breath: 0, committed: false });
   const breathTween = useRef<gsap.core.Tween | null>(null);
 
@@ -63,6 +68,8 @@ export function Ch08Duality() {
     };
     breathTween.current = gsap.to(s, { breath: 0.03, duration: 3.2, ease: 'sine.inOut', yoyo: true, repeat: -1, onStart: () => (s.breath = -0.03) });
     const pointerTo = gsap.quickTo(s, 'pointer', { duration: 0.9, ease: 'power3' });
+    // arriving with a material already in mind: open with that side forward
+    if (bias) pointerTo(bias === 'gold' ? 0.78 : 0.22);
     bindPointer();
     const tick = () => {
       if (!s.committed && !vertical && pointer.active && pointer.fine) {
@@ -76,7 +83,7 @@ export function Ch08Duality() {
       gsap.ticker.remove(tick);
       breathTween.current?.kill();
     };
-  }, [ref, reduced, coarse]);
+  }, [ref, reduced, coarse, bias]);
 
   // mobile: the split follows the scroll through the section
   useGSAP(
@@ -105,7 +112,7 @@ export function Ch08Duality() {
     gsap.to(s, { pointer: side === 'gold' ? 1 : 0, duration: 0.9, ease: 'power3.inOut' });
     if (word) gsap.to(word.parentElement, { scale: 1.4, opacity: 0, duration: 0.8, ease: 'power3.in' });
     if (other) gsap.to(other.parentElement, { opacity: 0, duration: 0.4 });
-    window.setTimeout(() => go(`/collections/bridal?edit=${side}`, source, 'collection-hero'), 350);
+    window.setTimeout(() => go(`/${side}`, source, 'collection-hero'), 350);
   };
 
   return (
@@ -132,7 +139,7 @@ export function Ch08Duality() {
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.7, duration: 0.8 })}
           className="group/side flex flex-col items-start justify-end p-gutter text-left outline-none md:justify-center md:pl-[8vw]"
           data-cursor="discover"
-          aria-label="The Gold Edit — bridal pieces in kundan, polki and pleated gold."
+          aria-label="Gold — pendants, chains, bangles and rings, mostly in 21 karat gold."
         >
           <span className="block origin-left">
             <span className="duality-word-gold display block text-[clamp(3.5rem,12vw,13rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 480' }}>
@@ -147,7 +154,7 @@ export function Ch08Duality() {
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.3, duration: 0.8 })}
           className="group/side flex flex-col items-end justify-start p-gutter text-right outline-none md:justify-center md:pr-[8vw]"
           data-cursor="discover"
-          aria-label="The Diamond Edit — bridal pieces in pavé, cluster and uncut stones."
+          aria-label="Diamond — pieces set with diamonds, graded as Waseem publishes them."
         >
           <span className="block origin-right">
             <span className="duality-word-diamond display block text-[clamp(3.5rem,12vw,13rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 480' }}>

@@ -39,7 +39,9 @@ interface ImgProps {
 export function Img({ id, image, sizes, className, fill = true, priority, quality = 82, style, draggable = false, alt, onLoad, plain, data, eager }: ImgProps) {
   const ref: ImageRef | undefined = image ? ('ref' in image ? image.ref : image) : id ? { kind: 'local', id } : undefined;
   if (!ref) throw new Error('<Img> needs either an id or an image');
-  const asset = resolveImage(ref, image && 'alt' in image ? image.alt : undefined);
+  // a campaign frame is a scene and fills its box; a packshot is a cut-out and must not be cropped
+  const role = image && 'role' in image ? (image.role === 'campaign' ? 'campaign' : image.role === 'macro' ? 'macro' : 'packshot') : undefined;
+  const asset = resolveImage(ref, image && 'alt' in image ? image.alt : undefined, role);
   const focal = `${Math.round(asset.focal[0] * 100)}% ${Math.round(asset.focal[1] * 100)}%`;
   const dataAttrs = data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v])) : {};
   if (!asset.src) return null;
@@ -60,7 +62,12 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
           placeholder={asset.blurDataURL ? 'blur' : 'empty'}
           blurDataURL={asset.blurDataURL || undefined}
           draggable={draggable}
-          className={cn('object-cover', className)}
+          /**
+           * `contain`, not `cover`. The shop photographs every piece square; a long haar
+           * shown cover in a 4:5 column would lose its ends, and the one thing a jewellery
+           * index must never do is crop the jewellery.
+           */
+          className={cn('object-contain', className)}
           style={{ objectPosition: focal, ...blend, ...style }}
           onLoad={onLoad}
           {...dataAttrs}
@@ -83,7 +90,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
         decoding="async"
         loading={priority || eager ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : undefined}
-        className={cn(fill ? 'absolute inset-0 h-full w-full object-cover' : 'h-auto w-full', className)}
+        className={cn(fill ? cn('absolute inset-0 h-full w-full', packshot ? 'object-contain' : 'object-cover') : 'h-auto w-full', className)}
         style={{ objectPosition: focal, ...holding, ...blend, ...style }}
         onLoad={(e) => {
           e.currentTarget.style.backgroundImage = '';

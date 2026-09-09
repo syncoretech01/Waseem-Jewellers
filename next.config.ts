@@ -31,6 +31,36 @@ const config: NextConfig = {
      */
     remotePatterns: [{ protocol: 'https', hostname: 'cdn.shopify.com', pathname: '/s/files/**' }],
   },
+  /**
+   * Stage 1 had one collection and two curated "edits" of it, reached by `?edit=`. Those
+   * edits are now real departments with their own pages, so the old links are redirected
+   * rather than broken: a bookmark, a shared link and every `?edit=` URL the concierge has
+   * already emitted land on the same subject they always meant. The redirect lives in
+   * config, so it holds on the first deploy without a page being involved.
+   */
+  async redirects() {
+    return [
+      /**
+       * `edit` is captured into `:material` rather than matched and discarded. A matched
+       * query key is consumed by the destination; an unmatched one is appended, which would
+       * leave `?edit=gold` riding along on a page that has no idea what an edit is.
+       */
+      {
+        source: '/collections/bridal',
+        has: [{ type: 'query', key: 'edit', value: '(?<material>gold|diamond)' }],
+        destination: '/bridal?material=:material',
+        permanent: true,
+      },
+      // `?material=` was the campaign page's own index filter; the department owns that now
+      {
+        source: '/collections/bridal',
+        has: [{ type: 'query', key: 'material' }],
+        destination: '/bridal',
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

@@ -15,19 +15,23 @@ import { WORLD_BY_SLUG } from '@/data/worlds';
 import { useRise } from '@/motion/hooks/useReveals';
 import { EASE } from '@/lib/motion/easings';
 import type { Product } from '@/data/types';
-import { categoryLabel, departmentLabel, MATERIAL_LABEL, describe } from '@/data';
+import { categoryLabel, departmentLabel, DEPARTMENT_LABEL, MATERIAL_LABEL, describe } from '@/data';
 import { cn } from '@/lib/cn';
 
 export function InfoColumn({ product }: { product: Product }) {
   const scope = useRef<HTMLDivElement>(null);
-  const lastRoute = useSiteStore((s) => s.lastOpenedProduct);
   const openConsultation = useSiteStore((s) => s.openConsultation);
   const world = product.world ? WORLD_BY_SLUG[product.world] : undefined;
   useRise(scope, { start: 'top 95%' });
 
-  const backHref = '/collections/bridal';
-  // the eyebrow beneath already names the department; repeating it here reads as a stutter
-  const backLabel = lastRoute ? 'Bridal' : 'Waseem Jewellers';
+  /**
+   * Back to the piece's own department, not to the one collection Stage 1 happened to have.
+   * A men's bracelet whose back link said Bridal was wrong in a way a visitor would notice
+   * before we did.
+   */
+  const department = product.departments[0];
+  const backHref = department ? `/${department}` : '/';
+  const backLabel = department ? DEPARTMENT_LABEL[department] : 'Waseem Jewellers';
   const specs = product.spec;
   const rows: [string, string][] = [];
   if (specs.purity) rows.push(['Purity', specs.purity]);
@@ -46,7 +50,7 @@ export function InfoColumn({ product }: { product: Product }) {
   return (
     <div ref={scope} className="flex flex-col gap-8">
       <div data-rise>
-        <TransitionLink href={lastRoute ? backHref : '/'} className="micro inline-flex items-center gap-3 text-fg-muted transition-colors hover:text-fg">
+        <TransitionLink href={backHref} className="micro inline-flex items-center gap-3 text-fg-muted transition-colors hover:text-fg">
           <span aria-hidden>←</span>
           {backLabel}
         </TransitionLink>
@@ -137,10 +141,6 @@ export function InfoColumn({ product }: { product: Product }) {
           ]}
         />
       </div>
-
-      <p data-rise className="micro text-fg-muted">
-        Made only once.
-      </p>
     </div>
   );
 }

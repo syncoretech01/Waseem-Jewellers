@@ -1,7 +1,8 @@
 'use client';
 
 import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, getImage, nameOf } from '@/data';
-import { searchCatalogue, similarTo } from '@/data/search';
+import { searchCatalogue, similarTo, asCategory, asMaterial, asDepartment, asStyle, asWorld, asKarat } from '@/data/search';
+import { DEPARTMENT_LABEL } from '@/data/labels';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
 import { productElement } from '@/state/visibility';
 import { runtime, scrollTo } from '@/state/runtime';
@@ -17,11 +18,6 @@ const COLLECTION_ROUTE = '/collections/bridal';
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
-}
-
-/** The published route is `pathname?search`; the view params are read from it, never matched as text. */
-function queryOf(route: string) {
-  return new URLSearchParams(route.split('?')[1] ?? '');
 }
 
 function navigate(href: string, kind: 'curtain' | 'flip' = 'curtain', sourceEl?: HTMLElement | null) {
@@ -60,12 +56,21 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
   switch (name) {
     case 'searchProducts': {
       const limit = Math.min(Number(args.limit ?? 4), 6);
+      /**
+       * Narrowed, not cast. `collection` used to be handed to `world` through `as never`,
+       * which meant a collection slug scored −100 against every product and the tool
+       * silently returned nothing at all.
+       */
+      const collection = str(args.collection);
       const results = searchCatalogue({
         query: str(args.query),
-        category: str(args.category) as never,
-        material: str(args.material) as never,
-        world: str(args.collection) as never,
-        style: str(args.style) as never,
+        category: asCategory(args.category),
+        material: asMaterial(args.material),
+        department: asDepartment(args.department),
+        world: asWorld(collection),
+        campaign: asWorld(collection) ? undefined : collection,
+        style: asStyle(args.style),
+        purity: asKarat(args.purity),
         limit,
       });
       const what = describeQuery(args);
@@ -89,9 +94,8 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       const world = WORLD_BY_SLUG[slug];
       const href = world ? world.href : COLLECTION_ROUTE;
       const onRoute = ctx.route.startsWith(COLLECTION_ROUTE);
-      const q = queryOf(ctx.route);
-      // bridal means the story: an edit or a filter still on the URL has to be left behind
-      if (onRoute && !world && !q.get('edit') && !q.get('material')) {
+      // bridal means the story; the index of every bridal piece is the department at /bridal
+      if (onRoute && !world) {
         const el = sectionElement('pieces');
         if (el) scrollTo(el, { offset: -24, duration: 1.6 });
       } else {
@@ -121,8 +125,9 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         window.setTimeout(() => host.classList.remove('is-spotlit'), 2600);
         site.setFocusedProduct(product.slug);
       } else {
+        // not on this page: go where the piece actually lives, not to the one collection
         site.setPendingSpotlight(product.slug);
-        await navigate(COLLECTION_ROUTE);
+        await navigate(product.departments[0] ? `/${product.departments[0]}` : COLLECTION_ROUTE);
       }
       return {
         result: { ok: true, slug: product.slug },
@@ -240,33 +245,54 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       };
     }
 
+    /**
+     * One resolver, three names. `showGold` and `showDiamond` survive as deprecated aliases
+     * so existing fixtures and a model's habits keep working, but they no longer open an
+     * edit of the bridal collection — those departments are real now, and the tray and the
+     * page are the same set of pieces rather than two different answers to one question.
+     */
+    case 'showDepartment':
     case 'showGold':
     case 'showDiamond': {
-      const material = name === 'showGold' ? 'gold' : 'diamond';
-      const results = searchCatalogue({ material, limit: 4 });
-      if (ctx.routeKind === 'home') {
-        site.setDualityBias(material);
+      const department = name === 'showGold' ? 'gold' : name === 'showDiamond' ? 'diamond' : (asDepartment(args.department) ?? 'gold');
+      const results = searchCatalogue({ department, limit: 4 });
+      const label = DEPARTMENT_LABEL[department];
+      // on the homepage the duality chapter *is* the door to gold and diamond: set the side
+      // it should open on, then bring the visitor to it
+      if (ctx.routeKind === 'home' && (department === 'gold' || department === 'diamond')) {
+        site.setDualityBias(department);
         const el = sectionElement('duality');
         if (el) scrollTo(el, { duration: 1.6 });
-      } else if (queryOf(ctx.route).get('edit') === material) {
+      } else if (ctx.route.split('?')[0] === `/${department}`) {
         const el = sectionElement('pieces');
         if (el) scrollTo(el, { offset: -24, duration: 1.6 });
       } else {
-        await navigate(`${COLLECTION_ROUTE}?edit=${material}`);
+        await navigate(`/${department}`);
       }
       return {
-        result: { material, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
-        runningLabel: material === 'gold' ? CONCIERGE.labels.gold : CONCIERGE.labels.diamond,
-        label: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone,
-        ui: { kind: 'pieces', title: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone, pieces: cardsOf(results) },
+        result: { department, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
+        runningLabel: CONCIERGE.labels.navigating(label),
+        label,
+        ui: { kind: 'pieces', title: label, pieces: cardsOf(results) },
       };
     }
 
     case 'navigate': {
       const path = str(args.path) ?? '/';
-      const ok = path === '/' || /^\/collections\/[a-z0-9-]+(\?.*)?$/.test(path) || /^\/jewellery\/[a-z0-9-]+$/.test(path);
+      const ok =
+        path === '/' ||
+        /^\/collections\/[a-z0-9-]+(\?.*)?$/.test(path) ||
+        /^\/jewellery\/[a-z0-9-]+$/.test(path) ||
+        /^\/(gold|diamond|bridal|men|kids)(\/[a-z-]+)?(\?.*)?$/.test(path);
       if (!ok) return { result: { error: 'invalid path' }, label: '' };
-      const label = path === '/' ? 'Waseem Jewellers' : path.startsWith('/collections') ? 'Bridal' : (getProduct(path.split('/')[2] ?? '')?.editorialTitle ?? 'the piece');
+      const department = asDepartment(path.split('?')[0]?.split('/')[1]);
+      const label = path === '/'
+        ? 'Waseem Jewellers'
+        : department
+          ? DEPARTMENT_LABEL[department]
+          : path.startsWith('/collections')
+            ? 'Bridal'
+            : (getProduct(path.split('/')[2] ?? '')?.editorialTitle ?? 'the piece');
       await navigate(path);
       return { result: { ok: true, path }, runningLabel: CONCIERGE.labels.navigating(label), label, navigateTo: path, ui: { kind: 'navigation', label, href: path }, compact: true };
     }

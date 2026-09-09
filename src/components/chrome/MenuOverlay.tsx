@@ -10,21 +10,29 @@ import { useSiteStore } from '@/state/siteStore';
 import { runtime, scrollTo, startScroll, stopScroll } from '@/state/runtime';
 import { sectionElement } from '@/state/sections';
 import { trapFocus } from '@/lib/focusTrap';
-import { MENU, SITE } from '@/data';
+import { MENU, MENU_ALL, MENU_SECONDARY, SITE } from '@/data';
 import { EASE } from '@/lib/motion/easings';
 import { useQualityStore } from '@/state/qualityStore';
 import type { MenuItem } from '@/data/types';
 import type { SectionId } from '@/state/siteStore';
 import { cn } from '@/lib/cn';
 
-const WORLD_TINT: Record<MenuItem['id'], string> = {
+/**
+ * The veil behind each entry. Keyed loosely with a fallback, so adding a menu item is a
+ * change to data alone — the closed record this replaced meant a new department could not
+ * be added without editing this component.
+ */
+const WORLD_TINT: Record<string, string> = {
   gold: 'rgba(46, 31, 10, 0.55)',
   diamond: 'rgba(14, 22, 34, 0.55)',
   bridal: 'rgba(40, 12, 18, 0.55)',
+  men: 'rgba(18, 16, 12, 0.6)',
+  kids: 'rgba(24, 20, 16, 0.55)',
   collections: 'rgba(16, 14, 24, 0.55)',
   bespoke: 'rgba(20, 20, 20, 0.55)',
   house: 'rgba(12, 16, 20, 0.55)',
 };
+const TINT_DEFAULT = 'rgba(16, 16, 18, 0.55)';
 
 /**
  * Full-screen navigation. The scene recedes (`.recede` leaves scale up beneath a tinted veil),
@@ -91,7 +99,7 @@ export function MenuOverlay() {
     }, 140);
   };
 
-  const activeItem = MENU.find((m) => m.id === active) ?? MENU[2]!;
+  const activeItem = MENU_ALL.find((m) => m.id === active) ?? MENU[2]!;
 
   return (
     <AnimatePresence>
@@ -126,7 +134,8 @@ export function MenuOverlay() {
                 exit={{ opacity: 0, transition: { duration: 0.6 } }}
               >
                 <div className="absolute inset-0 grain vignette">
-                  <Img id={activeItem.media.still} sizes="(min-width:768px) 46vw, 100vw" />
+                  {/* a department with no campaign photography shows the ambient scene, never someone else's piece */}
+                  {activeItem.media.still && <Img id={activeItem.media.still} sizes="(min-width:768px) 46vw, 100vw" />}
                   {activeItem.media.video && highOrMedium && !reduced && (
                     <div className="absolute inset-0">
                       <Video id={activeItem.media.video} preload="metadata" portrait={false} />
@@ -136,7 +145,7 @@ export function MenuOverlay() {
                 <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/40 to-transparent md:from-ink/90" />
               </motion.div>
             </AnimatePresence>
-            <motion.div className="absolute inset-0" animate={{ backgroundColor: WORLD_TINT[activeItem.id] }} transition={{ duration: 0.8 }} />
+            <motion.div className="absolute inset-0" animate={{ backgroundColor: WORLD_TINT[activeItem.id] ?? TINT_DEFAULT }} transition={{ duration: 0.8 }} />
           </div>
 
           {/* items */}
@@ -171,6 +180,39 @@ export function MenuOverlay() {
                   </li>
                 );
               })}
+            </motion.ul>
+
+            {/* the chapters: read rather than shopped, so they are set below the departments and smaller */}
+            <motion.ul
+              className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: { delay: 0.12, duration: 0.34 } }}
+              exit={{ opacity: 0, transition: { duration: 0.25 } }}
+            >
+              {MENU_SECONDARY.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    data-menu-id={item.id}
+                    onClick={() => go(item)}
+                    onPointerEnter={() => setActive(item.id)}
+                    onFocus={() => setActive(item.id)}
+                    onTouchStart={() => setActive(item.id)}
+                    className={cn('group/sec relative pb-1 font-display text-[1.35rem] transition-opacity duration-500', active === item.id ? 'opacity-100' : 'opacity-55 hover:opacity-100')}
+                    style={{ fontVariationSettings: '"opsz" 24' }}
+                    data-cursor="discover"
+                  >
+                    {item.label}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'absolute inset-x-0 bottom-0 h-px origin-left bg-champagne/50 transition-transform duration-700 ease-[var(--ease-out-expo)]',
+                        active === item.id ? 'scale-x-100' : 'scale-x-0 group-hover/sec:scale-x-100',
+                      )}
+                    />
+                  </button>
+                </li>
+              ))}
             </motion.ul>
 
             <motion.div className="mt-6 flex flex-col gap-6 text-[0.75rem] text-ivory/70 md:flex-row md:items-end md:justify-between" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.16, duration: 0.34 } }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>

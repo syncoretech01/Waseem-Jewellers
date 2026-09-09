@@ -13,7 +13,6 @@ import type { Collection } from '@/data/types';
 
 interface OpeningProps {
   collection: Collection;
-  edit: 'gold' | 'diamond' | null;
   /** Still to show first (a world's hero when arriving from CH04). */
   still: string;
 }
@@ -22,7 +21,7 @@ interface OpeningProps {
  * The route opens inside the portrait mask of CH05 (62vw × 82svh) and expands to full bleed
  * over the first 60vh of scroll while the title stack exits upward — the chapter you just left.
  */
-export function CollectionOpening({ collection, edit, still }: OpeningProps) {
+export function CollectionOpening({ collection, still }: OpeningProps) {
   const { ref, ready } = useChapter({ id: 'collection-opening', theme: 'dark', pinned: true });
   const scope = useRef<HTMLDivElement>(null);
   const flipTarget = useFlipTarget<HTMLDivElement>('collection-hero');
@@ -72,8 +71,6 @@ export function CollectionOpening({ collection, edit, still }: OpeningProps) {
     { scope, dependencies: [reduced] },
   );
 
-  const word = edit === 'gold' ? COPY.duality.gold.word : edit === 'diamond' ? COPY.duality.diamond.word : null;
-
   return (
     <section ref={ref} data-theme="dark" className="relative bg-ink text-ivory" aria-label={`${collection.name} — opening`}>
       <div ref={scope} className="relative h-svh overflow-hidden">
@@ -92,27 +89,14 @@ export function CollectionOpening({ collection, edit, still }: OpeningProps) {
           <div className="absolute inset-0 border border-champagne/40" />
         </div>
         <div className="opening-title absolute inset-x-0 bottom-[12svh] flex flex-col items-center gap-5 px-gutter text-center">
-          <Eyebrow className="justify-center">{edit ? `${COPY.bridal.eyebrow} · ${COPY.duality[edit].title}` : COPY.bridal.eyebrow}</Eyebrow>
-          {word ? (
-            <>
-              <h1 className="display text-display-xl" style={{ fontVariationSettings: '"opsz" 96, "wght" 560' }}>
-                {word}
-              </h1>
-              <p className="font-display italic text-lead text-fg-2" style={{ fontVariationSettings: '"opsz" 24' }}>
-                {edit === 'gold' ? COPY.duality.landing.gold : COPY.duality.landing.diamond}
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="display text-display-xl">
-                {collection.name}
-                <UrduAccent text={collection.urdu} className="ml-4 text-[0.25em]" />
-              </h1>
-              <p className="font-display italic text-lead text-fg-2" style={{ fontVariationSettings: '"opsz" 24' }}>
-                {collection.tagline}
-              </p>
-            </>
-          )}
+          <Eyebrow className="justify-center">{COPY.bridal.eyebrow}</Eyebrow>
+          <h1 className="display text-display-xl">
+            {collection.name}
+            <UrduAccent text={collection.urdu} className="ml-4 text-[0.25em]" />
+          </h1>
+          <p className="font-display italic text-lead text-fg-2" style={{ fontVariationSettings: '"opsz" 24' }}>
+            {collection.tagline}
+          </p>
         </div>
       </div>
     </section>

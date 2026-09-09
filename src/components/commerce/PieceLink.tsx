@@ -5,10 +5,20 @@ import { Img } from '@/components/media/Img';
 import { useProductVisibility, useFocusedProduct } from '@/motion/hooks/useProductVisibility';
 import { useOpenProduct } from '@/motion/hooks/useFlipNavigate';
 import { cn } from '@/lib/cn';
-import type { Product } from '@/data/types';
+import type { ProductImage } from '@/data/types';
+
+/**
+ * All a link needs to be: a slug and a photograph. A full `Product` satisfies it, and so
+ * does a row from the slim index, which is what lets the department grid and the story
+ * blocks share one link rather than growing a second one.
+ */
+export interface PieceRef {
+  slug: string;
+  media: { hero: ProductImage };
+}
 
 interface PieceLinkProps {
-  product: Product;
+  product: PieceRef;
   imageId?: string;
   sizes: string;
   className?: string;

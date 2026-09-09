@@ -37,7 +37,8 @@ function frameOf(role: string, w: number, h: number, frame: number) {
  * pointer stays put) — no magnifier lens. Click on a macro enters drag-to-inspect at 2.4×.
  */
 export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, className, frame = 0 }: InspectImageProps) {
-  const asset = resolveImage(image.ref);
+  // the shop's own filing decides the frame: a campaign frame is a scene, everything else a cut-out
+  const asset = resolveImage(image.ref, undefined, image.role === 'campaign' ? 'campaign' : image.role === 'macro' ? 'macro' : 'packshot');
   const { ratio, mount } = frameOf(asset.role, asset.width, asset.height, frame);
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);

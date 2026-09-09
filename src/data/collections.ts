@@ -61,16 +61,6 @@ export const COLLECTIONS: Collection[] = [
         blocks: [{ kind: 'solo', piece: 'emerald-tassel-earrings-t06768', scale: 'wide', caption: 'MADE ONLY ONCE' }],
       },
     ],
-    edits: {
-      gold: ['aks-e-noor-satlada-haar', 'royal-wedding-polki-raani-haar', 'rukh-e-jana-pleated-collar', 'emerald-tassel-earrings-t06768'],
-      diamond: [
-        'diamond-bridal-sapphire-suite',
-        'naqsh-e-gul-pearl-blossom-choker',
-        'rang-e-jamal-emerald-suite',
-        'dewan-bridal-suite',
-        'timeless-feathered-cluster-ring',
-      ],
-    },
     wornTogether: ['lavender-halo-ring-r11912', 'timeless-feathered-cluster-ring', 'aks-e-noor-satlada-haar'],
   },
 ];
