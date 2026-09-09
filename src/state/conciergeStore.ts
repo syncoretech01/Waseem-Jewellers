@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ImageRef } from '@/data/types';
+import { EMPTY_MEMORY, DISCUSSED_MAX, type ConversationMemory } from '@/concierge/memory';
 
 export type ConciergeState =
   | 'IDLE'
@@ -160,6 +161,16 @@ interface ConciergeStoreState {
   setLastVisitorText: (t: string | null) => void;
   setTrayOpen: (open: boolean) => void;
   setRecentCollections: (cards: CollectionCard[]) => void;
+  /** Session-scoped, bounded, and never persisted — see src/concierge/memory.ts. */
+  memory: ConversationMemory;
+  /** How many visitor turns have passed; the unit the topic and the anchor decay in. */
+  turnCount: number;
+  countTurn: () => void;
+  rememberTopic: (slots: ConversationMemory['standingSlots']) => void;
+  rememberAnchor: (slug: string | null) => void;
+  rememberLanguage: (language: ConversationMemory['language']) => void;
+  noteDiscussed: (slugs: string[]) => void;
+  forgetTopic: () => void;
   forget: () => void;
 }
 
@@ -182,6 +193,19 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   error: null,
   greeted: false,
   trayOpen: false,
+  memory: EMPTY_MEMORY,
+  turnCount: 0,
+
+  countTurn: () => set({ turnCount: get().turnCount + 1 }),
+  rememberTopic: (standingSlots) => set({ memory: { ...get().memory, standingSlots, topicTurn: get().turnCount, topicAt: Date.now() } }),
+  rememberAnchor: (anchor) => set({ memory: { ...get().memory, anchor, anchorTurn: get().turnCount } }),
+  rememberLanguage: (language) => set({ memory: { ...get().memory, language } }),
+  noteDiscussed: (slugs) => {
+    const seen = [...new Set([...slugs, ...get().memory.discussed])].slice(0, DISCUSSED_MAX);
+    set({ memory: { ...get().memory, discussed: seen } });
+  },
+  // begun again: the subject goes, the visitor's language stays — they did not change that
+  forgetTopic: () => set({ memory: { ...EMPTY_MEMORY, language: get().memory.language } }),
 
   transition: (next, reason = '') => {
     const current = get().state;

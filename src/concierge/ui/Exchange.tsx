@@ -24,9 +24,14 @@ export function ExchangeList({ latestOnly = false }: { latestOnly?: boolean }) {
   }, [turns.length, lastText, error, latestOnly]);
 
   return (
-    <div className="flex flex-col gap-9" aria-live="off">
+    /**
+     * The transcript is not a live region — announcing every turn again on each render
+     * would read the whole conversation aloud. Only the concierge's newest line is, and
+     * only politely, which is what a screen-reader user actually needs to hear.
+     */
+    <div className="flex flex-col gap-9">
       {turns.map((t, i) => (
-        <Exchange key={t.id} turn={t} first={i === 0} />
+        <Exchange key={t.id} turn={t} first={i === 0} live={i === turns.length - 1 && t.role === 'concierge'} />
       ))}
       {state === 'THINKING' && (
         <div className="flex items-center gap-4">
@@ -62,13 +67,16 @@ function latestExchange(turns: ConciergeTurn[]): ConciergeTurn[] {
   return turns.slice(Math.max(0, i));
 }
 
-function Exchange({ turn, first }: { turn: ConciergeTurn; first: boolean }) {
+function Exchange({ turn, first, live }: { turn: ConciergeTurn; first: boolean; live?: boolean }) {
   if (turn.role === 'visitor') {
     return (
       <div className={cn('flex flex-col gap-3', !first && 'pt-2')}>
         <p className="flex items-baseline gap-2">
           <span className="micro shrink-0 text-fg-muted">You —</span>
-          <span className="text-[0.8125rem] leading-snug text-fg-2">{turn.text}</span>
+          {/* the visitor may have written in any of five languages; the browser decides which way it runs */}
+          <span dir="auto" className="text-[0.8125rem] leading-snug text-fg-2">
+            {turn.text}
+          </span>
         </p>
       </div>
     );
@@ -86,7 +94,12 @@ function Exchange({ turn, first }: { turn: ConciergeTurn; first: boolean }) {
         </div>
       ))}
       {turn.text && (
-        <p className="font-display text-[1.1875rem] leading-[1.5] text-fg" style={{ fontVariationSettings: '"opsz" 18' }}>
+        <p
+          dir="auto"
+          {...(live ? { role: 'status' as const, 'aria-live': 'polite' as const } : {})}
+          className="font-display text-[1.1875rem] leading-[1.5] text-fg"
+          style={{ fontVariationSettings: '"opsz" 18' }}
+        >
           {turn.text}
         </p>
       )}

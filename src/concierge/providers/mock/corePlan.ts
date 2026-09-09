@@ -1,4 +1,6 @@
 import { parse, type IntentFrame } from '../../nlu/parse';
+import { carriedKeys, hasSubject, subjectOf, topicIsLive, topicLine, withStandingTopic } from '../../memory';
+import { useConciergeStore } from '@/state/conciergeStore';
 import { CONCIERGE } from '../../copy';
 import { countInWords, capitalise } from '@/lib/format';
 import type { SiteContext, ToolName, ToolOutcome } from '../../types';
@@ -73,7 +75,25 @@ const searchArgs = (frame: IntentFrame): Record<string, unknown> => {
  * trying to be right about the things a jewellery visitor asks for most.
  */
 export function corePlan(text: string, ctx: SiteContext): Plan | null {
-  const frame = parse(text);
+  const raw = parse(text);
+  const store = useConciergeStore.getState();
+  const now = Date.now();
+
+  store.countTurn();
+  if (raw.language !== 'en') store.rememberLanguage(raw.language);
+
+  /**
+   * The running topic fills in what this sentence left unsaid.
+   *
+   * Without it every second sentence has to repeat the first: "gold rings under 15 grams",
+   * then "something lighter", and the second one means nothing on its own. The new words
+   * always win; the topic only supplies what was not said again.
+   */
+  const carried = withStandingTopic(raw.slots, store.memory, store.turnCount, now);
+  const frame: IntentFrame = { ...raw, slots: carried };
+  // what the topic supplied, so the reply can name it rather than acting silently
+  const fromTopic = topicIsLive(store.memory, store.turnCount, now) ? carriedKeys(raw.slots, carried) : {};
+  if (hasSubject(raw.slots)) store.rememberTopic(subjectOf(carried));
 
   // below the floor, ask — and name the two readings rather than guessing between them
   if (frame.intent === 'unknown') {
@@ -98,8 +118,13 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
         reply: (o) => {
           const found = pieces(o);
           if (found.length === 0) return CONCIERGE.nothing;
+          store.noteDiscussed(found.map((p) => p.slug));
           const line = CONCIERGE.searchResult(capitalise(countInWords(found.length)), what, []);
-          return s.maxPricePkr ? `${line} ${CONCIERGE.budgetNoted}` : line;
+          // when the topic supplied the subject, name it: a visitor should be able to see
+          // what is being carried, and say so if it is not what they meant
+          const carriedLine = topicLine(fromTopic);
+          const withTopic = carriedLine ? `${line} ${CONCIERGE.stillIn(carriedLine)}` : line;
+          return s.maxPricePkr ? `${withTopic} ${CONCIERGE.budgetNoted}` : withTopic;
         },
       };
     }
@@ -146,7 +171,7 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
       return { id: 'core_consultation', tools: [tool('openPrivateConsultation', {})], reply: () => CONCIERGE.consultation };
 
     case 'restart':
-      // no tool yet: clearing the standing topic is conversation memory, which lands with it
+      store.forgetTopic();
       return { id: 'core_restart', tools: [], reply: () => CONCIERGE.restart };
 
     case 'greet':

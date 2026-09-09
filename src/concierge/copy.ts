@@ -64,6 +64,8 @@ export const CONCIERGE = {
   matchingResult: (n: number) => `${n === 1 ? 'One piece' : `${n} pieces`} that would be worn with it.`,
   priceOf: (name: string, label: string) => `${name} — ${label.toLowerCase()}. I can arrange a viewing whenever suits you.`,
   restart: 'Begun again. What would you like to see?',
+  /** Said when the running topic supplied the subject, so the visitor can see it and correct it. */
+  stillIn: (topic: string) => `Still in ${topic} — say otherwise and I will widen it.`,
   consultationKnown: (code: string) => `Your request ${code} is with our team. I can arrange a further viewing whenever you wish.`,
   priceOnRequest: 'This piece is priced on request — we share full details at a private viewing, which I can arrange.',
   priceKnown: (label: string, karat?: string) => `This piece is ${label}${karat ? `, in ${karat}` : ''}. Shall I arrange a viewing?`,
