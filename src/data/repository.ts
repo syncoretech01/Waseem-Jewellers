@@ -1,7 +1,7 @@
 import type { Category, Department, Product } from './types';
 import { PRODUCTS, LISTABLE_PRODUCTS, CATALOGUE_DATE } from './products';
 import { searchCatalogue, similarTo, type SearchQuery } from './search';
-import { nameOf } from './labels';
+import { nameOf, DEPARTMENT_LABEL } from './labels';
 import { bandOf, matchesFacets, type Facetable, type PieceRow, type SortKey } from '@/lib/facets';
 
 /**
@@ -58,6 +58,26 @@ export interface CatalogueRepository {
   categories(department: Department): Promise<{ category: Category; count: number }[]>;
   /** The rows a facet UI runs on, for one department or the whole catalogue. */
   rows(department?: Department): Promise<PieceRow[]>;
+  /** The homepage wall's cuts — a fixed layout, a changing set of pieces. */
+  wallCuts(perCut?: number): Promise<WallCut[]>;
+}
+
+/**
+ * A named set of pieces the wall can show.
+ *
+ * The wall used to be eleven slots hard-bound to eleven slugs, which breaks twice at 599
+ * pieces: it cannot grow, and a version of it that could would be the grid the brief
+ * forbids. So the composition stays exactly as it is — twelve columns, whitespace, tilt and
+ * sheen — and becomes a template that different sets of pieces move through. One screen
+ * fronts the whole collection without ever growing.
+ *
+ * The cuts are derived, not hand-listed: a hand-listed cut is a slug list that rots the day
+ * Waseem withdraws a piece.
+ */
+export interface WallCut {
+  id: string;
+  label: string;
+  rows: PieceRow[];
 }
 
 /**
@@ -263,6 +283,17 @@ class SnapshotRepository implements CatalogueRepository {
   async rows(department?: Department) {
     const from = department ? this.inDepartment(department) : LISTABLE_PRODUCTS;
     return from.map(rowOf);
+  }
+
+  async wallCuts(perCut = 10) {
+    const cuts: WallCut[] = [{ id: 'selected', label: 'Selected', rows: order(LISTABLE_PRODUCTS, 'featured').slice(0, perCut).map(rowOf) }];
+    for (const { department } of await this.departments()) {
+      const inD = order(this.inDepartment(department), 'featured');
+      // a cut that cannot fill the composition would leave holes in it
+      if (inD.length < perCut) continue;
+      cuts.push({ id: department, label: DEPARTMENT_LABEL[department], rows: inD.slice(0, perCut).map(rowOf) });
+    }
+    return cuts;
   }
 }
 

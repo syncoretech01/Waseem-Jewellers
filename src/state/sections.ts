@@ -9,6 +9,7 @@ import { useSiteStore, type SectionId } from './siteStore';
 export const SECTION_LABELS: Record<SectionId, string> = {
   loader: 'Waseem Jewellers',
   hero: 'Waseem Jewellers',
+  vitrine: 'In the Vitrine',
   craft: 'The Craft',
   heritage: 'Since 1952',
   collections: 'Signature Collections',

@@ -6,6 +6,7 @@ export type RouteKind = 'home' | 'collection' | 'department' | 'product' | 'othe
 export type SectionId =
   | 'loader'
   | 'hero'
+  | 'vitrine'
   | 'craft'
   | 'heritage'
   | 'collections'

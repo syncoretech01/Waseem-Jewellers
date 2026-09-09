@@ -29,10 +29,9 @@ const ORDER = [
   'diamond-bridal-sapphire-suite',
   'timeless-feathered-cluster-ring',
 ];
-const N = ORDER.length;
 const DELTA_PHI = 0.34;
 /** Scroll travel per piece. Short enough that the vitrine never feels like a trap. */
-const VH_PER_ITEM = 26;
+const VH_PER_ITEM = 22;
 /** How far the hand travels, as a share of the viewport, to bring the next piece to the centre. */
 const DRAG_PER_ITEM = 0.26;
 
@@ -54,9 +53,16 @@ export function Ch07Slider() {
   const [pinned, setPinned] = useState(false);
   const pin = useRef<{ start: number; length: number }>({ start: 0, length: 1 });
   const current = useRef(0);
-  const products = ORDER.map((s) => getProduct(s)!).filter(Boolean);
+  /**
+   * The eight are resolved before anything is measured, and every count and index below is
+   * taken from what actually resolved. The pin length used to be derived from the slug list
+   * rather than from the pieces, so a withdrawn piece would have left the vitrine scrubbing
+   * through a position that is not there.
+   */
+  const products = ORDER.map((slug) => getProduct(slug)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const N = products.length;
 
-  const positionOf = useCallback((i: number) => pin.current.start + (pin.current.length * i) / (N - 1), []);
+  const positionOf = useCallback((i: number) => pin.current.start + (pin.current.length * i) / (N - 1), [N]);
 
   /** Explicit navigation — the only thing allowed to move the page on the visitor's behalf. */
   const goTo = useCallback(
@@ -66,7 +72,7 @@ export function Ch07Slider() {
       const distance = Math.abs(target - current.current);
       snapWithLenis(positionOf(target), { duration: Math.min(1.1, 0.5 + 0.18 * distance) });
     },
-    [pinned, positionOf],
+    [pinned, positionOf, N],
   );
 
   useGSAP(
@@ -113,9 +119,9 @@ export function Ch07Slider() {
           if (near !== lastCentre) {
             lastCentre = near;
             setCentre(near);
-            const slugs = [near, near - 1, near + 1].filter((k) => k >= 0 && k < N).map((k) => ORDER[k]!);
+            const slugs = [near, near - 1, near + 1].filter((k) => k >= 0 && k < N).map((k) => products[k]!.slug);
             overrideVisibleProducts(slugs);
-            setFocused(ORDER[near] ?? null);
+            setFocused(products[near]?.slug ?? null);
           }
         };
 
@@ -214,7 +220,7 @@ export function Ch07Slider() {
       goTo(N - 1);
     } else if (e.key === 'Enter') {
       const item = ref.current?.querySelector<HTMLElement>(`[data-index="${c}"] img`);
-      const slug = ORDER[c];
+      const slug = products[c]?.slug;
       if (slug) openProduct(slug, item);
     }
   };
