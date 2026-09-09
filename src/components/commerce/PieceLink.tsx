@@ -56,7 +56,7 @@ export function PieceLink({ product, imageId, sizes, className, aspect = '4 / 5'
         data-reveal={reveal}
       >
         <div className="absolute inset-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/piece:scale-[1.03] group-focus-visible/piece:scale-[1.03]" data-reveal-inner>
-          <Img id={imageId ?? product.media.hero} sizes={sizes} priority={priority} plain data={{ 'flip-source': product.slug }} />
+          <Img {...(imageId ? { id: imageId } : { image: product.media.hero })} sizes={sizes} priority={priority} plain data={{ 'flip-source': product.slug }} />
         </div>
         <span
           aria-hidden

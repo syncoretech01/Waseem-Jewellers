@@ -9,13 +9,27 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  /**
+   * Every prerender worker loads the whole 656-product catalogue, so seven of them at once
+   * exhaust this machine's memory partway through the export. Three build the same 600
+   * pages without the peak. The repository seam is what will eventually let a page load
+   * only what it needs; until then this is the honest constraint.
+   */
+  experimental: { cpus: 3 },
+
   images: {
     formats: ['image/webp'],
     deviceSizes: [640, 828, 1080, 1280, 1600, 1920, 2560],
     imageSizes: [96, 160, 256, 384, 512],
     qualities: [70, 82],
     minimumCacheTTL: 60 * 60 * 24 * 30,
-    remotePatterns: [],
+    /**
+     * The long tail of the catalogue is resized from the shop's own CDN rather than
+     * localised — 656 products at Stage 1's quality would be 150 MB+ in git. The browser
+     * still only ever talks to this domain: the origin is /_next/image, nothing is
+     * hotlinked into the page, and the optimiser's output is cached at the edge.
+     */
+    remotePatterns: [{ protocol: 'https', hostname: 'cdn.shopify.com', pathname: '/s/files/**' }],
   },
   async headers() {
     return [

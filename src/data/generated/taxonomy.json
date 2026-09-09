@@ -1,0 +1,63 @@
+{
+  "syncedAt": "2026-09-09T15:11:21.797Z",
+  "departments": {
+    "gold": 267,
+    "diamond": 162,
+    "men": 113,
+    "kids": 51,
+    "bridal": 13
+  },
+  "categories": {
+    "ring": 135,
+    "bracelet": 134,
+    "pendant": 77,
+    "earrings": 57,
+    "chain": 48,
+    "necklace": 47,
+    "bangle": 32,
+    "cufflink": 31,
+    "nose-pin": 18,
+    "bridal-set": 13
+  },
+  "materials": {
+    "gold": 368,
+    "gold-diamond": 192,
+    "diamond": 30,
+    "polki": 2
+  },
+  "purities": {
+    "21K": 362,
+    "18K": 159,
+    "22K": 39
+  },
+  "campaigns": {
+    "bespoke-elegance": 4,
+    "range-jamal": 1
+  },
+  "occasions": {
+    "wedding": 13,
+    "baraat": 13,
+    "walima": 13,
+    "mehndi": 13
+  },
+  "diamondClarity": {
+    "VVS1": 121,
+    "VVS": 100,
+    "VS1": 1
+  },
+  "diamondColour": {
+    "G&H": 143,
+    "H": 59,
+    "GH": 20
+  },
+  "weightBands": {
+    "<5": 93,
+    "5-15": 178,
+    "15-30": 170,
+    "30-60": 80,
+    "60+": 61
+  },
+  "pricedProducts": 16,
+  "listable": 592,
+  "imported": 656
+}

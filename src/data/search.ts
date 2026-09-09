@@ -1,5 +1,6 @@
 import type { Category, Material, Product, StyleTag, WorldSlug } from './types';
 import { PRODUCTS } from './products';
+import { nameOf } from './labels';
 
 export interface SearchQuery {
   query?: string;
@@ -34,15 +35,15 @@ function tokens(s: string) {
 function haystack(p: Product) {
   return [
     p.title,
-    p.editorialTitle,
-    p.house ?? '',
+    nameOf(p),
+    p.campaign ?? '',
     p.world ?? '',
     p.category,
     p.material,
     ...p.tags,
     ...p.styleTags,
-    ...(p.metadata.stones ?? []),
-    ...(p.metadata.technique ?? []),
+    ...(p.spec.stones ?? []),
+    ...(p.spec.technique ?? []),
   ]
     .join(' ')
     .toLowerCase();
@@ -89,7 +90,7 @@ export function searchCatalogue(q: SearchQuery): Product[] {
     return { p, score };
   })
     .filter((s) => s.score >= 0)
-    .sort((a, b) => b.score - a.score || a.p.featuredRank - b.p.featuredRank);
+    .sort((a, b) => b.score - a.score || (a.p.featuredRank ?? 999) - (b.p.featuredRank ?? 999));
   return scored.slice(0, limit).map((s) => s.p);
 }
 
@@ -107,7 +108,7 @@ export function similarTo(slug: string, limit = 4): Product[] {
       if (anchor.complementary.includes(p.slug)) score += 2;
       return { p, score };
     })
-    .sort((a, b) => b.score - a.score || a.p.featuredRank - b.p.featuredRank)
+    .sort((a, b) => b.score - a.score || (a.p.featuredRank ?? 999) - (b.p.featuredRank ?? 999))
     .slice(0, limit)
     .map((s) => s.p);
 }
@@ -120,7 +121,7 @@ const GENERIC_NAME_WORDS = new Set([
 
 /** Distinctive words of a product's name: world names and proper descriptors, never generic jewellery words. */
 function nameTokens(p: Product): string[] {
-  const raw = `${p.editorialTitle} ${p.title} ${p.metadata.itemCode ?? ''} ${p.world ?? ''} ${p.slug}`.toLowerCase();
+  const raw = `${nameOf(p)} ${p.title} ${p.reference ?? ''} ${p.world ?? ''} ${p.slug}`.toLowerCase();
   return raw
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 2 && !GENERIC_NAME_WORDS.has(w));

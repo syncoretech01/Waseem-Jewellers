@@ -2,11 +2,19 @@
 
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
-import { getImage } from '@/data';
+import { resolveImage } from '@/data';
+import type { ImageRef, ProductImage } from '@/data/types';
 import { cn } from '@/lib/cn';
 
 interface ImgProps {
-  id: string;
+  /** An id in the generated asset map. Give this or `image`. */
+  id?: string;
+  /**
+   * A product image of either tier. A flagship piece resolves to a localised asset with a
+   * blur placeholder; a long-tail piece is resized from the shop's CDN by the optimiser, so
+   * the browser still only ever talks to our own domain.
+   */
+  image?: ProductImage | ImageRef;
   /** Required: how wide the image renders, e.g. "(min-width:1280px) 62vw, 100vw". */
   sizes: string;
   className?: string;
@@ -28,8 +36,10 @@ interface ImgProps {
 }
 
 /** next/image bound to the generated asset map: exact dimensions, blur placeholder, focal object-position. */
-export function Img({ id, sizes, className, fill = true, priority, quality = 82, style, draggable = false, alt, onLoad, plain, data, eager }: ImgProps) {
-  const asset = getImage(id);
+export function Img({ id, image, sizes, className, fill = true, priority, quality = 82, style, draggable = false, alt, onLoad, plain, data, eager }: ImgProps) {
+  const ref: ImageRef | undefined = image ? ('ref' in image ? image.ref : image) : id ? { kind: 'local', id } : undefined;
+  if (!ref) throw new Error('<Img> needs either an id or an image');
+  const asset = resolveImage(ref, image && 'alt' in image ? image.alt : undefined);
   const focal = `${Math.round(asset.focal[0] * 100)}% ${Math.round(asset.focal[1] * 100)}%`;
   const dataAttrs = data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v])) : {};
   if (!asset.src) return null;
@@ -47,8 +57,8 @@ export function Img({ id, sizes, className, fill = true, priority, quality = 82,
           quality={quality}
           priority={priority}
           fetchPriority={priority ? 'high' : undefined}
-          placeholder="blur"
-          blurDataURL={asset.blurDataURL}
+          placeholder={asset.blurDataURL ? 'blur' : 'empty'}
+          blurDataURL={asset.blurDataURL || undefined}
           draggable={draggable}
           className={cn('object-cover', className)}
           style={{ objectPosition: focal, ...blend, ...style }}
@@ -95,8 +105,8 @@ export function Img({ id, sizes, className, fill = true, priority, quality = 82,
         quality={quality}
         priority={priority}
         fetchPriority={priority ? 'high' : undefined}
-        placeholder="blur"
-        blurDataURL={asset.blurDataURL}
+        placeholder={asset.blurDataURL ? 'blur' : 'empty'}
+        blurDataURL={asset.blurDataURL || undefined}
         draggable={draggable}
         className={cn('object-cover', className)}
         style={{ objectPosition: focal, ...style }}

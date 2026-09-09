@@ -14,7 +14,7 @@
  *   node scripts/catalogue/parse.mjs
  */
 import path from 'node:path';
-import { CACHE, readJson, writeJson, rel, titleCase } from './lib.mjs';
+import { CACHE, readJson, writeJson, rel, displayTitle } from './lib.mjs';
 
 const RAW = path.join(CACHE, 'raw');
 
@@ -194,7 +194,7 @@ const parsed = products.map((p) => {
   return {
     handle: p.handle,
     shopifyId: p.id,
-    title: titleCase(p.title),
+    title: displayTitle(p.title),
     rawTitle: p.title,
     productType: p.product_type ?? '',
     tags: Array.isArray(p.tags) ? p.tags : String(p.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean),

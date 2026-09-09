@@ -1,5 +1,5 @@
 import { findByName, similarTo } from '@/data/search';
-import { getProduct, productsBySlugs, WORLDS } from '@/data';
+import { getProduct, productsBySlugs, WORLDS, nameOf, describe } from '@/data';
 import { formatPrice, countInWords, capitalise } from '@/lib/format';
 import { CONCIERGE } from '../../copy';
 import { ordinalFromWord, resolveOrdinal } from '../../tools/executeTool';
@@ -112,8 +112,8 @@ function searchReply(outcomes: ToolOutcome[], what: string) {
 function specsLine(slug: string) {
   const p = getProduct(slug);
   if (!p) return '';
-  const m = p.metadata;
-  const bits = [m.karat ? `${m.karat} gold` : null, m.grossWeightGrams ? `${m.grossWeightGrams.toFixed(3)} g` : null, m.carat ? `${m.carat} ct` : null, m.clarity ? m.clarity : null].filter(Boolean);
+  const m = p.spec;
+  const bits = [m.purity ? `${m.purity} gold` : null, m.grossWeightGrams ? `${m.grossWeightGrams.toFixed(3)} g` : null, m.diamondCarat ? `${m.diamondCarat} ct` : null, m.diamondClarity ?? null].filter(Boolean);
   return bits.length ? `${bits.join(', ')}.` : '';
 }
 
@@ -162,7 +162,7 @@ export const COMMANDS: Command[] = [
       return {
         id: 'price',
         tools: [],
-        reply: () => (p && p.price.kind === 'fixed' ? CONCIERGE.priceKnown(formatPrice(p.price), p.metadata.karat) : CONCIERGE.priceOnRequest),
+        reply: () => (p && p.price.kind === 'fixed' ? CONCIERGE.priceKnown(formatPrice(p.price), p.spec.purity) : CONCIERGE.priceOnRequest),
       };
     },
   },
@@ -219,7 +219,7 @@ export const COMMANDS: Command[] = [
       if (!target) return { id: 'ordinal_open', tools: [], reply: () => CONCIERGE.whichPiece };
       if (target.kind === 'collection') return { id: 'ordinal_open', tools: [{ name: 'showCollection', args: { slug: target.slug } }], reply: (o) => o[0]?.label ?? CONCIERGE.whichPiece };
       const p = getProduct(target.slug);
-      return { id: 'ordinal_open', tools: [{ name: 'openProduct', args: { slug: target.slug } }], reply: () => (p ? CONCIERGE.opened(p.editorialTitle) : CONCIERGE.whichPiece) };
+      return { id: 'ordinal_open', tools: [{ name: 'openProduct', args: { slug: target.slug } }], reply: () => (p ? CONCIERGE.opened(nameOf(p)) : CONCIERGE.whichPiece) };
     },
   },
   {
@@ -229,9 +229,9 @@ export const COMMANDS: Command[] = [
       const p = findByName(t)!;
       if (/\btell me\b|\babout\b|\bdetails\b/.test(t)) {
         const specs = specsLine(p.slug);
-        return { id: 'named_tell', tools: [{ name: 'focusProduct', args: { slug: p.slug } }], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.editorialTitle, p.story.lede, specs) : CONCIERGE.tellAbout(p.editorialTitle, p.story.lede)) };
+        return { id: 'named_tell', tools: [{ name: 'focusProduct', args: { slug: p.slug } }], reply: () => (specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)))) };
       }
-      return { id: 'named_open', tools: [{ name: 'openProduct', args: { slug: p.slug } }], reply: () => CONCIERGE.opened(p.editorialTitle) };
+      return { id: 'named_open', tools: [{ name: 'openProduct', args: { slug: p.slug } }], reply: () => CONCIERGE.opened(nameOf(p)) };
     },
   },
   {
@@ -241,7 +241,7 @@ export const COMMANDS: Command[] = [
       const slug = (ctx.currentProduct ?? ctx.focusedProduct)!.slug;
       const p = getProduct(slug)!;
       const specs = specsLine(slug);
-      return { id: 'deictic_tell', tools: [], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.editorialTitle, p.story.lede, specs) : CONCIERGE.tellAbout(p.editorialTitle, p.story.lede)) };
+      return { id: 'deictic_tell', tools: [], reply: () => (specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)))) };
     },
   },
   {
@@ -250,7 +250,7 @@ export const COMMANDS: Command[] = [
     plan: (_t, _e, ctx) => {
       const slug = (ctx.focusedProduct ?? ctx.recentResults[0])!.slug;
       const p = getProduct(slug);
-      return { id: 'deictic_open', tools: [{ name: 'openProduct', args: { slug } }], reply: () => (p ? CONCIERGE.opened(p.editorialTitle) : CONCIERGE.whichPiece) };
+      return { id: 'deictic_open', tools: [{ name: 'openProduct', args: { slug } }], reply: () => (p ? CONCIERGE.opened(nameOf(p)) : CONCIERGE.whichPiece) };
     },
   },
   {
@@ -309,7 +309,7 @@ export function planFor(text: string, ctx: SiteContext): Plan {
     }
   }
   const named = findByName(t);
-  if (named) return { id: 'named_fallback', tools: [{ name: 'openProduct', args: { slug: named.slug } }], reply: () => CONCIERGE.opened(named.editorialTitle) };
+  if (named) return { id: 'named_fallback', tools: [{ name: 'openProduct', args: { slug: named.slug } }], reply: () => CONCIERGE.opened(nameOf(named)) };
   return { id: 'unknown', tools: [], reply: () => CONCIERGE.unknown };
 }
 
@@ -318,11 +318,11 @@ export function introFor(slug: string) {
   const p = getProduct(slug);
   if (!p) return CONCIERGE.unknown;
   const specs = specsLine(slug);
-  return specs ? CONCIERGE.tellAboutSpecs(p.editorialTitle, p.story.lede, specs) : CONCIERGE.tellAbout(p.editorialTitle, p.story.lede);
+  return specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)));
 }
 
 export function selectionIntro(slugs: string[]) {
-  const names = productsBySlugs(slugs).map((p) => p.editorialTitle);
+  const names = productsBySlugs(slugs).map((p) => nameOf(p));
   return names.length ? CONCIERGE.selectionIntro(names) : CONCIERGE.wishlistEmpty;
 }
 

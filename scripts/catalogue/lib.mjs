@@ -72,6 +72,15 @@ export const slugify = (s) =>
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
 
+/**
+ * The shop writes titles as "MEN BRACELET-BR02334". The code is stripped for display —
+ * title-casing it produces "Br02334", which is worse than useless, and the reference is
+ * shown properly in the specification table where a visitor can read it.
+ */
+export function displayTitle(raw) {
+  return titleCase(String(raw).replace(/[-–—]?\s*[A-Z]{1,3}[.\s-]?\s?\d{3,6}\s*$/i, '').trim() || raw);
+}
+
 /** Title case for the shop's ALL-CAPS titles, leaving item codes alone. */
 export function titleCase(s) {
   const SMALL = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);

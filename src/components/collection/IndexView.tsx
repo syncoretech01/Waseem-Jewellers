@@ -29,7 +29,7 @@ export function IndexView({ products, title }: { products: Product[]; title?: st
                 <div className="mt-4 flex flex-col gap-1">
                   <p className="micro text-fg-muted">
                     {String(i + 1).padStart(2, '0')}
-                    {p.house ? ` · ${p.house}` : ''}
+                    {p.campaign ? ` · ${p.campaign}` : ''}
                   </p>
                   <p className="font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
                     {p.editorialTitle}

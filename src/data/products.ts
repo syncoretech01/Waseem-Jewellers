@@ -1,242 +1,83 @@
-import type { Product } from './types';
-
-const SHOP = 'https://www.waseemjewellers.com/products/';
+import type { Product, ProductImage } from './types';
+import { GENERATED_PRODUCTS, CATALOGUE_SYNCED_AT } from './generated/catalogue';
+import { EDITORIAL, type ProductEditorial } from './editorial/products';
 
 /**
- * Ten curated pieces. Titles are the collection name plus an honest descriptor of the
- * visible piece. Specifications appear only where the source product lists them.
- * Every image id resolves through src/data/generated/asset-map.ts.
+ * The catalogue: what Waseem publishes, with what a person wrote layered on top.
+ *
+ * Generated data is machine-owned and replaced wholesale on every sync. Authored data is
+ * human-owned and never touched by a script. They meet here, keyed by the shop's own
+ * product handle, so a re-sync can add, remove or respecify a piece without destroying a
+ * word anyone wrote — and if Waseem deletes a product upstream, the build says which
+ * authored entry just lost its subject rather than dropping it silently.
+ *
+ * Server and build only. `eslint.config.mjs` keeps this out of the client, where the full
+ * catalogue would cost about a megabyte; client code takes `generated/catalogue.slim`.
  */
-export const PRODUCTS: Product[] = [
-  {
-    id: 'p01',
-    slug: 'royal-wedding-polki-raani-haar',
-    title: 'Polki Raani Haar',
-    editorialTitle: 'Polki Raani Haar',
-    house: 'Royal Wedding',
-    collection: 'bridal',
-    world: 'royal-wedding',
-    category: 'bridal-set',
-    material: 'polki',
-    tags: ['polki', 'raani haar', 'choker', 'tikka', 'chandbali', 'gold', 'candlelight'],
-    styleTags: ['bridal', 'traditional', 'statement'],
-    metadata: { stones: ['uncut diamonds (polki)', 'green stone drops'], technique: ['closed kundan settings'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p01-hero', gallery: ['p01-hero', 'p01-second', 'p01-third'], campaign: 'p01-hero' },
-    story: {
-      lede: 'A polki choker and a long raani haar, worn together with a tikka and chandbali earrings.',
-      craft: 'Uncut stones sit in closed gold settings; green drops trace the edge of the choker and the earrings answer it. The set is composed to be worn as one.',
-      care: 'Store flat in its case. Keep away from perfume, water and heat.',
+
+/** An authored image id resolves against the asset map; anything else stays remote. */
+function editorialImage(id: string, order: number, role: ProductImage['role'], alt: string): ProductImage {
+  return { ref: { kind: 'local', id }, role, order, alt };
+}
+
+function merge(base: Product, e: ProductEditorial | undefined): Product {
+  if (!e) return base;
+
+  const media = e.media?.gallery?.length
+    ? {
+        hero: editorialImage(e.media.hero ?? e.media.gallery[0]!, 0, 'campaign', e.editorialTitle ?? base.title),
+        gallery: e.media.gallery.map((id, i) =>
+          editorialImage(id, i, id === e.media?.macro ? 'macro' : i === 0 ? 'campaign' : 'detail', e.editorialTitle ?? base.title),
+        ),
+        video: e.media.video,
+      }
+    : base.media;
+
+  const spec = { ...base.spec };
+  // stones and techniques are read off the photograph by a person; they are editorial,
+  // never a specification Waseem published
+  if (e.stones?.length) spec.stones = e.stones.map((kind) => ({ kind }));
+  if (e.technique?.length) spec.technique = e.technique;
+
+  return {
+    ...base,
+    slug: e.slug ?? base.slug,
+    editorialTitle: e.editorialTitle,
+    urdu: e.urdu,
+    campaign: e.campaign ?? base.campaign,
+    world: e.world,
+    category: e.category ?? base.category,
+    subcategory: e.subcategory,
+    material: e.material ?? base.material,
+    tags: e.tags ?? base.tags,
+    styleTags: e.styleTags ?? base.styleTags,
+    setId: e.setId,
+    setRole: e.setRole,
+    spec,
+    provenance: {
+      ...base.provenance,
+      ...(e.stones?.length ? { stones: 'curated' as const } : {}),
+      ...(e.technique?.length ? { technique: 'curated' as const } : {}),
     },
-    complementary: ['aks-e-noor-satlada-haar', 'emerald-tassel-earrings-t06768', 'rukh-e-jana-pleated-collar'],
-    featuredRank: 1,
-    source: { handle: 'royal-wedding', url: SHOP + 'royal-wedding' },
-  },
-  {
-    id: 'p02',
-    slug: 'rukh-e-jana-pleated-collar',
-    title: 'Pleated Gold Collar',
-    editorialTitle: 'Pleated Gold Collar',
-    house: 'Rukh-e-Jana',
-    collection: 'bridal',
-    world: 'rukh-e-jana',
-    category: 'necklace',
-    material: 'gold',
-    tags: ['gold', 'collar', 'necklace', 'kundan', 'velvet', 'candlelight', 'leaf'],
-    styleTags: ['bridal', 'traditional'],
-    metadata: { stones: ['red kundan drop'], technique: ['pleated gold', 'kundan setting'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p02-hero', gallery: ['p02-hero', 'p02-second', 'p02-third'], campaign: 'p02-hero' },
-    story: {
-      lede: 'A collar pleated like silk, closed with a single kundan leaf.',
-      craft: 'Fine gold folds run the length of the collar and catch candlelight along their edges; the leaf drop is set in a closed kundan bezel.',
-      care: 'Wipe with a soft dry cloth after wear. Store separately so the pleats are not pressed.',
-    },
-    complementary: ['lavender-halo-ring-r11912', 'aks-e-noor-satlada-haar', 'royal-wedding-polki-raani-haar'],
-    featuredRank: 2,
-    source: { handle: 'rukhe-jana', url: SHOP + 'rukhe-jana' },
-  },
-  {
-    id: 'p03',
-    slug: 'naqsh-e-gul-pearl-blossom-choker',
-    title: 'Pearl Blossom Choker',
-    editorialTitle: 'Pearl Blossom Choker',
-    house: 'Naqsh-e-Gul',
-    collection: 'bridal',
-    category: 'necklace',
-    material: 'diamond',
-    tags: ['diamond', 'pearl', 'choker', 'floral', 'white', 'jali', 'earrings'],
-    styleTags: ['bridal', 'contemporary', 'statement'],
-    metadata: { stones: ['diamonds', 'pearls'], technique: ['pavé setting', 'floral openwork'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p03-hero', gallery: ['p03-hero', 'p03-macro', 'p03-detail'], macro: 'p03-macro', campaign: 'p03-hero' },
-    story: {
-      lede: 'A floral choker of white diamonds and pearls, worn against red before a lattice of light.',
-      craft: 'Blossoms of pavé-set stones are linked into a collar that follows the neckline; pearls hang from the lower edge, and the earrings repeat the blossom.',
-      care: 'Pearls dislike perfume and heat: put the piece on last, take it off first.',
-    },
-    complementary: ['timeless-feathered-cluster-ring', 'diamond-bridal-sapphire-suite', 'emerald-tassel-earrings-t06768'],
-    featuredRank: 3,
-    source: { handle: 'naqsh-e-gul', url: SHOP + 'naqsh-e-gul' },
-  },
-  {
-    id: 'p04',
-    slug: 'dewan-bridal-suite',
-    title: 'Bridal Suite',
-    editorialTitle: 'Bridal Suite',
-    house: 'Dewan',
-    collection: 'bridal',
-    world: 'dewan',
-    category: 'bridal-set',
-    material: 'gold-diamond',
-    tags: ['gold', 'diamond', 'choker', 'haar', 'medallion', 'nath', 'tikka', 'lilac'],
-    styleTags: ['bridal', 'statement'],
-    metadata: { stones: ['diamonds', 'pearls'], technique: ['two-tone gold', 'pavé setting'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p04-hero', gallery: ['p04-hero', 'p04-macro', 'still-dewaan-13'], macro: 'p04-macro', campaign: 'p04-hero' },
-    story: {
-      lede: 'A choker, a long haar with a medallion, a nath and a tikka, worn as one suite in lilac light.',
-      craft: 'Gold and diamond work alternate across the choker; the haar drops to a single medallion, and the smaller pieces echo its outline.',
-      care: 'Store each piece in its own compartment. Have the clasps checked before the day.',
-    },
-    complementary: ['diamond-bridal-sapphire-suite', 'timeless-feathered-cluster-ring', 'lavender-halo-ring-r11912'],
-    featuredRank: 4,
-    source: { handle: 'dewan-2', url: SHOP + 'dewan-2' },
-  },
-  {
-    id: 'p05',
-    slug: 'aks-e-noor-satlada-haar',
-    title: 'Satlada Haar',
-    editorialTitle: 'Satlada Haar',
-    house: 'Aks-e-Noor',
-    collection: 'bridal',
-    world: 'aks-e-noor',
-    category: 'necklace',
-    material: 'gold',
-    tags: ['gold', 'satlada', 'haar', 'strands', 'filigree', 'choker', 'jali', 'velvet'],
-    styleTags: ['bridal', 'traditional', 'statement'],
-    metadata: { stones: ['gold beads'], technique: ['filigree', 'beaded strands'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p05-hero', gallery: ['p05-hero', 'p05-macro', 'p05-second'], macro: 'p05-macro', campaign: 'p05-hero' },
-    story: {
-      lede: 'A filigree choker above five strands of gold, worn in dark green velvet before a gold jali.',
-      craft: 'The strands are graded in length so they fall as one curve; the filigree panels of the choker sit flat against the collarbone.',
-      care: 'Hang the strands from their clasp when not worn. Wipe with a soft dry cloth.',
-    },
-    complementary: ['rukh-e-jana-pleated-collar', 'royal-wedding-polki-raani-haar', 'emerald-tassel-earrings-t06768'],
-    featuredRank: 5,
-    source: { handle: 'aks-e-noor-5', url: SHOP + 'aks-e-noor-5' },
-  },
-  {
-    id: 'p06',
-    slug: 'rang-e-jamal-emerald-suite',
-    title: 'Emerald & Diamond Suite',
-    editorialTitle: 'Emerald & Diamond Suite',
-    house: 'Rang-e-Jamal',
-    collection: 'bridal',
-    world: 'rang-e-jamal',
-    category: 'bridal-set',
-    material: 'diamond',
-    tags: ['emerald', 'diamond', 'choker', 'haar', 'strands', 'tikka', 'ivory'],
-    styleTags: ['bridal', 'statement'],
-    metadata: { stones: ['emeralds', 'diamonds'], technique: ['pavé setting', 'multi-strand'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p06-hero', gallery: ['p06-hero', 'p06-macro', 'p06-second'], macro: 'p06-macro', campaign: 'p06-hero' },
-    story: {
-      lede: 'An emerald and diamond choker with a seven-strand haar and a tikka, on ivory.',
-      craft: 'Emeralds anchor the choker at intervals; the strands beneath are strung so the green repeats down the length of the haar.',
-      care: 'Emeralds are softer than diamonds: avoid knocks, store apart, clean with a dry cloth only.',
-    },
-    complementary: ['diamond-bridal-sapphire-suite', 'emerald-tassel-earrings-t06768', 'timeless-feathered-cluster-ring'],
-    featuredRank: 6,
-    source: { handle: 'gold-bridal-set-1', url: SHOP + 'gold-bridal-set-1' },
-  },
-  {
-    id: 'p07',
-    slug: 'diamond-bridal-sapphire-suite',
-    title: 'Sapphire Pendant Suite',
-    editorialTitle: 'Sapphire Pendant Suite',
-    collection: 'bridal',
-    category: 'bridal-set',
-    material: 'diamond',
-    tags: ['diamond', 'sapphire', 'necklace', 'pendant', 'chandelier earrings', 'white', 'ivory'],
-    styleTags: ['bridal', 'contemporary'],
-    metadata: { karat: '21K', grossWeightGrams: 94.68, diamondColour: 'H', clarity: 'VVS1', carat: 13.26, stones: ['diamonds', 'sapphire'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p07-hero', gallery: ['p07-hero', 'p07-macro', 'p07-detail'], macro: 'p07-macro', campaign: 'p07-hero' },
-    story: {
-      lede: 'A diamond necklace closing on a single sapphire, with chandelier earrings to match.',
-      craft: 'The necklace narrows toward the pendant so the sapphire carries the eye; the earrings repeat its drop at a smaller scale.',
-      care: 'Store in its case. Have the settings checked once a year.',
-    },
-    complementary: ['timeless-feathered-cluster-ring', 'rang-e-jamal-emerald-suite', 'naqsh-e-gul-pearl-blossom-choker'],
-    featuredRank: 7,
-    source: { handle: 'diamond-bridal-set-1', url: SHOP + 'diamond-bridal-set-1' },
-  },
-  {
-    id: 'p08',
-    slug: 'emerald-tassel-earrings-t06768',
-    title: 'Emerald Tassel Earrings',
-    editorialTitle: 'Emerald Tassel Earrings',
-    collection: 'bridal',
-    category: 'earrings',
-    material: 'gold-diamond',
-    tags: ['earrings', 'emerald', 'diamond', 'tassel', 'gold', 'jhumki'],
-    styleTags: ['bridal', 'traditional', 'everyday'],
-    metadata: { karat: '21K', grossWeightGrams: 16.452, itemCode: 'T06768', stones: ['emeralds', 'diamonds'] },
-    price: { kind: 'fixed', pkr: 640000 },
-    media: { hero: 'p08-hero', gallery: ['p08-hero', 'p08-macro'], macro: 'p08-macro' },
-    story: {
-      lede: 'Emerald and diamond drops above a gold tassel that moves as you do.',
-      craft: 'Two square emeralds sit between diamond links; the tassel hangs from a small bell so it swings freely.',
-      care: 'Keep the tassels straight in the case. Wipe with a soft dry cloth.',
-    },
-    complementary: ['lavender-halo-ring-r11912', 'rang-e-jamal-emerald-suite', 'royal-wedding-polki-raani-haar'],
-    featuredRank: 8,
-    source: { handle: 'gold-earings-t06768', url: SHOP + 'gold-earings-t06768' },
-  },
-  {
-    id: 'p09',
-    slug: 'lavender-halo-ring-r11912',
-    title: 'Lavender Halo Ring',
-    editorialTitle: 'Lavender Halo Ring',
-    collection: 'bridal',
-    category: 'ring',
-    material: 'gold',
-    tags: ['ring', 'gold', 'rose gold', 'lavender', 'halo', 'diamond'],
-    styleTags: ['contemporary', 'everyday'],
-    metadata: { karat: '21K', grossWeightGrams: 9.444, itemCode: 'R11912', stones: ['lavender stone', 'diamonds'] },
-    price: { kind: 'fixed', pkr: 380000 },
-    media: { hero: 'p09-hero', gallery: ['p09-hero', 'p09-second', 'p09-macro'], macro: 'p09-macro' },
-    story: {
-      lede: 'An oval lavender stone in a halo of small diamonds, on a rose-gold band.',
-      craft: 'The halo is set flush to the stone so the ring reads as one form; the band tapers toward the back for comfort.',
-      care: 'Remove before hand-washing and sport. Clean with warm water and a soft brush.',
-    },
-    complementary: ['emerald-tassel-earrings-t06768', 'rukh-e-jana-pleated-collar', 'timeless-feathered-cluster-ring'],
-    featuredRank: 9,
-    source: { handle: 'gold-ring-r11912', url: SHOP + 'gold-ring-r11912' },
-  },
-  {
-    id: 'p10',
-    slug: 'timeless-feathered-cluster-ring',
-    title: 'Feathered Cluster Ring',
-    editorialTitle: 'Feathered Cluster Ring',
-    collection: 'bridal',
-    category: 'ring',
-    material: 'diamond',
-    tags: ['ring', 'diamond', 'cluster', 'white gold', 'feathers'],
-    styleTags: ['contemporary', 'statement'],
-    metadata: { stones: ['diamonds'], technique: ['cluster setting'] },
-    price: { kind: 'onRequest' },
-    media: { hero: 'p10-hero', gallery: ['p10-hero', 'p10-macro'], macro: 'p10-macro' },
-    story: {
-      lede: 'A cluster of diamonds around a central stone, photographed on white feathers.',
-      craft: 'The outer stones are set slightly lower than the centre so the cluster reads as one rounded form; the shank is kept plain.',
-      care: 'Clean with warm water and a soft brush. Have the claws checked once a year.',
-    },
-    complementary: ['lavender-halo-ring-r11912', 'naqsh-e-gul-pearl-blossom-choker', 'diamond-bridal-sapphire-suite'],
-    featuredRank: 10,
-    source: { handle: 'timeless-treasure', url: SHOP + 'timeless-treasure' },
-  },
-];
+    media,
+    story: e.story?.lede ? { lede: e.story.lede, craft: e.story.craft ?? '', care: e.story.care ?? '' } : base.story,
+    complementary: e.complementary ?? base.complementary,
+    featuredRank: e.featuredRank ?? base.featuredRank,
+    // a name and a category are exactly what the withholding rule was waiting for
+    listable: Boolean(e.editorialTitle && (e.category ?? base.category)) || base.listable,
+    withheld: e.editorialTitle && (e.category ?? base.category) ? [] : base.withheld,
+    completeness: { ...base.completeness, hasEditorial: true },
+  };
+}
+
+const byHandle = new Map(GENERATED_PRODUCTS.map((p) => [p.sourceHandle, p]));
+
+/** An authored entry whose subject has left the shop is a fact worth surfacing, not hiding. */
+export const ORPHANED_EDITORIAL = Object.keys(EDITORIAL).filter((h) => !byHandle.has(h));
+
+export const PRODUCTS: Product[] = GENERATED_PRODUCTS.map((p) => merge(p, EDITORIAL[p.sourceHandle]));
+
+/** Everything a visitor may meet: named, filed, and photographed. */
+export const LISTABLE_PRODUCTS: Product[] = PRODUCTS.filter((p) => p.listable);
+
+export const CATALOGUE_DATE = CATALOGUE_SYNCED_AT;

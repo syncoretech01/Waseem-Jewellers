@@ -120,6 +120,19 @@ function departmentsOf(cols, tags, title) {
   return [...d].filter((x) => DEPARTMENTS.includes(x));
 }
 
+/**
+ * A last resort for a piece the shop has filed in no material collection — three of them,
+ * all well specified. A published 21K purity puts a piece in Gold and a published diamond
+ * carat puts it in Diamond: that is reading Waseem's own specification, not guessing, and
+ * it is the same standard already applied to category via the title.
+ */
+function departmentsFromSpec(spec, title) {
+  const d = new Set();
+  if (spec.diamondCarat !== undefined || spec.diamondClarity || /diamond/i.test(title)) d.add('diamond');
+  if (spec.purity || /gold/i.test(title)) d.add('gold');
+  return [...d];
+}
+
 function categoryOf(cols, title) {
   for (const c of cols) for (const [re, cat] of CATEGORY_BY_SUFFIX) if (re.test(c)) return cat;
   for (const [re, cat] of CATEGORY_BY_TITLE) if (re.test(title)) return cat;
@@ -142,9 +155,10 @@ for (const p of products) {
   if (excluded.has(p.handle)) continue;
   const cols = inCollections.get(p.handle) ?? [];
   const gaps = [...p.gaps];
-  const departments = departmentsOf(cols, p.tags, p.rawTitle);
   const category = categoryOf(cols, p.rawTitle);
-  const material = materialOf(departments, cols, p.spec, p.rawTitle);
+  const filed = departmentsOf(cols, p.tags, p.rawTitle);
+  const material = materialOf(filed, cols, p.spec, p.rawTitle);
+  const departments = filed.length ? filed : departmentsFromSpec(p.spec, p.rawTitle);
   const campaignKey = cols.find((c) => CAMPAIGNS[c]);
   const gender = departments.includes('men') ? 'men' : departments.includes('kids') ? 'kids' : 'women';
 
@@ -155,7 +169,6 @@ for (const p of products) {
   // the campaign lines repeat the collection name as the title and publish no body at all
   if (!p.hasDetails && !Object.keys(p.spec).length) gaps.push('no-specification');
   if (campaignKey && !p.hasDetails) gaps.push('generic-title');
-  if (/-copy(-\d+)?$/.test(p.handle)) gaps.push('likely-duplicate');
 
   classified.push({
     ...p,
@@ -170,6 +183,41 @@ for (const p of products) {
   });
 }
 
+// ── duplicates, by evidence rather than by handle ───────────────────────────
+// A `-copy` suffix is a Shopify record-duplication artefact, not duplicate content: all six
+// carry their own photograph. Measured across the imported set there are 808 distinct image
+// URLs, none shared and no two products with the same image set. So the only honest test is
+// identity of imagery, and it currently flags nothing.
+const bySignature = new Map();
+for (const p of classified) {
+  const sig = p.images.map((i) => i.src).sort().join('|');
+  if (!sig) continue;
+  if (!bySignature.has(sig)) bySignature.set(sig, []);
+  bySignature.get(sig).push(p.handle);
+}
+const duplicateSets = [...bySignature.values()].filter((v) => v.length > 1);
+const duplicateHandles = new Set(duplicateSets.flat().slice(1));
+for (const p of classified) if (duplicateHandles.has(p.handle)) p.gaps.push('duplicate-imagery');
+
+// ── what may appear in front of a visitor ───────────────────────────────────
+// Importing a product and listing it are different decisions. Everything is imported so the
+// data is complete and the audit can speak to it; a product is only *listed* when it can be
+// filed and named honestly. Nothing here is guessed to make a product listable.
+for (const p of classified) {
+  const withheld = [];
+  if (!p.images.length) withheld.push('no image');
+  if (!p.departments.length) withheld.push('no department');
+  // a photograph of a bridal model could be a set, a necklace or earrings; the shop does not
+  // say which, and a guess would be an invention
+  if (!p.category) withheld.push('category not published');
+  // the campaign lines repeat their collection name as the title, so there is no name to show
+  if (p.gaps.includes('generic-title')) withheld.push('awaiting a name from Waseem');
+  if (p.gaps.includes('duplicate-imagery')) withheld.push('duplicate imagery');
+  p.withheld = withheld;
+  // the editorial layer can lift a product out of this by supplying a name and a category
+  p.listable = withheld.length === 0;
+}
+
 const count = (fn) => classified.filter(fn).length;
 const stats = {
   fetched: products.length,
@@ -182,7 +230,10 @@ const stats = {
   noMaterial: count((p) => !p.material),
   noSpecification: count((p) => p.gaps.includes('no-specification')),
   genericTitle: count((p) => p.gaps.includes('generic-title')),
-  likelyDuplicate: count((p) => p.gaps.includes('likely-duplicate')),
+  duplicateImagery: duplicateSets.length,
+  listable: count((p) => p.listable),
+  withheld: count((p) => !p.listable),
+  withheldReasons: classified.flatMap((p) => p.withheld).reduce((m, r) => ({ ...m, [r]: (m[r] ?? 0) + 1 }), {}),
   withCampaign: count((p) => p.campaign),
   watchReconciliation,
 };
@@ -205,5 +256,9 @@ console.log(`  deny-list                        ${watchReconciliation.denyList.j
 console.log(`  awaiting Waseem                   ${watchReconciliation.awaitingReview.join(', ') || 'none'}`);
 console.log(`  → excluded in total              ${watchReconciliation.totalExcluded}`);
 console.log('\ndepartments:', JSON.stringify(stats.byDepartment), ` multi ${stats.multiDepartment}`);
-console.log(`gaps: no-department ${stats.noDepartment}, no-category ${stats.noCategory}, no-material ${stats.noMaterial}, no-spec ${stats.noSpecification}, generic-title ${stats.genericTitle}, duplicate ${stats.likelyDuplicate}`);
+console.log(`gaps: no-department ${stats.noDepartment}, no-category ${stats.noCategory}, no-material ${stats.noMaterial}, no-spec ${stats.noSpecification}, generic-title ${stats.genericTitle}`);
+console.log(`
+duplicate imagery (identical image sets): ${stats.duplicateImagery}`);
+console.log(`listable ${stats.listable} of ${stats.imported}; withheld ${stats.withheld}`);
+for (const [r, n] of Object.entries(stats.withheldReasons).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(3)}  ${r}`);
 console.log(`\n→ ${rel(path.join(CACHE, 'classified.json'))}`);

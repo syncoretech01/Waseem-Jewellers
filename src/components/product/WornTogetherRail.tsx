@@ -41,7 +41,7 @@ export function WornTogetherRail({ products, eyebrow = 'Worn together', title, t
                     <p className="font-display text-[1.125rem] leading-tight text-fg" style={{ fontVariationSettings: '"opsz" 18' }}>
                       {p.editorialTitle}
                     </p>
-                    {p.house && <p className="micro mt-1 text-fg-muted">{p.house}</p>}
+                    {p.campaign && <p className="micro mt-1 text-fg-muted">{p.campaign}</p>}
                   </div>
                   <p className="micro pt-1 text-fg-2">{formatPrice(p.price)}</p>
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, getImage } from '@/data';
+import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, getImage, nameOf } from '@/data';
 import { searchCatalogue, similarTo } from '@/data/search';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
 import { productElement } from '@/state/visibility';
@@ -74,9 +74,9 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       const cards = cardsOf(results);
       const count = capitalise(countInWords(results.length));
-      const houses = [...new Set(results.map((p) => p.house).filter((h): h is string => Boolean(h)))];
+      const houses = [...new Set(results.map((p) => p.campaign).filter((h): h is string => Boolean(h)))];
       return {
-        result: { count: results.length, items: results.map((p) => ({ slug: p.slug, name: p.editorialTitle, house: p.house, priceLabel: cards.find((c) => c.slug === p.slug)?.priceLabel })), houses },
+        result: { count: results.length, items: results.map((p) => ({ slug: p.slug, name: nameOf(p), house: p.campaign, priceLabel: cards.find((c) => c.slug === p.slug)?.priceLabel })), houses },
         label: CONCIERGE.labels.found(count, what),
         runningLabel: CONCIERGE.labels.searching(what),
         ui: { kind: 'pieces', title: `${count} ${what}`, pieces: cards },
@@ -126,8 +126,8 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       return {
         result: { ok: true, slug: product.slug },
-        runningLabel: CONCIERGE.labels.showing(product.editorialTitle),
-        label: CONCIERGE.labels.shown(product.editorialTitle),
+        runningLabel: CONCIERGE.labels.showing(nameOf(product)),
+        label: CONCIERGE.labels.shown(nameOf(product)),
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'focused' },
         compact: true,
       };
@@ -142,8 +142,8 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       await navigate(`/jewellery/${product.slug}`, img ? 'flip' : 'curtain', img);
       return {
         result: { ok: true, slug: product.slug, href: `/jewellery/${product.slug}` },
-        runningLabel: CONCIERGE.labels.opening(product.editorialTitle),
-        label: CONCIERGE.labels.opened(product.editorialTitle),
+        runningLabel: CONCIERGE.labels.opening(nameOf(product)),
+        label: CONCIERGE.labels.opened(nameOf(product)),
         navigateTo: `/jewellery/${product.slug}`,
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'opened' },
         compact: true,
@@ -160,10 +160,10 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       const count = capitalise(countInWords(results.length));
       return {
-        result: { anchor: anchor.slug, items: results.map((p) => ({ slug: p.slug, name: p.editorialTitle })) },
+        result: { anchor: anchor.slug, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
         runningLabel: CONCIERGE.labels.similar,
         label: CONCIERGE.labels.similarDone(count),
-        ui: { kind: 'pieces', title: `In the spirit of the ${anchor.editorialTitle}`, pieces: cardsOf(results) },
+        ui: { kind: 'pieces', title: `In the spirit of the ${nameOf(anchor)}`, pieces: cardsOf(results) },
       };
     }
 
@@ -196,7 +196,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       site.openLedger();
       const n = countInWords(pieces.length);
       return {
-        result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.slug, name: p.editorialTitle })) },
+        result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
         runningLabel: CONCIERGE.labels.selection,
         label: pieces.length ? CONCIERGE.labels.selectionDone(pieces.length, n) : CONCIERGE.labels.selectionEmpty,
         ui: { kind: 'wishlist', pieces: cardsOf(pieces) },
@@ -255,7 +255,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         await navigate(`${COLLECTION_ROUTE}?edit=${material}`);
       }
       return {
-        result: { material, items: results.map((p) => ({ slug: p.slug, name: p.editorialTitle })) },
+        result: { material, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
         runningLabel: material === 'gold' ? CONCIERGE.labels.gold : CONCIERGE.labels.diamond,
         label: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone,
         ui: { kind: 'pieces', title: material === 'gold' ? CONCIERGE.labels.goldDone : CONCIERGE.labels.diamondDone, pieces: cardsOf(results) },

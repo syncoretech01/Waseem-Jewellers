@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { Img } from '@/components/media/Img';
-import { getImage } from '@/data';
+import { resolveImage } from '@/data';
+import type { ProductImage } from '@/data/types';
 import { useQualityStore } from '@/state/qualityStore';
 import { cn } from '@/lib/cn';
 
 interface InspectImageProps {
-  id: string;
+  image: ProductImage;
   sizes: string;
   priority?: boolean;
   flipTarget?: boolean;
@@ -35,8 +36,8 @@ function frameOf(role: string, w: number, h: number, frame: number) {
  * Gallery image. Hover draws the whole image to the eye (scale 1.35, the point under the
  * pointer stays put) — no magnifier lens. Click on a macro enters drag-to-inspect at 2.4×.
  */
-export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, className, frame = 0 }: InspectImageProps) {
-  const asset = getImage(id);
+export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, className, frame = 0 }: InspectImageProps) {
+  const asset = resolveImage(image.ref);
   const { ratio, mount } = frameOf(asset.role, asset.width, asset.height, frame);
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -165,7 +166,7 @@ export function InspectImage({ id, sizes, priority, flipTarget, slug, macro, cla
       onClick={toggleInspect}
     >
       <div ref={inner} className="absolute will-change-transform" style={mount ? { top: '9%', bottom: '9%', left: '18%', right: '18%' } : { inset: 0 }}>
-        <Img id={id} sizes={sizes} priority={priority} plain style={mount ? { objectFit: 'contain' } : undefined} />
+        <Img image={image} sizes={sizes} priority={priority} plain style={mount ? { objectFit: 'contain' } : undefined} />
       </div>
       {macro && (
         <p className="micro pointer-events-none absolute bottom-4 left-4 text-ivory/80 mix-blend-difference">

@@ -266,7 +266,7 @@ export function Ch07Slider() {
                 >
                   <span className="relative block w-full overflow-hidden bg-bg-2" style={{ aspectRatio: '4 / 5' }}>
                     <span className="absolute inset-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/side:scale-[1.03]">
-                      <Img id={p.media.hero} sizes="28vw" plain />
+                      <Img image={p.media.hero} sizes="28vw" plain />
                     </span>
                     <span className="vitrine-wash pointer-events-none absolute inset-0 bg-ink" aria-hidden />
                   </span>

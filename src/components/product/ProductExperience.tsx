@@ -19,7 +19,7 @@ export function ProductExperience({ product }: { product: Product }) {
 
   useEffect(() => {
     setCurrent(product.slug);
-    setCollection(product.collection);
+    setCollection(product.departments[0] ?? null);
     setVisible([product.slug, ...product.complementary]);
     return () => setCurrent(null);
   }, [product, setCurrent, setCollection, setVisible]);

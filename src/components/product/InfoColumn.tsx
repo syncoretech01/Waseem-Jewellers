@@ -15,16 +15,8 @@ import { WORLD_BY_SLUG } from '@/data/worlds';
 import { useRise } from '@/motion/hooks/useReveals';
 import { EASE } from '@/lib/motion/easings';
 import type { Product } from '@/data/types';
+import { categoryLabel, departmentLabel, MATERIAL_LABEL, describe } from '@/data';
 import { cn } from '@/lib/cn';
-
-const CATEGORY_LABEL: Record<Product['category'], string> = {
-  'bridal-set': 'Bridal set',
-  necklace: 'Necklace',
-  earrings: 'Earrings',
-  ring: 'Ring',
-  bracelet: 'Bracelet',
-  bangle: 'Bangle',
-};
 
 export function InfoColumn({ product }: { product: Product }) {
   const scope = useRef<HTMLDivElement>(null);
@@ -34,22 +26,22 @@ export function InfoColumn({ product }: { product: Product }) {
   useRise(scope, { start: 'top 95%' });
 
   const backHref = '/collections/bridal';
-  // S2B replaces this with the piece's real department
+  // the eyebrow beneath already names the department; repeating it here reads as a stutter
   const backLabel = lastRoute ? 'Bridal' : 'Waseem Jewellers';
-  const specs = product.metadata;
+  const specs = product.spec;
   const rows: [string, string][] = [];
-  if (specs.karat) rows.push(['Purity', specs.karat]);
+  if (specs.purity) rows.push(['Purity', specs.purity]);
   if (specs.grossWeightGrams) rows.push(['Gross weight', formatGrams(specs.grossWeightGrams)]);
   if (specs.diamondColour) rows.push(['Diamond colour', specs.diamondColour]);
-  if (specs.clarity) rows.push(['Clarity', specs.clarity]);
-  if (specs.carat) rows.push(['Carats', `${specs.carat} ct`]);
-  if (specs.itemCode) rows.push(['Reference', specs.itemCode]);
+  if (specs.diamondClarity) rows.push(['Clarity', specs.diamondClarity]);
+  if (specs.diamondCarat) rows.push(['Carats', `${specs.diamondCarat} ct`]);
+  if (product.reference) rows.push(['Reference', product.reference]);
   if (rows.length < 3) {
-    if (specs.stones?.length) rows.push(['Stones', specs.stones.join(', ')]);
+    if (specs.stones?.length) rows.push(['Stones', specs.stones.map((s) => s.kind).join(', ')]);
     if (specs.technique?.length) rows.push(['Technique', specs.technique.join(', ')]);
   }
   // verified measurements, as opposed to descriptive attributes — decides whether the absence is named
-  const measured = Boolean(specs.karat || specs.grossWeightGrams || specs.carat);
+  const measured = Boolean(specs.purity || specs.grossWeightGrams || specs.diamondCarat);
 
   return (
     <div ref={scope} className="flex flex-col gap-8">
@@ -62,11 +54,11 @@ export function InfoColumn({ product }: { product: Product }) {
 
       <div data-rise className="flex flex-col gap-3">
         <Eyebrow>
-          {world ? world.name : 'Bridal'} · {CATEGORY_LABEL[product.category]}
+          {world ? world.name : departmentLabel(product.departments[0])} · {categoryLabel(product.category)}
           {world?.urdu && <UrduAccent text={world.urdu} className="ml-3 text-[0.95rem]" />}
         </Eyebrow>
-        {product.house && <p className="micro text-fg-muted">{product.house}</p>}
-        <h1 className="display text-display-m">{product.editorialTitle}</h1>
+        {product.campaign && <p className="micro text-fg-muted">{product.campaign}</p>}
+        <h1 className="display text-display-m">{product.editorialTitle ?? product.title}</h1>
       </div>
 
       <div data-rise className="flex flex-col gap-2">
@@ -88,9 +80,9 @@ export function InfoColumn({ product }: { product: Product }) {
 
       <div data-rise className="flex flex-col gap-5">
         <p className="font-display text-lead italic leading-[1.35] text-fg" style={{ fontVariationSettings: '"opsz" 24' }}>
-          {product.story.lede}
+          {product.story?.lede ?? describe(product)}
         </p>
-        <p className="max-w-[34em] text-fg-muted">{product.story.craft}</p>
+        {product.story?.craft && <p className="max-w-[34em] text-fg-muted">{product.story.craft}</p>}
       </div>
 
       <div data-rise className="flex flex-col gap-5 border-t border-line pt-6">
@@ -109,7 +101,8 @@ export function InfoColumn({ product }: { product: Product }) {
               title: 'Details',
               body: (
                 <p>
-                  {CATEGORY_LABEL[product.category]} · {product.material.replace('-', ' and ')}
+                  {categoryLabel(product.category)}
+                  {product.material ? ` · ${MATERIAL_LABEL[product.material]}` : ''}
                   {world ? ` · ${world.name} — ${world.mood}` : ''}
                 </p>
               ),
@@ -118,11 +111,11 @@ export function InfoColumn({ product }: { product: Product }) {
               title: 'Materials',
               body: (
                 <p>
-                  {[specs.karat ? `${specs.karat} gold` : null, specs.stones?.join(', '), specs.technique?.join(', ')].filter(Boolean).join(' · ') || 'Details shared at a private viewing.'}
+                  {[specs.purity ? `${specs.purity} gold` : null, specs.stones?.map((s) => s.kind).join(', '), specs.technique?.join(', ')].filter(Boolean).join(' · ') || 'Details shared at a private viewing.'}
                 </p>
               ),
             },
-            { title: 'Care', body: <p>{product.story.care}</p> },
+            ...(product.story?.care ? [{ title: 'Care', body: <p>{product.story.care}</p> }] : []),
             {
               title: 'Private viewing',
               body: (

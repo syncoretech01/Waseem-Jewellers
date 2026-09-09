@@ -17,7 +17,7 @@ import { cn } from '@/lib/cn';
 function Caption({ product, caption, align = 'left' }: { product: Product; caption?: string; align?: 'left' | 'right' }) {
   return (
     <div className={cn('mt-5 flex flex-col gap-2', align === 'right' && 'items-end text-right')}>
-      {product.house && <p className="micro text-fg-muted">{product.house}</p>}
+      {product.campaign && <p className="micro text-fg-muted">{product.campaign}</p>}
       <p className="font-display text-heading leading-tight text-fg" style={{ fontVariationSettings: '"opsz" 32' }}>
         {product.editorialTitle}
       </p>

@@ -51,10 +51,10 @@ export function SelectionLedger() {
                   {pad2(i + 1)}
                 </span>
                 <button type="button" onClick={() => { close(); openProduct(p.slug); }} className="relative block overflow-hidden" style={{ aspectRatio: '3 / 4' }} aria-label={`Open ${p.editorialTitle}`}>
-                  <Img id={p.media.hero} sizes="80px" quality={70} />
+                  <Img image={p.media.hero} sizes="80px" quality={70} />
                 </button>
                 <div className="flex flex-col gap-1">
-                  {p.house && <p className="micro text-fg-muted">{p.house}</p>}
+                  {p.campaign && <p className="micro text-fg-muted">{p.campaign}</p>}
                   <button type="button" onClick={() => { close(); openProduct(p.slug); }} className="text-left font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
                     {p.editorialTitle}
                   </button>

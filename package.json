@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3300",
-    "build": "next build",
+    "build": "node --max-old-space-size=6144 ./node_modules/next/dist/bin/next build",
     "start": "next start -p 3300",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -24,7 +24,14 @@
     "copy:check": "node scripts/dev/copy-guard.mjs",
     "catalogue:fetch": "node scripts/catalogue/fetch.mjs",
     "catalogue:parse": "node scripts/catalogue/parse.mjs",
-    "catalogue:classify": "node scripts/catalogue/classify.mjs"
+    "catalogue:classify": "node scripts/catalogue/classify.mjs",
+    "catalogue:media": "node scripts/catalogue/media.mjs",
+    "catalogue:emit": "node scripts/catalogue/emit.mjs",
+    "catalogue:audit": "node scripts/catalogue/audit.mjs",
+    "catalogue:accept": "node scripts/catalogue/audit.mjs --accept",
+    "catalogue:verify": "node scripts/catalogue/verify-migration.mjs",
+    "catalogue:build": "npm run catalogue:parse && npm run catalogue:classify && npm run catalogue:media && npm run catalogue:emit",
+    "catalogue": "npm run catalogue:fetch && npm run catalogue:build && npm run catalogue:verify && npm run catalogue:audit"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
