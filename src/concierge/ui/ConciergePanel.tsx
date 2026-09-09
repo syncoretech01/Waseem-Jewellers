@@ -1,5 +1,6 @@
 'use client';
 
+import { Img } from '@/components/media/Img';
 import { useEffect, useRef } from 'react';
 import { ScrollTrigger } from '@/lib/motion/gsap';
 import { AnimatePresence, motion } from 'motion/react';
@@ -30,8 +31,9 @@ function PieceInView() {
   if (!piece) return null;
   return (
     <div className="flex items-stretch gap-4 border-y border-line px-6 py-4 md:px-7">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={piece.image} alt="" className="h-[92px] w-[72px] shrink-0 object-cover" loading="lazy" style={{ background: 'var(--salon-well)' }} />
+      <span className="relative block h-[92px] w-[72px] shrink-0 overflow-hidden" style={{ background: 'var(--salon-well)' }}>
+        <Img image={piece.image} alt="" sizes="72px" />
+      </span>
       <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div>
           <p className="micro text-fg-muted">In view</p>

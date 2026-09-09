@@ -1,5 +1,6 @@
 'use client';
 
+import { Img } from '@/components/media/Img';
 import { useEffect, useRef } from 'react';
 import { useConciergeStore, type ConciergeTurn, type TurnResult } from '@/state/conciergeStore';
 import { TravellingLight } from '@/components/ui/primitives';
@@ -110,8 +111,9 @@ function Result({ result }: { result: TurnResult }) {
               data-cursor="view"
             >
               <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '4 / 5', background: 'var(--salon-well)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/recap:scale-[1.03]" loading="lazy" />
+                <span className="absolute inset-0 block transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/recap:scale-[1.03]">
+                  <Img image={p.image} alt="" sizes="180px" />
+                </span>
               </span>
               <span className="mt-3 flex items-baseline gap-2">
                 <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>

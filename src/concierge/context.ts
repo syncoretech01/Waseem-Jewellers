@@ -1,4 +1,4 @@
-import { resolveImage, getProduct } from '@/data';
+import { getProduct, nameOf } from '@/data';
 import { formatPrice } from '@/lib/format';
 import { useConciergeStore, type PieceCard } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
@@ -13,7 +13,7 @@ export function briefOf(p: Product): ProductBrief {
     category: p.category ?? 'jewellery',
     material: p.material ?? 'gold',
     priceLabel: formatPrice(p.price),
-    image: resolveImage(p.media.hero.ref).src,
+    image: p.media.hero.ref,
   };
 }
 
@@ -26,10 +26,11 @@ export function briefOfSlug(slug: string | null | undefined): ProductBrief | nul
 export function cardsOf(products: Product[]): PieceCard[] {
   return products.map((p, i) => ({
     slug: p.slug,
-    name: p.editorialTitle ?? p.title,
+    name: nameOf(p),
     collection: p.campaign ?? 'Waseem Jewellers',
     priceLabel: formatPrice(p.price),
-    image: resolveImage(p.media.hero.ref).src,
+    // the reference, so the card renders through the optimiser rather than the original
+    image: p.media.hero.ref,
     ordinal: i + 1,
   }));
 }

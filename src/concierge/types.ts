@@ -1,3 +1,4 @@
+import type { ImageRef } from '@/data/types';
 import type { ConciergeMode, ConciergeState, TurnResult, TurnSource } from '@/state/conciergeStore';
 import type { RouteKind, SectionId } from '@/state/siteStore';
 
@@ -41,7 +42,8 @@ export interface ProductBrief {
   category: string;
   material: string;
   priceLabel: string;
-  image: string;
+  /** A reference, resolved by the optimiser at the size it is shown. */
+  image: ImageRef;
 }
 
 export interface SiteContext {

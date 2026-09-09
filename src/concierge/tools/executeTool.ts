@@ -1,6 +1,6 @@
 'use client';
 
-import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, getImage, nameOf } from '@/data';
+import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, nameOf } from '@/data';
 import { searchCatalogue, similarTo, asCategory, asMaterial, asDepartment, asStyle, asWorld, asKarat } from '@/data/search';
 import { DEPARTMENT_LABEL } from '@/data/labels';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
@@ -34,7 +34,7 @@ function resolveAnchor(args: Record<string, unknown>, ctx: SiteContext): Product
 }
 
 function worldCards(): CollectionCard[] {
-  return WORLDS.map((w, i) => ({ slug: w.slug, name: w.name, image: getImage(w.imagery.hero).src, href: w.href, ordinal: i + 1 }));
+  return WORLDS.map((w, i) => ({ slug: w.slug, name: w.name, image: { kind: 'local' as const, id: w.imagery.hero }, href: w.href, ordinal: i + 1 }));
 }
 
 function describeQuery(args: Record<string, unknown>) {
@@ -102,8 +102,8 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         await navigate(href);
       }
       const card: CollectionCard = world
-        ? { slug: world.slug, name: world.name, image: getImage(world.imagery.hero).src, href: world.href, ordinal: WORLDS.indexOf(world) + 1 }
-        : { slug: 'bridal', name: 'Bridal', image: getImage(getCollection('bridal')?.opening.still ?? 'p03-hero').src, href: COLLECTION_ROUTE, ordinal: 0 };
+        ? { slug: world.slug, name: world.name, image: { kind: 'local', id: world.imagery.hero }, href: world.href, ordinal: WORLDS.indexOf(world) + 1 }
+        : { slug: 'bridal', name: 'Bridal', image: { kind: 'local', id: getCollection('bridal')?.opening.still ?? 'p03-hero' }, href: COLLECTION_ROUTE, ordinal: 0 };
       return {
         result: { ok: true, collection: slug, href },
         runningLabel: world ? CONCIERGE.labels.opening(world.name) : CONCIERGE.labels.bridal,

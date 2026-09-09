@@ -1,5 +1,6 @@
 'use client';
 
+import { Img } from '@/components/media/Img';
 import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLenis } from 'lenis/react';
@@ -113,8 +114,9 @@ export function ResultTray() {
                   data-cursor="view"
                 >
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '4 / 5', background: 'var(--salon-well)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/tray:scale-[1.04]" loading="lazy" />
+                    <span className="absolute inset-0 block transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/tray:scale-[1.04]">
+                      <Img image={p.image} alt="" sizes="(min-width:768px) 300px, 240px" />
+                    </span>
                   </span>
                   <span className="mt-4 flex items-baseline gap-2">
                     <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
@@ -132,8 +134,9 @@ export function ResultTray() {
               <motion.li key={c.slug} className="w-[240px] shrink-0 snap-start md:w-[300px]" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.15 + i * 0.08 } }}>
                 <button type="button" data-ordinal={c.ordinal} data-slug={c.slug} data-name={c.name} onClick={() => controller?.submitText(`Show me ${c.name}`, 'card')} className={cn('group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi')} aria-label={`World ${c.ordinal} of ${collections.length}, ${c.name}`} data-cursor="explore">
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '3 / 2', background: 'var(--salon-well)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.image} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/tray:scale-[1.04]" loading="lazy" />
+                    <span className="absolute inset-0 block transition-transform duration-700 group-hover/tray:scale-[1.04]">
+                      <Img image={c.image} alt="" sizes="(min-width:768px) 300px, 240px" />
+                    </span>
                   </span>
                   <span className="mt-4 block font-display text-[1.0625rem] text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
                     {c.name}

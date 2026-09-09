@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ImageRef } from '@/data/types';
 
 export type ConciergeState =
   | 'IDLE'
@@ -69,14 +70,19 @@ export interface PieceCard {
   name: string;
   collection: string;
   priceLabel: string;
-  image: string;
+  /**
+   * A reference, not a source url. The tray, the recap and the panel render it through the
+   * optimiser: 589 of 599 pieces are photographed on the shop's CDN at 2286 px and up, and a
+   * raw `src` put a multi-megabyte original inside a 72-pixel thumbnail.
+   */
+  image: ImageRef;
   ordinal: number;
 }
 
 export interface CollectionCard {
   slug: string;
   name: string;
-  image: string;
+  image: ImageRef;
   href: string;
   ordinal: number;
 }
