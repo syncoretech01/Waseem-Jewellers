@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { assertCatalogue } from '@/data/catalogue';
 import { Bodoni_Moda, Instrument_Sans, Noto_Nastaliq_Urdu } from 'next/font/google';
 import 'lenis/dist/lenis.css';
 import './globals.css';
@@ -62,6 +63,9 @@ const STAMP_SCRIPT =
   "(function(){try{var d=document.documentElement;var v=localStorage.getItem('wj:visited');if(v&&Date.now()-Number(v)<86400000){d.setAttribute('data-visited','1')}if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){d.setAttribute('data-rm','1')}if(window.matchMedia('(pointer: coarse)').matches){d.setAttribute('data-coarse','1')}}catch(e){}})();";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // development-only, and on the server: it needs the whole catalogue, which is exactly
+  // what the browser must not be handed
+  assertCatalogue();
   return (
     <html
       lang="en"

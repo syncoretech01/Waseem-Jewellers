@@ -1,36 +1,40 @@
-import { getProduct, nameOf } from '@/data';
-import { formatPrice } from '@/lib/format';
+import { getRow, priceLabelOf, refOf } from '@/data/clientIndex';
 import { useConciergeStore, type PieceCard } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
-import type { Product } from '@/data/types';
+import type { PieceRow } from '@/lib/facets';
 import type { ProductBrief, SiteContext } from './types';
 
-export function briefOf(p: Product): ProductBrief {
+/**
+ * Everything the concierge knows about a piece comes from the client index — rows, not
+ * products. The full catalogue is a megabyte and belongs to the server; the browser gets a
+ * hundred bytes a piece, fetched once when the concierge opens.
+ */
+export function briefOf(r: PieceRow): ProductBrief {
   return {
-    slug: p.slug,
-    name: p.editorialTitle ?? p.title,
-    house: p.campaign,
-    category: p.category ?? 'jewellery',
-    material: p.material ?? 'gold',
-    priceLabel: formatPrice(p.price),
-    image: p.media.hero.ref,
+    slug: r.s,
+    name: r.t,
+    house: r.cp,
+    category: r.c ?? 'jewellery',
+    material: r.m ?? 'gold',
+    priceLabel: priceLabelOf(r),
+    image: refOf(r),
   };
 }
 
 export function briefOfSlug(slug: string | null | undefined): ProductBrief | null {
   if (!slug) return null;
-  const p = getProduct(slug);
-  return p ? briefOf(p) : null;
+  const r = getRow(slug);
+  return r ? briefOf(r) : null;
 }
 
-export function cardsOf(products: Product[]): PieceCard[] {
-  return products.map((p, i) => ({
-    slug: p.slug,
-    name: nameOf(p),
-    collection: p.campaign ?? 'Waseem Jewellers',
-    priceLabel: formatPrice(p.price),
+export function cardsOf(rows: PieceRow[]): PieceCard[] {
+  return rows.map((r, i) => ({
+    slug: r.s,
+    name: r.t,
+    collection: r.cp ?? 'Waseem Jewellers',
+    priceLabel: priceLabelOf(r),
     // the reference, so the card renders through the optimiser rather than the original
-    image: p.media.hero.ref,
+    image: refOf(r),
     ordinal: i + 1,
   }));
 }

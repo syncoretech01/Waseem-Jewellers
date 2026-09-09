@@ -20,7 +20,13 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { CACHE, GENERATED, readJson, writeJson, rel } from './lib.mjs';
+import { CACHE, GENERATED, ROOT, readJson, writeJson, rel } from './lib.mjs';
+
+/** Where the human-owned editorial layer lives. */
+const ROOT_SRC = path.join(ROOT, 'src/data/editorial');
+
+/** Failures found before the `hard` array exists, folded into it below. */
+const hardLater = [];
 
 const BASELINE = path.join(CACHE, 'baseline.json');
 const accept = process.argv.includes('--accept');
@@ -45,6 +51,54 @@ const authoredListable = authored.products.filter((e) => {
 });
 const sitewideListable = stats.listable + authoredListable.length;
 
+/**
+ * How many photographs a visitor actually gets per piece, counted against the site's own
+ * listable set rather than the snapshot's.
+ *
+ * The distinction is not pedantry: the merge both adds seven pieces and gives the ten
+ * authored ones galleries of two and three frames, so the same measurement reads 443 of 592
+ * against the snapshot and 441 of 599 against the site. The product page's whole layout
+ * decision rests on this figure, so it is emitted here rather than written into a comment
+ * where it can drift.
+ */
+const authoredByHandle = new Map(authored.products.map((e) => [e.handle, e]));
+
+/**
+ * The authored galleries, read from the module that owns them.
+ *
+ * The lift cache carries no `media` — it was written before the editorial layer took over
+ * that field — so an earlier version of this counted the ten authored pieces by the shop's
+ * image count and reported 450 where the truth is 441. Rather than trust a stale cache, the
+ * lengths come from `src/data/editorial/products.ts` itself, and a handle whose gallery
+ * cannot be read is a hard failure rather than a silent fallback.
+ */
+const editorialSource = await fs.readFile(path.join(ROOT_SRC, 'products.ts'), 'utf8');
+const authoredFrames = new Map();
+{
+  const entry = /^ {2}'([a-z0-9-]+)':\s*\{/gm;
+  const starts = [];
+  for (const m of editorialSource.matchAll(entry)) starts.push({ handle: m[1], at: m.index });
+  for (let i = 0; i < starts.length; i++) {
+    const body = editorialSource.slice(starts[i].at, starts[i + 1]?.at ?? editorialSource.length);
+    const gallery = body.match(/gallery:\s*\[([^\]]*)\]/);
+    if (gallery) authoredFrames.set(starts[i].handle, gallery[1].split(',').filter((s) => s.trim()).length);
+  }
+  for (const e of authored.products) {
+    if (!authoredFrames.has(e.handle)) hardLater.push(`editorial entry ${e.handle}: gallery not readable, frame counts would be wrong`);
+  }
+}
+
+const framesPerPiece = {};
+let sitewideSingleFrame = 0;
+for (const p of products) {
+  const e = authoredByHandle.get(p.handle);
+  const listable = e ? Boolean(e.editorialTitle && (e.category || p.category)) || p.listable : p.listable;
+  if (!listable) continue;
+  const frames = authoredFrames.get(p.handle) ?? p.images.length;
+  framesPerPiece[frames] = (framesPerPiece[frames] ?? 0) + 1;
+  if (frames === 1) sitewideSingleFrame++;
+}
+
 const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : 0);
 const coverage = {
   reference: products.filter((p) => p.reference).length,
@@ -58,7 +112,7 @@ const coverage = {
 const rates = Object.fromEntries(Object.entries(coverage).map(([k, v]) => [k, pct(v, products.length)]));
 
 // ── hard failures ───────────────────────────────────────────────────────────
-const hard = [];
+const hard = [...hardLater];
 const slugs = new Map();
 for (const p of emitted) {
   if (slugs.has(p.slug)) hard.push(`duplicate slug "${p.slug}" (${slugs.get(p.slug)} and ${p.sourceHandle})`);
@@ -155,6 +209,21 @@ ${['gold', 'diamond', 'bridal', 'men', 'kids']
   .join('\n')}
 
 ${products.filter((p) => p.departments.length > 1).length} pieces belong to two departments — a gold bridal set genuinely is both.
+
+## How many photographs a piece has
+
+| Frames | Pieces |
+|---|---|
+${Object.entries(framesPerPiece)
+  .sort((a, b) => Number(a[0]) - Number(b[0]))
+  .map(([n, c]) => `| ${n} | ${c} |`)
+  .join('\n')}
+
+**${sitewideSingleFrame} of the ${sitewideListable} listable pieces — ${Math.round((sitewideSingleFrame / sitewideListable) * 100)}% — have exactly
+one photograph.** That is the figure the product page's layout is decided by, and the
+denominator is the site's own: counted against the generated snapshot alone it reads
+${products.filter((p) => p.listable && p.images.length === 1).length} of ${stats.listable}, because the merge both adds pieces and gives the authored
+ones galleries.
 
 A department opens only where at least twelve listable pieces stand behind it, and a kind
 earns a page of its own on the same rule — so /gold/pendant exists and /gold/nose-pin does

@@ -16,7 +16,6 @@ import { ConsultationModal } from '@/components/commerce/ConsultationModal';
 import { ConciergeRoot } from '@/concierge/ui/ConciergeRoot';
 import { QualityDetector, RouteTracker, RuntimeBridge, StoreHydrator } from '@/state/trackers';
 import { installDevInspector } from '@/lib/devInspector';
-import { assertCatalogue } from '@/data';
 
 /**
  * Provider order matters:
@@ -32,7 +31,6 @@ export function Providers({ children }: { children: ReactNode }) {
     ScrollTrigger.clearScrollMemory('manual');
     gsap.ticker.lagSmoothing(0);
     installDevInspector();
-    assertCatalogue();
   }, []);
 
   return (

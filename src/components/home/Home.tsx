@@ -15,15 +15,15 @@ import { Ch07Slider } from './chapters/Ch07Slider';
 import { Ch08Duality } from './chapters/Ch08Duality';
 import { Ch09Bespoke } from './chapters/Ch09Bespoke';
 import { Arrive } from '@/components/motion/Arrive';
-import type { WallCut } from '@/data/repository';
+
 import type { Department } from '@/data/types';
-import type { PieceRow } from '@/lib/facets';
+import type { PieceRow, WallCut } from '@/lib/facets';
 
 /**
  * The homepage: ten chapters in one continuous scroll. The loading ritual (CH00) lives in
  * Providers and the footer (CH10) sits fixed beneath the page root.
  */
-export function Home({ wallCuts, departments, vitrine, total }: { wallCuts: WallCut[]; departments: { department: Department; count: number }[]; vitrine: PieceRow[]; total: number }) {
+export function Home({ wallCuts, departments, vitrine, total, slider }: { wallCuts: WallCut[]; departments: { department: Department; count: number }[]; vitrine: PieceRow[]; total: number; slider: PieceRow[] }) {
   const setPendingSection = useSiteStore((s) => s.setPendingSection);
 
   // arriving from the menu or the concierge with a chapter in mind
@@ -54,7 +54,7 @@ export function Home({ wallCuts, departments, vitrine, total }: { wallCuts: Wall
       <Ch04Worlds />
       <Ch05Bridal />
       <Ch06Wall cuts={wallCuts} departments={departments} />
-      <Ch07Slider />
+      <Ch07Slider rows={slider} />
       <Ch08Duality />
       <Ch09Bespoke />
     </main>

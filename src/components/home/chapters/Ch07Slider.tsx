@@ -13,22 +13,12 @@ import { overrideVisibleProducts } from '@/state/visibility';
 import { currentScroll, scrollTo } from '@/state/runtime';
 import { Img } from '@/components/media/Img';
 import { PieceLink } from '@/components/commerce/PieceLink';
-import { getProduct } from '@/data';
 import { WORLDS } from '@/data/worlds';
 import { COPY } from '@/data/copy';
-import { formatPrice } from '@/lib/format';
+import { heroOf, pieceRefOf, priceLabelOf } from '@/data/clientIndex';
+import type { PieceRow } from '@/lib/facets';
 import { cn } from '@/lib/cn';
 
-const ORDER = [
-  'royal-wedding-polki-raani-haar',
-  'rukh-e-jana-pleated-collar',
-  'aks-e-noor-satlada-haar',
-  'naqsh-e-gul-pearl-blossom-choker',
-  'dewan-bridal-suite',
-  'rang-e-jamal-emerald-suite',
-  'diamond-bridal-sapphire-suite',
-  'timeless-feathered-cluster-ring',
-];
 const DELTA_PHI = 0.34;
 /** Scroll travel per piece. Short enough that the vitrine never feels like a trap. */
 const VH_PER_ITEM = 22;
@@ -43,7 +33,7 @@ const DRAG_PER_ITEM = 0.26;
  * moves the vitrine continuously and nothing snaps on its own. Settling onto a piece happens
  * only on explicit intent — the arrows, the numerals, a released drag, or the arrow keys.
  */
-export function Ch07Slider() {
+export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
   const { ref, ready } = useChapter({ id: 'slider', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const coarse = useQualityStore((s) => s.coarse);
@@ -54,12 +44,14 @@ export function Ch07Slider() {
   const pin = useRef<{ start: number; length: number }>({ start: 0, length: 1 });
   const current = useRef(0);
   /**
-   * The eight are resolved before anything is measured, and every count and index below is
-   * taken from what actually resolved. The pin length used to be derived from the slug list
-   * rather than from the pieces, so a withdrawn piece would have left the vitrine scrubbing
-   * through a position that is not there.
+   * The eight arrive from the server, like the wall's cuts and the vitrine's three — the
+   * browser has no catalogue to look them up in, and should not.
+   *
+   * Every count and index below is taken from what actually resolved. The pin length used to
+   * be derived from the slug list rather than from the pieces, so a withdrawn piece would
+   * have left the vitrine scrubbing through a position that is not there.
    */
-  const products = ORDER.map((slug) => getProduct(slug)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const products = rows;
   const N = products.length;
 
   const positionOf = useCallback((i: number) => pin.current.start + (pin.current.length * i) / (N - 1), [N]);
@@ -119,9 +111,9 @@ export function Ch07Slider() {
           if (near !== lastCentre) {
             lastCentre = near;
             setCentre(near);
-            const slugs = [near, near - 1, near + 1].filter((k) => k >= 0 && k < N).map((k) => products[k]!.slug);
+            const slugs = [near, near - 1, near + 1].filter((k) => k >= 0 && k < N).map((k) => products[k]!.s);
             overrideVisibleProducts(slugs);
-            setFocused(products[near]?.slug ?? null);
+            setFocused(products[near]?.s ?? null);
           }
         };
 
@@ -220,7 +212,7 @@ export function Ch07Slider() {
       goTo(N - 1);
     } else if (e.key === 'Enter') {
       const item = ref.current?.querySelector<HTMLElement>(`[data-index="${c}"] img`);
-      const slug = products[c]?.slug;
+      const slug = products[c]?.s;
       if (slug) openProduct(slug, item);
     }
   };
@@ -253,26 +245,26 @@ export function Ch07Slider() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[42svh]" style={{ background: 'linear-gradient(180deg, transparent 0%, #0d0b0a 55%, #0B0A09 100%)' }} />
         <div className="pointer-events-none absolute left-1/2 top-[62%] h-[30svh] w-[60vw] -translate-x-1/2 rounded-[100%] opacity-70" style={{ background: 'radial-gradient(ellipse, rgba(216,195,165,0.16) 0%, rgba(216,195,165,0.04) 45%, transparent 70%)' }} />
         {products.map((p, i) => {
-          const world = p.world ? WORLDS.find((w) => w.slug === p.world) : undefined;
+          const world = p.cp ? WORLDS.find((w) => w.slug === p.cp) : undefined;
           const isCentre = i === centre;
           return (
-            <div key={p.slug} className="vitrine-item absolute left-1/2 top-1/2 w-[28vw] -translate-x-1/2 -translate-y-[58%]" data-index={i} style={{ transformStyle: 'preserve-3d' }}>
+            <div key={p.s} className="vitrine-item absolute left-1/2 top-1/2 w-[28vw] -translate-x-1/2 -translate-y-[58%]" data-index={i} style={{ transformStyle: 'preserve-3d' }}>
               <div className="vitrine-shadow pointer-events-none absolute -bottom-[6%] left-[8%] right-[8%] h-[8%] rounded-[100%] bg-black/80 blur-xl" />
               {isCentre ? (
-                <PieceLink product={p} sizes="28vw" aspect="4 / 5" cursor="view">
+                <PieceLink product={pieceRefOf(p)} sizes="28vw" aspect="4 / 5" cursor="view">
                   <span className="vitrine-wash pointer-events-none absolute inset-0 bg-ink" aria-hidden />
                 </PieceLink>
               ) : (
                 <button
                   type="button"
                   onClick={() => goTo(i)}
-                  aria-label={`Bring the ${p.editorialTitle} to the centre`}
+                  aria-label={`Bring the ${p.t} to the centre`}
                   className="group/side relative block w-full outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
                   data-cursor="explore"
                 >
                   <span className="relative block w-full overflow-hidden bg-bg-2" style={{ aspectRatio: '4 / 5' }}>
                     <span className="absolute inset-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/side:scale-[1.03]">
-                      <Img image={p.media.hero} sizes="28vw" plain />
+                      <Img image={heroOf(p)} sizes="28vw" plain />
                     </span>
                     <span className="vitrine-wash pointer-events-none absolute inset-0 bg-ink" aria-hidden />
                   </span>
@@ -280,9 +272,9 @@ export function Ch07Slider() {
               )}
               <div className="vitrine-plaque pointer-events-none mt-5 flex flex-col items-center gap-1 text-center">
                 <p className="font-display text-[1.0625rem] text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
-                  {p.editorialTitle}
+                  {p.t}
                 </p>
-                <p className="micro text-champagne/80">{world ? `${world.name} · ${formatPrice(p.price)}` : formatPrice(p.price)}</p>
+                <p className="micro text-champagne/80">{world ? `${world.name} · ${priceLabelOf(p)}` : priceLabelOf(p)}</p>
               </div>
             </div>
           );
@@ -294,11 +286,11 @@ export function Ch07Slider() {
             <VitrineArrow direction="prev" disabled={centre === 0} onClick={() => goTo(centre - 1)} />
             <ol className="flex items-center" aria-label="Pieces in the vitrine">
               {products.map((p, i) => (
-                <li key={p.slug}>
+                <li key={p.s}>
                   <button
                     type="button"
                     onClick={() => goTo(i)}
-                    aria-label={`${p.editorialTitle}, piece ${i + 1} of ${N}`}
+                    aria-label={`${p.t}, piece ${i + 1} of ${N}`}
                     aria-current={i === centre ? 'true' : undefined}
                     className="group/tick block px-1.5 py-3 outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
                   >
@@ -318,12 +310,12 @@ export function Ch07Slider() {
       {/* mobile: native snap */}
       <div className="slider-rail no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[12vw] pb-16 pt-[16svh] md:hidden" data-lenis-prevent-wheel>
         {products.map((p) => (
-          <div key={p.slug} className="w-[76vw] shrink-0 snap-center">
-            <PieceLink product={p} sizes="76vw" aspect="4 / 5" />
+          <div key={p.s} className="w-[76vw] shrink-0 snap-center">
+            <PieceLink product={pieceRefOf(p)} sizes="76vw" aspect="4 / 5" />
             <p className="mt-4 font-display text-[1rem] text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
-              {p.editorialTitle}
+              {p.t}
             </p>
-            <p className="micro mt-1 text-champagne/80">{formatPrice(p.price)}</p>
+            <p className="micro mt-1 text-champagne/80">{priceLabelOf(p)}</p>
           </div>
         ))}
         <div className="w-[6vw] shrink-0" aria-hidden />

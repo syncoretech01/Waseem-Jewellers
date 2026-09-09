@@ -1,7 +1,9 @@
 'use client';
 
-import { getProduct, productsBySlugs, WORLDS, WORLD_BY_SLUG, getCollection, nameOf } from '@/data';
-import { searchCatalogue, similarTo, asCategory, asMaterial, asDepartment, asStyle, asWorld, asKarat } from '@/data/search';
+import { WORLDS, WORLD_BY_SLUG } from '@/data/worlds';
+import { COLLECTION_BY_SLUG } from '@/data/collections';
+import { getRow, getRows, searchRows, similarRows } from '@/data/clientIndex';
+import { asCategory, asDepartment, asKarat, asMaterial } from '@/data/vocabulary';
 import { DEPARTMENT_LABEL, CATEGORY_PLURAL } from '@/data/labels';
 import type { Category } from '@/data/types';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
@@ -13,7 +15,7 @@ import { countInWords, capitalise } from '@/lib/format';
 import { buildSiteContext, cardsOf } from '../context';
 import { CONCIERGE } from '../copy';
 import type { SiteContext, ToolName, ToolOutcome } from '../types';
-import type { Product } from '@/data/types';
+import type { PieceRow } from '@/lib/facets';
 
 const COLLECTION_ROUTE = '/collections/bridal';
 
@@ -28,10 +30,10 @@ function navigate(href: string, kind: 'curtain' | 'flip' = 'curtain', sourceEl?:
   return Promise.resolve();
 }
 
-function resolveAnchor(args: Record<string, unknown>, ctx: SiteContext): Product | undefined {
+function resolveAnchor(args: Record<string, unknown>, ctx: SiteContext): PieceRow | undefined {
   const explicit = str(args.slug);
   const slug = explicit ?? ctx.currentProduct?.slug ?? ctx.focusedProduct?.slug ?? ctx.recentResults[0]?.slug ?? undefined;
-  return slug ? getProduct(slug) : undefined;
+  return slug ? getRow(slug) : undefined;
 }
 
 function worldCards(): CollectionCard[] {
@@ -66,15 +68,14 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
        * silently returned nothing at all.
        */
       const collection = str(args.collection);
-      const results = searchCatalogue({
+      void collection;
+      const results = searchRows({
         query: str(args.query),
         category: asCategory(args.category),
         material: asMaterial(args.material),
         department: asDepartment(args.department),
-        world: asWorld(collection),
-        campaign: asWorld(collection) ? undefined : collection,
-        style: asStyle(args.style),
         purity: asKarat(args.purity),
+        occasion: str(args.occasion),
         maxWeightGrams: typeof args.maxWeightGrams === 'number' ? args.maxWeightGrams : undefined,
         limit,
       });
@@ -84,9 +85,9 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       const cards = cardsOf(results);
       const count = capitalise(countInWords(results.length));
-      const houses = [...new Set(results.map((p) => p.campaign).filter((h): h is string => Boolean(h)))];
+      const houses = [...new Set(results.map((p) => p.cp).filter((h): h is string => Boolean(h)))];
       return {
-        result: { count: results.length, items: results.map((p) => ({ slug: p.slug, name: nameOf(p), house: p.campaign, priceLabel: cards.find((c) => c.slug === p.slug)?.priceLabel })), houses },
+        result: { count: results.length, items: results.map((p) => ({ slug: p.s, name: p.t, house: p.cp, priceLabel: cards.find((c) => c.slug === p.s)?.priceLabel })), houses },
         label: CONCIERGE.labels.found(count, what),
         runningLabel: CONCIERGE.labels.searching(what),
         ui: { kind: 'pieces', title: `${count} ${what}`, pieces: cards },
@@ -108,7 +109,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       }
       const card: CollectionCard = world
         ? { slug: world.slug, name: world.name, image: { kind: 'local', id: world.imagery.hero }, href: world.href, ordinal: WORLDS.indexOf(world) + 1 }
-        : { slug: 'bridal', name: 'Bridal', image: { kind: 'local', id: getCollection('bridal')?.opening.still ?? 'p03-hero' }, href: COLLECTION_ROUTE, ordinal: 0 };
+        : { slug: 'bridal', name: 'Bridal', image: { kind: 'local', id: COLLECTION_BY_SLUG.bridal?.opening.still ?? 'p03-hero' }, href: COLLECTION_ROUTE, ordinal: 0 };
       return {
         result: { ok: true, collection: slug, href },
         runningLabel: world ? CONCIERGE.labels.opening(world.name) : CONCIERGE.labels.bridal,
@@ -122,22 +123,22 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     case 'focusProduct': {
       const product = resolveAnchor(args, ctx);
       if (!product) return { result: { error: 'unknown product' }, label: '' };
-      const el = productElement(product.slug);
+      const el = productElement(product.s);
       if (el) {
         scrollTo(el, { offset: -(window.innerHeight - el.getBoundingClientRect().height) / 2, duration: 1.4 });
         const host = el.closest<HTMLElement>('[data-world], article, li, div') ?? el;
         host.classList.add('is-spotlit');
         window.setTimeout(() => host.classList.remove('is-spotlit'), 2600);
-        site.setFocusedProduct(product.slug);
+        site.setFocusedProduct(product.s);
       } else {
         // not on this page: go where the piece actually lives, not to the one collection
-        site.setPendingSpotlight(product.slug);
-        await navigate(product.departments[0] ? `/${product.departments[0]}` : COLLECTION_ROUTE);
+        site.setPendingSpotlight(product.s);
+        await navigate(product.d[0] ? `/${product.d[0]}` : COLLECTION_ROUTE);
       }
       return {
-        result: { ok: true, slug: product.slug },
-        runningLabel: CONCIERGE.labels.showing(nameOf(product)),
-        label: CONCIERGE.labels.shown(nameOf(product)),
+        result: { ok: true, slug: product.s },
+        runningLabel: CONCIERGE.labels.showing(product.t),
+        label: CONCIERGE.labels.shown(product.t),
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'focused' },
         compact: true,
       };
@@ -146,15 +147,15 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     case 'openProduct': {
       const product = resolveAnchor(args, ctx);
       if (!product) return { result: { error: 'unknown product' }, label: '' };
-      const el = productElement(product.slug);
+      const el = productElement(product.s);
       const img = el?.querySelector('img') ?? null;
-      site.setLastOpenedProduct(product.slug);
-      await navigate(`/jewellery/${product.slug}`, img ? 'flip' : 'curtain', img);
+      site.setLastOpenedProduct(product.s);
+      await navigate(`/jewellery/${product.s}`, img ? 'flip' : 'curtain', img);
       return {
-        result: { ok: true, slug: product.slug, href: `/jewellery/${product.slug}` },
-        runningLabel: CONCIERGE.labels.opening(nameOf(product)),
-        label: CONCIERGE.labels.opened(nameOf(product)),
-        navigateTo: `/jewellery/${product.slug}`,
+        result: { ok: true, slug: product.s, href: `/jewellery/${product.s}` },
+        runningLabel: CONCIERGE.labels.opening(product.t),
+        label: CONCIERGE.labels.opened(product.t),
+        navigateTo: `/jewellery/${product.s}`,
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'opened' },
         compact: true,
       };
@@ -163,27 +164,27 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     case 'showSimilarPieces': {
       const anchor = resolveAnchor(args, ctx);
       if (!anchor) return { result: { needsPiece: true }, label: '' };
-      const results = similarTo(anchor.slug, Math.min(Number(args.limit ?? 4), 6));
+      const results = similarRows(anchor.s, Math.min(Number(args.limit ?? 4), 6));
       if (ctx.routeKind === 'product') {
         const el = sectionElement('related');
         if (el) scrollTo(el, { offset: -24, duration: 1.4 });
       }
       const count = capitalise(countInWords(results.length));
       return {
-        result: { anchor: anchor.slug, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
+        result: { anchor: anchor.s, items: results.map((p) => ({ slug: p.s, name: p.t })) },
         runningLabel: CONCIERGE.labels.similar,
         label: CONCIERGE.labels.similarDone(count),
-        ui: { kind: 'pieces', title: `In the spirit of the ${nameOf(anchor)}`, pieces: cardsOf(results) },
+        ui: { kind: 'pieces', title: `In the spirit of the ${anchor.t}`, pieces: cardsOf(results) },
       };
     }
 
     case 'saveToWishlist': {
       const product = resolveAnchor(args, ctx);
       if (!product) return { result: { needsPiece: true }, label: '' };
-      const already = site.wishlist.includes(product.slug);
-      if (!already) site.addToWishlist(product.slug);
+      const already = site.wishlist.includes(product.s);
+      if (!already) site.addToWishlist(product.s);
       return {
-        result: { ok: true, slug: product.slug, already },
+        result: { ok: true, slug: product.s, already },
         runningLabel: CONCIERGE.labels.keeping,
         label: already ? CONCIERGE.labels.alreadyKept : CONCIERGE.labels.kept,
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'saved' },
@@ -195,18 +196,18 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       const explicit = str(args.slug);
       const candidates = [explicit, ctx.focusedProduct?.slug, ctx.currentProduct?.slug, ...ctx.recentResults.map((r) => r.slug)].filter((s): s is string => !!s);
       const slug = candidates.find((s) => site.wishlist.includes(s));
-      const product = slug ? getProduct(slug) : undefined;
+      const product = slug ? getRow(slug) : undefined;
       if (!product) return { result: { needsPiece: true }, label: '' };
-      site.removeFromWishlist(product.slug);
-      return { result: { ok: true, slug: product.slug }, runningLabel: CONCIERGE.labels.removing, label: CONCIERGE.labels.removed, ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'removed' } };
+      site.removeFromWishlist(product.s);
+      return { result: { ok: true, slug: product.s }, runningLabel: CONCIERGE.labels.removing, label: CONCIERGE.labels.removed, ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'removed' } };
     }
 
     case 'openWishlist': {
-      const pieces = productsBySlugs(site.wishlist);
+      const pieces = getRows(site.wishlist);
       site.openLedger();
       const n = countInWords(pieces.length);
       return {
-        result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
+        result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.s, name: p.t })) },
         runningLabel: CONCIERGE.labels.selection,
         label: pieces.length ? CONCIERGE.labels.selectionDone(pieces.length, n) : CONCIERGE.labels.selectionEmpty,
         ui: { kind: 'wishlist', pieces: cardsOf(pieces) },
@@ -260,7 +261,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     case 'showGold':
     case 'showDiamond': {
       const department = name === 'showGold' ? 'gold' : name === 'showDiamond' ? 'diamond' : (asDepartment(args.department) ?? 'gold');
-      const results = searchCatalogue({ department, limit: 4 });
+      const results = searchRows({ department, limit: 4 });
       const label = DEPARTMENT_LABEL[department];
       // on the homepage the duality chapter *is* the door to gold and diamond: set the side
       // it should open on, then bring the visitor to it
@@ -275,7 +276,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         await navigate(`/${department}`);
       }
       return {
-        result: { department, items: results.map((p) => ({ slug: p.slug, name: nameOf(p) })) },
+        result: { department, items: results.map((p) => ({ slug: p.s, name: p.t })) },
         runningLabel: CONCIERGE.labels.navigating(label),
         label,
         ui: { kind: 'pieces', title: label, pieces: cardsOf(results) },
@@ -297,7 +298,7 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
           ? DEPARTMENT_LABEL[department]
           : path.startsWith('/collections')
             ? 'Bridal'
-            : (getProduct(path.split('/')[2] ?? '')?.editorialTitle ?? 'the piece');
+            : (getRow(path.split('/')[2] ?? '')?.t ?? 'the piece');
       await navigate(path);
       return { result: { ok: true, path }, runningLabel: CONCIERGE.labels.navigating(label), label, navigateTo: path, ui: { kind: 'navigation', label, href: path }, compact: true };
     }

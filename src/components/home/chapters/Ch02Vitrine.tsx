@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { PieceLink } from '@/components/commerce/PieceLink';
-import { pieceRefOf } from '@/components/department/PieceGrid';
+import { pieceRefOf } from '@/data/clientIndex';
 import { Eyebrow } from '@/components/ui/primitives';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';

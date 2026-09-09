@@ -2,7 +2,7 @@ import type { Category, Department, Product } from './types';
 import { PRODUCTS, LISTABLE_PRODUCTS, CATALOGUE_DATE } from './products';
 import { searchCatalogue, similarTo, type SearchQuery } from './search';
 import { nameOf, DEPARTMENT_LABEL } from './labels';
-import { bandOf, matchesFacets, type Facetable, type PieceRow, type SortKey } from '@/lib/facets';
+import { bandOf, matchesFacets, type Facetable, type PieceRow, type SortKey, type WallCut } from '@/lib/facets';
 
 /**
  * The seam every page, route and tool reads the catalogue through.
@@ -63,22 +63,10 @@ export interface CatalogueRepository {
 }
 
 /**
- * A named set of pieces the wall can show.
- *
- * The wall used to be eleven slots hard-bound to eleven slugs, which breaks twice at 599
- * pieces: it cannot grow, and a version of it that could would be the grid the brief
- * forbids. So the composition stays exactly as it is — twelve columns, whitespace, tilt and
- * sheen — and becomes a template that different sets of pieces move through. One screen
- * fronts the whole collection without ever growing.
- *
- * The cuts are derived, not hand-listed: a hand-listed cut is a slug list that rots the day
- * Waseem withdraws a piece.
+ * The wall's cuts are derived, not hand-listed: a hand-listed cut is a slug list that rots
+ * the day Waseem withdraws a piece. `WallCut` itself lives in `@/lib/facets`, with the row
+ * shape it carries.
  */
-export interface WallCut {
-  id: string;
-  label: string;
-  rows: PieceRow[];
-}
 
 /**
  * A department or a category opens only when there is enough behind it to be worth walking
@@ -114,6 +102,9 @@ const rowOf = (p: Product): PieceRow => ({
   hh: p.media.hero.ref.kind === 'remote' ? p.media.hero.ref.height : undefined,
   r: p.media.hero.role,
 });
+
+/** The same projection, for a caller that already holds products. */
+export const toRow = rowOf;
 
 const facetableOf = (p: Product): Facetable => ({
   category: p.category,

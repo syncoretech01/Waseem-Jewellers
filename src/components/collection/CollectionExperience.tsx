@@ -13,7 +13,8 @@ import { productElement } from '@/state/visibility';
 import { sectionsReady } from '@/state/sections';
 import { runtime, scrollTo } from '@/state/runtime';
 import { requestConcierge } from '@/concierge/bridge';
-import { productsBySlugs, WORLD_BY_SLUG } from '@/data';
+import { WORLD_BY_SLUG } from '@/data';
+import type { PieceRow } from '@/lib/facets';
 import { COPY } from '@/data/copy';
 import type { Collection } from '@/data/types';
 
@@ -26,7 +27,9 @@ import type { Collection } from '@/data/types';
  * this page again, and the door to the index is a door, at the end, where a reader who has
  * finished the story will look for it.
  */
-export function CollectionExperience({ collection }: { collection: Collection }) {
+export function CollectionExperience({ collection, rows }: { collection: Collection; rows: PieceRow[] }) {
+  // resolved on the server and handed down: the story needs pieces, the browser needs no catalogue
+  const pieces = useMemo(() => new Map(rows.map((r) => [r.s, r])), [rows]);
   const search = useSiteStore((s) => s.search);
   const navEpoch = useSiteStore((s) => s.navEpoch);
   const setSelectedCollection = useSiteStore((s) => s.setSelectedCollection);
@@ -94,10 +97,10 @@ export function CollectionExperience({ collection }: { collection: Collection })
       <CollectionOpening collection={collection} still={worldStill} />
       <Intro collection={collection} />
       {collection.chapters.map((c, i) => (
-        <StoryChapterView key={c.id} chapter={c} index={i} />
+        <StoryChapterView key={c.id} chapter={c} index={i} pieces={pieces} />
       ))}
       <Closing collection={collection} onConsult={() => openConsultation({ topic: 'bridal', source: 'cta' })} />
-      <WornTogetherRail products={productsBySlugs(collection.wornTogether)} eyebrow="Worn together" title="Pieces that answer this one." theme="dark" />
+      <WornTogetherRail products={collection.wornTogether.map((s) => pieces.get(s)).filter((r): r is PieceRow => Boolean(r))} eyebrow="Worn together" title="Pieces that answer this one." theme="dark" />
     </main>
   );
 }

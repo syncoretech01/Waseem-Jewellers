@@ -8,12 +8,13 @@ import { useQualityStore } from '@/state/qualityStore';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SaveButton } from '@/components/commerce/SaveButton';
 import { Img } from '@/components/media/Img';
-import { pieceRefOf } from '@/components/department/PieceGrid';
+import { pieceRefOf } from '@/data/clientIndex';
 import { DEPARTMENT_LABEL } from '@/data/labels';
 import { COPY } from '@/data/copy';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
-import type { WallCut } from '@/data/repository';
+
 import type { Department } from '@/data/types';
+import type { WallCut } from '@/lib/facets';
 import { cn } from '@/lib/cn';
 
 interface Slot {

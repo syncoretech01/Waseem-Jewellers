@@ -3,14 +3,13 @@
 import { useId, useRef } from 'react';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { Eyebrow } from '@/components/ui/primitives';
-import { formatPrice } from '@/lib/format';
 import { useRise } from '@/motion/hooks/useReveals';
 import { useChapter } from '@/motion/hooks/useChapter';
-import { nameOf } from '@/data/labels';
-import type { Product } from '@/data/types';
+import { pieceRefOf, priceLabelOf } from '@/data/clientIndex';
+import type { PieceRow } from '@/lib/facets';
 
 interface RailProps {
-  products: Product[];
+  products: PieceRow[];
   eyebrow?: string;
   title?: string;
   theme?: 'dark' | 'ivory';
@@ -45,16 +44,16 @@ export function WornTogetherRail({ products, eyebrow = 'Worn together', title, t
         </div>
         <div className="no-scrollbar mt-12 flex snap-x snap-proximity gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible" data-lenis-prevent-wheel>
           {products.map((p, i) => (
-            <div key={p.slug} className="w-[72vw] shrink-0 snap-start md:w-auto" data-rise>
-              <PieceLink product={p} sizes="(min-width: 768px) 30vw, 72vw" aspect="3 / 4">
+            <div key={p.s} className="w-[72vw] shrink-0 snap-start md:w-auto" data-rise>
+              <PieceLink product={pieceRefOf(p)} sizes="(min-width: 768px) 30vw, 72vw" aspect="3 / 4">
                 <div className="mt-4 flex items-start justify-between gap-4">
                   <div>
                     <p className="font-display text-[1.125rem] leading-tight text-fg" style={{ fontVariationSettings: '"opsz" 18' }}>
-                      {nameOf(p)}
+                      {p.t}
                     </p>
-                    {p.campaign && <p className="micro mt-1 text-fg-muted">{p.campaign}</p>}
+                    {p.cp && <p className="micro mt-1 text-fg-muted">{p.cp}</p>}
                   </div>
-                  <p className="micro pt-1 text-fg-2">{formatPrice(p.price)}</p>
+                  <p className="micro pt-1 text-fg-2">{priceLabelOf(p)}</p>
                 </div>
                 <span className="sr-only">{`Piece ${i + 1} of ${products.length}`}</span>
               </PieceLink>

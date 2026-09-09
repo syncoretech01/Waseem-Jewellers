@@ -3,7 +3,7 @@ import type { Product } from '../types';
 /**
  * What a specification means, written once.
  *
- * 443 of the 592 pieces a visitor can reach have a single photograph, three specification
+ * 441 of the 599 pieces a visitor can reach have a single photograph, three specification
  * rows and no story — because Waseem has not written one, and inventing one would be the
  * single most brand-damaging thing this site could do. So the page gives a reader something
  * true instead: what 21 karat means in this market, what VVS1 describes, what an uncut stone

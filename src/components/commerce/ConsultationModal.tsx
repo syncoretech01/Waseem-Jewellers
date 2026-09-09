@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field, ChoiceRow } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { useSiteStore } from '@/state/siteStore';
-import { getProduct, productsBySlugs, SITE } from '@/data';
+import { SITE } from '@/data';
+import { getRow, getRows, loadIndex } from '@/data/clientIndex';
 import { whatsappHref } from '@/data/site';
 import { COPY } from '@/data/copy';
 import { EASE } from '@/lib/motion/easings';
@@ -33,6 +34,10 @@ function reference() {
 /** Private consultation — no backend. The request is kept in sessionStorage and acknowledged by the concierge. */
 export function ConsultationModal() {
   const consultation = useSiteStore((s) => s.consultation);
+  // the index arrives when the form does; a visitor who never opens it never pays for it
+  useEffect(() => {
+    if (consultation.open) void loadIndex();
+  }, [consultation.open]);
   const close = useSiteStore((s) => s.closeConsultation);
   const [stage, setStage] = useState<Stage>('idle');
   const [name, setName] = useState('');
@@ -48,7 +53,7 @@ export function ConsultationModal() {
 
   const pieces = useMemo(() => {
     const slugs = consultation.productSlugs ?? (consultation.productSlug ? [consultation.productSlug] : []);
-    return productsBySlugs(slugs);
+    return getRows(slugs);
   }, [consultation.productSlug, consultation.productSlugs]);
 
   // each opening begins afresh (derived during render, keyed on the open flag)
@@ -80,7 +85,7 @@ export function ConsultationModal() {
     const code = reference();
     setRef(code);
     try {
-      sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: pieces.map((p) => p.slug), message, at: Date.now() }));
+      sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: pieces.map((p) => p.s), message, at: Date.now() }));
     } catch {
       /* ignore */
     }
@@ -88,7 +93,7 @@ export function ConsultationModal() {
   };
 
   const showroomName = SITE.showrooms.find((s) => s.id === showroom)?.name ?? '';
-  const waText = `Private consultation request ${ref}: ${name}, ${showroomName}${pieces.length ? `, regarding ${pieces.map((p) => p.editorialTitle).join(', ')}` : ''}.`;
+  const waText = `Private consultation request ${ref}: ${name}, ${showroomName}${pieces.length ? `, regarding ${pieces.map((p) => p.t).join(', ')}` : ''}.`;
 
   return (
     <Dialog open={consultation.open} onClose={close} label={COPY.consultation.eyebrow} variant="center" theme="ivory" className="px-8 py-10 md:px-12 md:py-12">
@@ -127,8 +132,8 @@ export function ConsultationModal() {
             {pieces.length > 0 && (
               <div className="flex flex-wrap gap-3 pt-2">
                 {pieces.map((p) => (
-                  <span key={p.slug} className="micro border-b border-line pb-1 text-fg">
-                    {p.editorialTitle}
+                  <span key={p.s} className="micro border-b border-line pb-1 text-fg">
+                    {p.t}
                   </span>
                 ))}
               </div>
@@ -151,7 +156,7 @@ export function ConsultationModal() {
               </Button>
               {stage === 'submitting' && <span className="hairline w-10 animate-pulse" aria-hidden />}
             </div>
-            {consultation.productSlug && getProduct(consultation.productSlug) && <p className="sr-only">Regarding {getProduct(consultation.productSlug)?.editorialTitle}</p>}
+            {consultation.productSlug && getRow(consultation.productSlug) && <p className="sr-only">Regarding {getRow(consultation.productSlug)?.t}</p>}
           </motion.form>
         )}
       </AnimatePresence>

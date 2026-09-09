@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { resolveImage, describe, nameOf } from '@/data';
 import type { Product } from '@/data/types';
-import { getRepository } from '@/data/repository';
+import { getRepository, toRow } from '@/data/repository';
 import { ProductExperience } from '@/components/product/ProductExperience';
 
 /** The same base `metadataBase` uses, so a canonical and a JSON-LD url can never disagree. */
@@ -91,10 +91,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
    * page that only read `complementary` printed a heading over an empty row.
    */
   const [suite, matching, similar] = await Promise.all([repo.setMembers(slug), repo.matching(slug, 3), repo.similar(slug, 3)]);
+  const rows = { suite: suite.map(toRow), matching: matching.map(toRow), similar: similar.map(toRow) };
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product, `${SITE_URL}/jewellery/${product.slug}`)) }} />
-      <ProductExperience product={product} suite={suite} matching={matching} similar={similar} />
+      <ProductExperience product={product} suite={rows.suite} matching={rows.matching} similar={rows.similar} />
     </>
   );
 }

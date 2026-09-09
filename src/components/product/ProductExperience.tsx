@@ -11,15 +11,16 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useSiteStore } from '@/state/siteStore';
 import { nameOf } from '@/data/labels';
 import type { Product } from '@/data/types';
+import type { PieceRow } from '@/lib/facets';
 
 interface ProductExperienceProps {
   product: Product;
   /** The other pieces of the same suite, where the piece belongs to one. */
-  suite: Product[];
+  suite: PieceRow[];
   /** Complementary kinds — what is worn with this. */
-  matching: Product[];
+  matching: PieceRow[];
   /** More of the same kind — what else is like this. */
-  similar: Product[];
+  similar: PieceRow[];
 }
 
 /**
@@ -27,8 +28,8 @@ interface ProductExperienceProps {
  *
  * A piece photographed as a scene opens 62/38 beside its words, exactly as Stage 1 did. A
  * piece with two or three studio cut-outs shows them side by side, because two stacked
- * pearl plates is mostly pearl. And a piece with one photograph — which is three quarters of
- * this shop — is given a single centred frame with the words beneath it, so the page reads
+ * pearl plates is mostly pearl. And a piece with one photograph — 441 of the 599 a visitor
+ * can reach — is given a single centred frame with the words beneath it, so the page reads
  * as a considered composition rather than as a gallery missing its other images.
  */
 export function ProductExperience({ product, suite, matching, similar }: ProductExperienceProps) {
@@ -36,7 +37,7 @@ export function ProductExperience({ product, suite, matching, similar }: Product
   const setCurrent = useSiteStore((s) => s.setCurrentProduct);
   const setCollection = useSiteStore((s) => s.setSelectedCollection);
   const setVisible = useSiteStore((s) => s.setVisibleProducts);
-  const nearby = [...suite, ...matching, ...similar].map((p) => p.slug);
+  const nearby = [...suite, ...matching, ...similar].map((p) => p.s);
 
   useEffect(() => {
     setCurrent(product.slug);

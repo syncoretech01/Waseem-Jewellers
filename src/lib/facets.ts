@@ -120,6 +120,17 @@ export interface PieceRow {
   /** hero role — a scene is shown full-bleed, a cut-out is mounted */ r: MediaRole;
 }
 
+/**
+ * A named set of pieces the wall can show. It lives here rather than with the repository
+ * because it is a shape the browser holds, and importing it from a server module would drag
+ * the catalogue's ban across a type-only import.
+ */
+export interface WallCut {
+  id: string;
+  label: string;
+  rows: PieceRow[];
+}
+
 export const fromRow = (r: PieceRow): Facetable => ({
   category: r.c,
   material: r.m,

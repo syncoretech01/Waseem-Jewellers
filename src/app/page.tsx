@@ -1,4 +1,5 @@
 import { getRepository } from '@/data/repository';
+import { VITRINE_ORDER } from '@/data/vitrineOrder';
 import { Home } from '@/components/home/Home';
 
 /**
@@ -8,7 +9,9 @@ import { Home } from '@/components/home/Home';
  */
 export default async function HomePage() {
   const repo = getRepository();
-  const [cuts, departments, slugs] = await Promise.all([repo.wallCuts(10), repo.departments(), repo.allSlugs()]);
+  const [cuts, departments, slugs, all] = await Promise.all([repo.wallCuts(10), repo.departments(), repo.allSlugs(), repo.rows()]);
+  const bySlug = new Map(all.map((r) => [r.s, r]));
+  const slider = VITRINE_ORDER.map((s) => bySlug.get(s)).filter((r): r is NonNullable<typeof r> => Boolean(r));
   // the three that open the page are the head of the featured order — named, filed, photographed
-  return <Home wallCuts={cuts} departments={departments} vitrine={cuts[0]?.rows.slice(0, 3) ?? []} total={slugs.length} />;
+  return <Home wallCuts={cuts} departments={departments} vitrine={cuts[0]?.rows.slice(0, 3) ?? []} total={slugs.length} slider={slider} />;
 }

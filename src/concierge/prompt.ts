@@ -1,4 +1,4 @@
-import { SITE } from '@/data';
+import { SITE } from '@/data/site';
 import type { SiteContext } from './types';
 
 /** Persona for the future model provider. Facts only as published; no karat/grade generalisations. */

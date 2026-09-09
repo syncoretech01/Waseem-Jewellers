@@ -47,9 +47,26 @@ const config = [
           ],
           patterns: [
             { group: ['gsap/*'], message: "Import from '@/lib/motion/gsap' instead." },
+            /**
+             * Every path that reaches the merged catalogue, not merely the generated one.
+             *
+             * The narrower rule this replaces guarded `generated/catalogue` and nothing else,
+             * so it never fired: `@/data` re-exported `products.ts`, and a component
+             * importing `getImage` from the barrel pulled 656 products into the client
+             * bundle transitively. 1.14 MB of it, unnoticed.
+             */
             {
-              group: ['**/generated/catalogue', '**/generated/catalogue.json', '@/data/generated/catalogue'],
-              message: 'The full catalogue is server-only. Reach it through the repository at @/data/repository.',
+              group: [
+                '**/generated/catalogue',
+                '**/generated/catalogue.json',
+                '@/data/generated/catalogue',
+                '@/data/products',
+                '@/data/catalogue',
+                '@/data/repository',
+                '@/data/search',
+              ],
+              message:
+                'The merged catalogue is a megabyte and belongs to the server. In the browser use @/data/clientIndex, which is fetched on demand; on the server reach it through @/data/repository.',
             },
           ],
         },

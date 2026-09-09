@@ -1,10 +1,11 @@
 'use client';
 
 import { useRef } from 'react';
-import { PieceLink, type PieceRef } from '@/components/commerce/PieceLink';
+import { PieceLink } from '@/components/commerce/PieceLink';
+import { pieceRefOf } from '@/data/clientIndex';
 import { useRise } from '@/motion/hooks/useReveals';
 import { CATEGORY_LABEL } from '@/data/labels';
-import type { Category, ImageRef, ProductImage } from '@/data/types';
+import type { Category } from '@/data/types';
 import type { PieceRow } from '@/lib/facets';
 import { cn } from '@/lib/cn';
 
@@ -21,19 +22,6 @@ import { cn } from '@/lib/cn';
  * piece a visitor has chosen to look at, not under every photograph in the collection.
  */
 
-/** Local when the slim row carries an asset id, remote when it carries a source and its size. */
-const refOf = (r: PieceRow): ImageRef =>
-  r.hw !== undefined && r.hh !== undefined ? { kind: 'remote', src: r.h, width: r.hw, height: r.hh } : { kind: 'local', id: r.h };
-
-const heroOf = (r: PieceRow): ProductImage => ({
-  ref: refOf(r),
-  role: r.r,
-  order: 0,
-  alt: `${r.t}${r.c ? ` — ${CATEGORY_LABEL[r.c as Category].toLowerCase()}` : ''}, Waseem Jewellers`,
-  altDerived: true,
-});
-
-export const pieceRefOf = (r: PieceRow): PieceRef => ({ slug: r.s, media: { hero: heroOf(r) } });
 
 const rupees = (p: number) => (p > 0 ? `Rs. ${new Intl.NumberFormat('en-US').format(p)}` : undefined);
 

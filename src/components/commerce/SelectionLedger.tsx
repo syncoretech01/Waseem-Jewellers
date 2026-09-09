@@ -1,14 +1,15 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
 import { useSiteStore } from '@/state/siteStore';
 import { requestConcierge } from '@/concierge/bridge';
 import { useOpenProduct } from '@/motion/hooks/useFlipNavigate';
-import { productsBySlugs } from '@/data';
+import { getRows, heroOf, loadIndex, priceLabelOf } from '@/data/clientIndex';
 import { COPY } from '@/data/copy';
-import { formatPrice, pad2 } from '@/lib/format';
+import { pad2 } from '@/lib/format';
 
 /** "Your Selection" — an ivory ledger, not a cart drawer. */
 export function SelectionLedger() {
@@ -18,7 +19,21 @@ export function SelectionLedger() {
   const remove = useSiteStore((s) => s.removeFromWishlist);
   const openConsultation = useSiteStore((s) => s.openConsultation);
   const openProduct = useOpenProduct();
-  const pieces = productsBySlugs(wishlist);
+  /**
+   * The index is fetched the first time the ledger opens, not with the page. A visitor who
+   * never saves a piece never pays for it.
+   */
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void loadIndex().then(() => live && setReady(true));
+    return () => {
+      live = false;
+    };
+  }, [open]);
+  void ready;
+  const pieces = getRows(wishlist);
 
   return (
     <Dialog open={open} onClose={close} label={COPY.ledger.title} variant="right" theme="ivory" zIndex={50} className="px-gutter py-10 md:px-12">
@@ -46,20 +61,20 @@ export function SelectionLedger() {
         <>
           <ol className="mt-12 flex flex-col divide-y divide-line">
             {pieces.map((p, i) => (
-              <li key={p.slug} className="grid grid-cols-[2.5rem_5rem_1fr] items-start gap-4 py-6">
+              <li key={p.s} className="grid grid-cols-[2.5rem_5rem_1fr] items-start gap-4 py-6">
                 <span className="font-display text-[1.2rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 14' }}>
                   {pad2(i + 1)}
                 </span>
-                <button type="button" onClick={() => { close(); openProduct(p.slug); }} className="relative block overflow-hidden" style={{ aspectRatio: '3 / 4' }} aria-label={`Open ${p.editorialTitle}`}>
-                  <Img image={p.media.hero} sizes="80px" quality={70} />
+                <button type="button" onClick={() => { close(); openProduct(p.s); }} className="relative block overflow-hidden" style={{ aspectRatio: '3 / 4' }} aria-label={`Open ${p.t}`}>
+                  <Img image={heroOf(p)} sizes="80px" quality={70} />
                 </button>
                 <div className="flex flex-col gap-1">
-                  {p.campaign && <p className="micro text-fg-muted">{p.campaign}</p>}
-                  <button type="button" onClick={() => { close(); openProduct(p.slug); }} className="text-left font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
-                    {p.editorialTitle}
+                  {p.cp && <p className="micro text-fg-muted">{p.cp}</p>}
+                  <button type="button" onClick={() => { close(); openProduct(p.s); }} className="text-left font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
+                    {p.t}
                   </button>
-                  <p className="micro text-fg-2">{formatPrice(p.price)}</p>
-                  <button type="button" onClick={() => remove(p.slug)} className="mt-2 w-fit text-[0.6875rem] uppercase tracking-[0.2em] text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
+                  <p className="micro text-fg-2">{priceLabelOf(p)}</p>
+                  <button type="button" onClick={() => remove(p.s)} className="mt-2 w-fit text-[0.6875rem] uppercase tracking-[0.2em] text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
                     {COPY.ledger.remove}
                   </button>
                 </div>

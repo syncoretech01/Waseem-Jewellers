@@ -1,6 +1,6 @@
-import { findByName, similarTo } from '@/data/search';
-import { getProduct, productsBySlugs, WORLDS, nameOf, describe } from '@/data';
-import { formatPrice, countInWords, capitalise } from '@/lib/format';
+import { WORLDS } from '@/data/worlds';
+import { byName, getRow, getRows, similarRows, describeRow, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { countInWords, capitalise } from '@/lib/format';
 import { CONCIERGE } from '../../copy';
 import { ordinalFromWord, resolveOrdinal } from '../../tools/executeTool';
 import { corePlan } from './corePlan';
@@ -110,13 +110,10 @@ function searchReply(outcomes: ToolOutcome[], what: string) {
   return CONCIERGE.searchResult(capitalise(countInWords(pieces.length)), what, houses);
 }
 
-function specsLine(slug: string) {
-  const p = getProduct(slug);
-  if (!p) return '';
-  const m = p.spec;
-  const bits = [m.purity ? `${m.purity} gold` : null, m.grossWeightGrams ? `${m.grossWeightGrams.toFixed(3)} g` : null, m.diamondCarat ? `${m.diamondCarat} ct` : null, m.diamondClarity ?? null].filter(Boolean);
-  return bits.length ? `${bits.join(', ')}.` : '';
-}
+const specsLine = (slug: string) => {
+  const r = getRow(slug);
+  return r ? specLineOf(r) : '';
+};
 
 // ── the ordered command table (first match wins) ──────────────────────────────
 
@@ -159,11 +156,11 @@ export const COMMANDS: Command[] = [
     test: (t) => /\b(price|cost|how much|rate|budget)\b/.test(t),
     plan: (_t, _e, ctx) => {
       const slug = ctx.currentProduct?.slug ?? ctx.focusedProduct?.slug ?? ctx.recentResults[0]?.slug;
-      const p = slug ? getProduct(slug) : undefined;
+      const p = slug ? getRow(slug) : undefined;
       return {
         id: 'price',
         tools: [],
-        reply: () => (p && p.price.kind === 'fixed' ? CONCIERGE.priceKnown(formatPrice(p.price), p.spec.purity) : CONCIERGE.priceOnRequest),
+        reply: () => (p && p.p > 0 ? CONCIERGE.priceKnown(priceLabelOf(p), p.k) : CONCIERGE.priceOnRequest),
       };
     },
   },
@@ -219,20 +216,20 @@ export const COMMANDS: Command[] = [
       const target = resolveOrdinal(e.ordinal ?? 1, ctx);
       if (!target) return { id: 'ordinal_open', tools: [], reply: () => CONCIERGE.whichPiece };
       if (target.kind === 'collection') return { id: 'ordinal_open', tools: [{ name: 'showCollection', args: { slug: target.slug } }], reply: (o) => o[0]?.label ?? CONCIERGE.whichPiece };
-      const p = getProduct(target.slug);
-      return { id: 'ordinal_open', tools: [{ name: 'openProduct', args: { slug: target.slug } }], reply: () => (p ? CONCIERGE.opened(nameOf(p)) : CONCIERGE.whichPiece) };
+      const p = getRow(target.slug);
+      return { id: 'ordinal_open', tools: [{ name: 'openProduct', args: { slug: target.slug } }], reply: () => (p ? CONCIERGE.opened(p.t) : CONCIERGE.whichPiece) };
     },
   },
   {
     id: 'named_open',
-    test: (t, e) => /\b(open|show|view|see|take me to|go to|tell me (more )?about|details)\b/.test(t) && !e.deictic && !!findByName(t) && !e.world && !/\bcollections?\b/.test(t),
+    test: (t, e) => /\b(open|show|view|see|take me to|go to|tell me (more )?about|details)\b/.test(t) && !e.deictic && !!byName(t) && !e.world && !/\bcollections?\b/.test(t),
     plan: (t) => {
-      const p = findByName(t)!;
+      const p = byName(t)!;
       if (/\btell me\b|\babout\b|\bdetails\b/.test(t)) {
-        const specs = specsLine(p.slug);
-        return { id: 'named_tell', tools: [{ name: 'focusProduct', args: { slug: p.slug } }], reply: () => (specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)))) };
+        const specs = specsLine(p.s);
+        return { id: 'named_tell', tools: [{ name: 'focusProduct', args: { slug: p.s } }], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p))) };
       }
-      return { id: 'named_open', tools: [{ name: 'openProduct', args: { slug: p.slug } }], reply: () => CONCIERGE.opened(nameOf(p)) };
+      return { id: 'named_open', tools: [{ name: 'openProduct', args: { slug: p.s } }], reply: () => CONCIERGE.opened(p.t) };
     },
   },
   {
@@ -240,9 +237,9 @@ export const COMMANDS: Command[] = [
     test: (t, e, ctx) => e.deictic && /\b(tell me|about|details|what is|describe)\b/.test(t) && !!(ctx.currentProduct ?? ctx.focusedProduct),
     plan: (_t, _e, ctx) => {
       const slug = (ctx.currentProduct ?? ctx.focusedProduct)!.slug;
-      const p = getProduct(slug)!;
+      const p = getRow(slug)!;
       const specs = specsLine(slug);
-      return { id: 'deictic_tell', tools: [], reply: () => (specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)))) };
+      return { id: 'deictic_tell', tools: [], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p))) };
     },
   },
   {
@@ -250,8 +247,8 @@ export const COMMANDS: Command[] = [
     test: (t, e, ctx) => e.deictic && /\b(open|view|see)\b/.test(t) && !!(ctx.focusedProduct ?? ctx.recentResults[0]),
     plan: (_t, _e, ctx) => {
       const slug = (ctx.focusedProduct ?? ctx.recentResults[0])!.slug;
-      const p = getProduct(slug);
-      return { id: 'deictic_open', tools: [{ name: 'openProduct', args: { slug } }], reply: () => (p ? CONCIERGE.opened(nameOf(p)) : CONCIERGE.whichPiece) };
+      const p = getRow(slug);
+      return { id: 'deictic_open', tools: [{ name: 'openProduct', args: { slug } }], reply: () => (p ? CONCIERGE.opened(p.t) : CONCIERGE.whichPiece) };
     },
   },
   {
@@ -318,22 +315,22 @@ export function planFor(text: string, ctx: SiteContext): Plan {
       /* try the next command */
     }
   }
-  const named = findByName(t);
-  if (named) return { id: 'named_fallback', tools: [{ name: 'openProduct', args: { slug: named.slug } }], reply: () => CONCIERGE.opened(nameOf(named)) };
+  const named = byName(t);
+  if (named) return { id: 'named_fallback', tools: [{ name: 'openProduct', args: { slug: named.s } }], reply: () => CONCIERGE.opened(named.t) };
   return { id: 'unknown', tools: [], reply: () => CONCIERGE.unknown };
 }
 
 /** Used by the ENQUIRE flow: an opening line about the piece in view. */
 export function introFor(slug: string) {
-  const p = getProduct(slug);
+  const p = getRow(slug);
   if (!p) return CONCIERGE.unknown;
   const specs = specsLine(slug);
-  return specs ? CONCIERGE.tellAboutSpecs(nameOf(p), (p.story?.lede ?? describe(p)), specs) : CONCIERGE.tellAbout(nameOf(p), (p.story?.lede ?? describe(p)));
+  return specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p));
 }
 
 export function selectionIntro(slugs: string[]) {
-  const names = productsBySlugs(slugs).map((p) => nameOf(p));
+  const names = getRows(slugs).map((p) => p.t);
   return names.length ? CONCIERGE.selectionIntro(names) : CONCIERGE.wishlistEmpty;
 }
 
-export { similarTo };
+export { similarRows };

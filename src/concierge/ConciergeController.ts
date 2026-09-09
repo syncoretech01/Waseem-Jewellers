@@ -4,6 +4,7 @@ import { useConciergeStore, type ConciergeMode, type ConciergeState, type Concie
 import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
+import { loadIndex } from '@/data/clientIndex';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
 import { TOOL_DEFS } from './tools/toolDefs';
@@ -94,6 +95,14 @@ export class ConciergeController {
 
   open(opts: OpenOptions = {}) {
     const s = this.store;
+    /**
+     * The catalogue index arrives with the concierge, not with the page.
+     *
+     * Every lookup below it — search, similar, the name of a piece, and above all whether a
+     * slug is real — reads the index, so it is fetched the moment the panel opens rather
+     * than on a visitor's first sentence. A visitor who never asks never pays for it.
+     */
+    void loadIndex();
     const mode = opts.mode ?? s.mode;
     s.setMode(mode);
     if (s.state === 'IDLE' || s.state === 'HOVER') {

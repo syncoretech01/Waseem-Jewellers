@@ -21,6 +21,20 @@ withheld pieces needs.
 
 24 pieces belong to two departments — a gold bridal set genuinely is both.
 
+## How many photographs a piece has
+
+| Frames | Pieces |
+|---|---|
+| 1 | 441 |
+| 2 | 147 |
+| 3 | 11 |
+
+**441 of the 599 listable pieces — 74% — have exactly
+one photograph.** That is the figure the product page's layout is decided by, and the
+denominator is the site's own: counted against the generated snapshot alone it reads
+443 of 592, because the merge both adds pieces and gives the authored
+ones galleries.
+
 A department opens only where at least twelve listable pieces stand behind it, and a kind
 earns a page of its own on the same rule — so /gold/pendant exists and /gold/nose-pin does
 not. The routes, the menu and the category line read that predicate from one place, so an
