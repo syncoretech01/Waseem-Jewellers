@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { SaveButton } from '@/components/commerce/SaveButton';
 import { Eyebrow, UrduAccent } from '@/components/ui/primitives';
 import { TransitionLink } from '@/components/motion/TransitionLink';
-import { formatPrice, formatGrams } from '@/lib/format';
+import { formatPrice } from '@/lib/format';
+import { specRows, isMeasured } from '@/lib/specs';
+import { notesFor } from '@/data/editorial/materials';
 import { requestConcierge } from '@/concierge/bridge';
 import { useSiteStore } from '@/state/siteStore';
 import { SITE } from '@/data';
@@ -32,20 +34,10 @@ export function InfoColumn({ product }: { product: Product }) {
   const department = product.departments[0];
   const backHref = department ? `/${department}` : '/';
   const backLabel = department ? DEPARTMENT_LABEL[department] : 'Waseem Jewellers';
-  const specs = product.spec;
-  const rows: [string, string][] = [];
-  if (specs.purity) rows.push(['Purity', specs.purity]);
-  if (specs.grossWeightGrams) rows.push(['Gross weight', formatGrams(specs.grossWeightGrams)]);
-  if (specs.diamondColour) rows.push(['Diamond colour', specs.diamondColour]);
-  if (specs.diamondClarity) rows.push(['Clarity', specs.diamondClarity]);
-  if (specs.diamondCarat) rows.push(['Carats', `${specs.diamondCarat} ct`]);
-  if (product.reference) rows.push(['Reference', product.reference]);
-  if (rows.length < 3) {
-    if (specs.stones?.length) rows.push(['Stones', specs.stones.map((s) => s.kind).join(', ')]);
-    if (specs.technique?.length) rows.push(['Technique', specs.technique.join(', ')]);
-  }
-  // verified measurements, as opposed to descriptive attributes — decides whether the absence is named
-  const measured = Boolean(specs.purity || specs.grossWeightGrams || specs.diamondCarat);
+  // one specification table, shared with the comparison surface and the concierge
+  const rows = specRows(product);
+  const measured = isMeasured(product);
+  const notes = notesFor(product);
 
   return (
     <div ref={scope} className="flex flex-col gap-8">
@@ -91,12 +83,34 @@ export function InfoColumn({ product }: { product: Product }) {
 
       <div data-rise className="flex flex-col gap-5 border-t border-line pt-6">
         <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-3">
-          {rows.map(([k, v]) => (
-            <Row key={k} k={k} v={v} />
+          {rows.map((r) => (
+            <Row key={r.key} k={r.label} v={r.value} />
           ))}
         </dl>
         {!measured && <p className="text-[0.75rem] text-fg-muted">{COPY.product.specsNote}</p>}
       </div>
+
+      {/**
+       * With no story on 589 of 599 pieces, the alternative to this is a blank space or an
+       * invented paragraph. These notes are general facts about the material, headed as
+       * such, and every one of them appears only because this piece publishes the
+       * specification it explains. None of them says anything about the piece itself.
+       */}
+      {notes.length > 0 && (
+        <div data-rise className="flex flex-col gap-5 border-t border-line pt-6">
+          <p className="micro text-fg-muted">About these materials</p>
+          <dl className="flex flex-col gap-4">
+            {notes.map((n) => (
+              <div key={n.id} className="flex flex-col gap-1">
+                <dt className="font-display text-[1.0625rem] text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
+                  {n.term}
+                </dt>
+                <dd className="max-w-[34em] text-[0.8125rem] leading-relaxed text-fg-muted">{n.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       <div data-rise>
         <Accordion
@@ -111,14 +125,8 @@ export function InfoColumn({ product }: { product: Product }) {
                 </p>
               ),
             },
-            {
-              title: 'Materials',
-              body: (
-                <p>
-                  {[specs.purity ? `${specs.purity} gold` : null, specs.stones?.map((s) => s.kind).join(', '), specs.technique?.join(', ')].filter(Boolean).join(' · ') || 'Details shared at a private viewing.'}
-                </p>
-              ),
-            },
+            // no "Materials" panel: the table above already lists the purity, the stones and
+            // the technique, and repeating them behind a disclosure is furniture
             ...(product.story?.care ? [{ title: 'Care', body: <p>{product.story.care}</p> }] : []),
             {
               title: 'Private viewing',

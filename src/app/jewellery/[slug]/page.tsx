@@ -1,8 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { resolveImage, describe } from '@/data';
+import { resolveImage, describe, nameOf } from '@/data';
+import type { Product } from '@/data/types';
 import { getRepository } from '@/data/repository';
 import { ProductExperience } from '@/components/product/ProductExperience';
+
+/** The same base `metadataBase` uses, so a canonical and a JSON-LD url can never disagree. */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3300';
 
 export const dynamicParams = false;
 
@@ -22,9 +26,57 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!product) return {};
   const hero = resolveImage(product.media.hero.ref);
   return {
-    title: `${product.editorialTitle ?? product.title}${product.campaign ? ` — ${product.campaign}` : ''}`,
+    title: `${nameOf(product)}${product.campaign ? ` — ${product.campaign}` : ''}`,
+    // `story.lede` exists on ten pieces; the rest get a sentence built only from what the
+    // shop publishes, so no description is ever a paraphrase of nothing
     description: product.story?.lede ?? describe(product),
+    alternates: { canonical: `/jewellery/${product.slug}` },
     openGraph: { images: hero.src ? [hero.src] : [] },
+  };
+}
+
+/**
+ * Structured data, kept as honest as the page.
+ *
+ * No `offers` block where the price is on request — 583 of 599 pieces have no price, and
+ * emitting a zero or a placeholder would misrepresent them to every aggregator that reads
+ * this. Where a price does exist it carries its own `priceValidUntil`, because gold moves
+ * daily and a snapshot presented as current is a commercial risk to Waseem.
+ */
+function productJsonLd(product: Product, url: string) {
+  const hero = resolveImage(product.media.hero.ref);
+  const spec = product.spec;
+  const properties = [
+    spec.purity && { '@type': 'PropertyValue', name: 'Purity', value: spec.purity },
+    spec.grossWeightGrams !== undefined && { '@type': 'PropertyValue', name: 'Gross weight', value: `${spec.grossWeightGrams} g` },
+    spec.diamondCarat !== undefined && { '@type': 'PropertyValue', name: 'Diamond carat', value: `${spec.diamondCarat} ct` },
+    spec.diamondClarity && { '@type': 'PropertyValue', name: 'Clarity', value: spec.diamondClarity },
+    spec.diamondColour && { '@type': 'PropertyValue', name: 'Diamond colour', value: spec.diamondColour },
+  ].filter(Boolean);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: nameOf(product),
+    description: product.story?.lede ?? describe(product),
+    url,
+    ...(hero.src ? { image: [hero.src] } : {}),
+    ...(product.reference ? { sku: product.reference } : {}),
+    brand: { '@type': 'Brand', name: 'Waseem Jewellers' },
+    ...(product.material ? { material: product.material } : {}),
+    ...(properties.length ? { additionalProperty: properties } : {}),
+    ...(product.price.kind === 'fixed'
+      ? {
+          offers: {
+            '@type': 'Offer',
+            priceCurrency: 'PKR',
+            price: product.price.pkr,
+            priceValidUntil: product.price.asOf,
+            availability: 'https://schema.org/InStoreOnly',
+            url,
+          },
+        }
+      : {}),
   };
 }
 
@@ -39,5 +91,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
    * page that only read `complementary` printed a heading over an empty row.
    */
   const [suite, matching, similar] = await Promise.all([repo.setMembers(slug), repo.matching(slug, 3), repo.similar(slug, 3)]);
-  return <ProductExperience product={product} suite={suite} matching={matching} similar={similar} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product, `${SITE_URL}/jewellery/${product.slug}`)) }} />
+      <ProductExperience product={product} suite={suite} matching={matching} similar={similar} />
+    </>
+  );
 }
