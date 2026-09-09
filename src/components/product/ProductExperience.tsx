@@ -5,6 +5,8 @@ import { Gallery } from './Gallery';
 import { InfoColumn } from './InfoColumn';
 import { WornTogetherRail } from './WornTogetherRail';
 import { pdpMode } from './pdpMode';
+import { CloseLook } from './CloseLook';
+import { semanticFor } from '@/data/semantic';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useSiteStore } from '@/state/siteStore';
 import { nameOf } from '@/data/labels';
@@ -46,6 +48,7 @@ export function ProductExperience({ product, suite, matching, similar }: Product
   }, [product, setCurrent, setCollection, setVisible, nearby.join('|')]);
 
   const mode = pdpMode(product);
+  const closely = semanticFor(product.slug);
 
   return (
     <main className="bg-bg text-fg">
@@ -76,6 +79,9 @@ export function ProductExperience({ product, suite, matching, similar }: Product
           </div>
         )}
       </section>
+      {/* only where there is something specific to say about this piece */}
+      {closely && <CloseLook descriptor={closely} name={nameOf(product)} />}
+
       {/* each rail renders only if it has something; most pieces show one, some show none */}
       <WornTogetherRail products={suite} eyebrow="The suite" title="The rest of the set." theme="ivory" />
       <WornTogetherRail products={matching} eyebrow="Worn together" title="Pieces that answer this one." theme="ivory" />

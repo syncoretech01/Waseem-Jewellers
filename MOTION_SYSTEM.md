@@ -228,3 +228,56 @@ Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component,
 ## Not in Stage 1
 
 Chapter-by-chapter timeline reference tables, and any route-transition vocabulary beyond curtain / FLIP / veil, are Stage 2.
+
+## Semantic figures — motion that teaches
+
+`src/semantic/` is the one place in this project where motion is asked to explain the
+jewellery rather than to present it. It exists because of a fact about the photography:
+Waseem has **one high-resolution frame per piece**. `p03-hero`, `p03-macro` and `p03-detail`
+are not three photographs; they are three `derive.crop` rectangles of a single 4500px source,
+cut by sharp at build time. So what exists is one picture containing every named part as a
+region — and that decides what can honestly be built.
+
+**Terminology is a correctness rule, not a style preference.** Where an interaction only moves
+attention between regions of a finished photograph, nothing — code, copy, labels, docs — may
+describe it as how a piece was *constructed*, *assembled* or *put together*. It is composition,
+not process. No process imagery exists (no band before its stone, no empty setting), so that
+vocabulary would be describing something nobody has photographed. `scripts/dev/copy-guard.mjs`
+enforces it alongside the "House" rules.
+
+| Family | What it does | What it claims |
+|---|---|---|
+| `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph |
+| `composition` | the same mechanism at the scale of a suite | the same, one scale up |
+| `goldwork` | one region, held close — the scale ladder | this is the same picture, nearer |
+
+Three families and no more. Ring anatomy, layering compositors and gemstone setting were all
+considered and all rejected for the same reason: each needs the jewellery shown in a state it
+was never photographed in.
+
+**Every rectangle in `src/data/semantic.ts` is one Stage 1 already cut, published and
+reviewed.** Nothing is placed by guessing where a part of a piece might be. That is why the
+file covers eight pieces rather than six hundred: there is no family that scales without a
+person writing about the jewellery — a scale ladder still has to say what it is showing, and
+"the filigree" is a claim about a piece that may have none. Regions for the wider catalogue
+wait on Waseem's sign-off; a piece with no descriptor shows its photograph, as before.
+
+**One writer, structurally.** The camera element's `transform` is composed as a single string
+by one callback in `SemanticFigure`; there is no second setter and no Tailwind `translate` or
+`scale` utility anywhere near it. Labels are lit with `data-lit` and faded by CSS transitions,
+and GSAP never touches them.
+
+**Fidelity is resolved, not guessed.** `resolveFigure` reads `gsap.matchMedia`'s `reduce`
+condition — the media query, not the quality store — and measures the smallest held region in
+real source pixels. Under 640px the figure is not offered at all; under 1100px the camera
+moves but magnifies only to 1.35×; above it the region fills the frame. A family that cannot
+be supported does not render as a degraded family: the caller shows its ordinary image, and
+there is no broken lesson.
+
+**The static form is the acceptance test.** With motion removed, `StaticSequence` shows each
+region as its own frame with the same words. If the lesson does not survive that, the lesson
+was the camera move — which is spectacle wearing a caption.
+
+**No pin.** The figures read as they travel through the viewport. A pinned figure inside a
+product page would fight the sticky information column, and it would cost the page height it
+has not got.

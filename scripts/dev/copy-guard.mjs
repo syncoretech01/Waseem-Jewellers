@@ -25,6 +25,14 @@ const BANNED = [
   { re: /\bthe House\b/, why: 'Waseem is not "the House"' },
   { re: /\bOur House\b/i, why: 'Waseem is not "the House"' },
   { re: /\bthe house\b/, why: 'Waseem is not "the house"' },
+  /**
+   * The semantic figures move attention between regions of a finished photograph. Nothing
+   * anywhere may describe that as how a piece was *made*: no process imagery exists — no
+   * band before its stone, no empty setting — so the words would be describing something
+   * nobody has photographed. This vocabulary is reserved for the day that changes.
+   */
+  { re: /how (?:it|one|this piece|the piece) (?:is|was) (?:constructed|assembled|built|put together)/i, why: 'region attention is composition, not process' },
+  { re: /\b(?:constructed|assembled) (?:by hand|in the workshop)\b/i, why: 'no process imagery exists to support this' },
 ];
 
 /** Lines that talk *about* the rule rather than breaking it. */
