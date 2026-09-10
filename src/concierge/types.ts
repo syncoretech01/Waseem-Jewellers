@@ -13,6 +13,9 @@ export type ToolName =
   | 'openWishlist'
   | 'scrollToSection'
   | 'openPrivateConsultation'
+  | 'compareProducts'
+  | 'explainSpecification'
+  | 'deepSearch'
   | 'showDepartment'
   /** Deprecated aliases for `showDepartment`, kept so fixtures and model habits keep working. */
   | 'showBridal'
@@ -21,10 +24,34 @@ export type ToolName =
   | 'navigate'
   | 'getCurrentContext';
 
+/**
+ * The subset of JSON Schema this registry uses, and the validator enforces in full.
+ *
+ * Widened for arrays because a comparison takes two or three slugs, and "an array of
+ * strings" is not a constraint worth having: the item shape, the bounds and the pattern are
+ * where a malformed call is actually caught.
+ */
+export interface JsonSchemaProperty {
+  type: 'string' | 'integer' | 'number' | 'boolean' | 'array';
+  description?: string;
+  enum?: string[];
+  minimum?: number;
+  maximum?: number;
+  default?: unknown;
+  /** Arrays only. */
+  items?: { type: 'string' | 'integer' | 'number'; enum?: string[]; pattern?: string };
+  minItems?: number;
+  maxItems?: number;
+  /** Strings only — a slug shape, for instance. */
+  pattern?: string;
+}
+
 export interface JsonSchema {
   type: 'object';
-  properties: Record<string, { type: string; description?: string; enum?: string[]; minimum?: number; maximum?: number; default?: unknown }>;
+  properties: Record<string, JsonSchemaProperty>;
   required?: string[];
+  /** Always false in practice: an undeclared argument is dropped, never forwarded. */
+  additionalProperties?: false;
 }
 
 export interface ToolDef {
@@ -102,14 +129,32 @@ export interface ProviderRuntime {
   readonly toolDefs: readonly ToolDef[];
 }
 
+/**
+ * One name per engine, not per vendor.
+ *
+ * These used to be two names for three things: the server-mediated *text* model called itself
+ * `openai-realtime` while advertising `voice: 'none'`, which made the identity useless for
+ * the one question anyone asks it — can this thing speak. The realtime voice provider is a
+ * different engine with a different transport and different failure modes, and it needs its
+ * own name before it lands rather than after.
+ */
+export type ProviderId = 'keyless' | 'server-model' | 'realtime-voice';
+
 export interface ProviderCapabilities {
   streaming: boolean;
-  voice: 'none' | 'native';
+  /**
+   * `none` — this engine does not speak; the controller drives the browser's own speech.
+   * `browser` — the same, said explicitly: recognition and synthesis are the browser's.
+   * `native` — the engine itself hears and speaks over its own transport.
+   */
+  voice: 'none' | 'browser' | 'native';
   contextPush: boolean;
+  /** Whether the engine reasons, or answers from a fixed plan. Decides what a fallback costs. */
+  intelligence: 'deterministic' | 'model';
 }
 
 export interface ConciergeProvider {
-  readonly id: 'mock' | 'openai-realtime';
+  readonly id: ProviderId;
   readonly capabilities: ProviderCapabilities;
   attach(runtime: ProviderRuntime): void;
   detach(): Promise<void>;

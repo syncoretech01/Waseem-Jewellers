@@ -1,13 +1,15 @@
 import { conciergeEnv } from '@/server/env';
 import { ground } from '@/server/concierge/retrieve';
 import { buildMessages } from '@/server/concierge/prompt';
-import { MAX_ROUNDS, open, seal, type ContinuationPayload } from '@/server/concierge/continuation';
+import { MAX_ROUNDS, hashArgs, open, seal, type ContinuationPayload } from '@/server/concierge/continuation';
 import { MAX_INPUT_CHARS, clientIp, sameOrigin, takeToken } from '@/server/concierge/limits';
 import { getRepository } from '@/data/repository';
+import { runServerTool, runtimeOf } from '@/server/concierge/serverTools';
+import { sanitiseMemory, sanitiseToolResult } from '@/server/concierge/untrusted';
 import { validateToolCall, MAX_TOOL_CALLS } from '@/concierge/tools/validate';
 import { TOOL_DEFS } from '@/concierge/tools/toolDefs';
 import { enforceBrandRegister } from '@/concierge/register';
-import type { SiteContext } from '@/concierge/types';
+import type { SiteContext, ToolName } from '@/concierge/types';
 
 /**
  * One turn of the model conversation, streamed as NDJSON.
@@ -24,13 +26,19 @@ import type { SiteContext } from '@/concierge/types';
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Mumbai is roughly 120 ms closer to Lahore than the default. */
-export const preferredRegion = ['bom1'];
+/**
+ * The region is no longer declared here — `preferredRegion` is deprecated in this version of
+ * Next, and the value was only ever passed through to the platform anyway. The decision itself
+ * stands and now lives in `vercel.json`: Mumbai, roughly 120 ms closer to Lahore than the
+ * default. Latency matters on this route because it is the one a visitor waits on mid-sentence.
+ */
 
 interface TurnRequest {
   turnId: string;
   text: string;
   context: SiteContext;
+  /** The bounded slice of conversation memory — re-validated here, never trusted. */
+  memory?: unknown;
   /** Present on rounds after the first. */
   continuation?: string;
   toolResults?: { callId: string; name: string; result: unknown }[];
@@ -73,6 +81,10 @@ export async function POST(request: Request) {
   const limit = takeToken(clientIp(request));
   if (!limit.ok) return fail('RATE_LIMITED', `too many requests; retry in ${limit.retryAfterSeconds}s`);
 
+  const repo = getRepository();
+  const listable = new Set(await repo.allSlugs());
+  const isKnownSlug = (slug: string) => listable.has(slug);
+
   // ── the conversation so far, verified rather than trusted ─────────────────
   let messages: ContinuationPayload['messages'];
   let round = 0;
@@ -84,22 +96,52 @@ export async function POST(request: Request) {
     round = opened.payload.round;
     callsSoFar = opened.payload.callsSoFar;
     messages = opened.payload.messages;
+
+    /**
+     * A returned result has to prove it belongs to a call this turn actually issued.
+     *
+     * The signature covers the messages, which are what the *model* said. The results are what
+     * the *browser* claims happened, and unbound they would let a client answer a call that
+     * was never made, answer one twice, or return a search payload for a save. Each is matched
+     * against the pending call by id, by name and by an argument digest; anything unmatched is
+     * dropped rather than refused, so a stale retry costs a fact rather than the whole turn.
+     */
+    const pending = new Map(opened.payload.pending.map((p) => [p.callId, p]));
+    const answered = new Set<string>();
     for (const r of body.toolResults ?? []) {
-      messages.push({ role: 'tool', tool_call_id: r.callId, content: JSON.stringify(r.result).slice(0, 4000) });
+      const expected = typeof r?.callId === 'string' ? pending.get(r.callId) : undefined;
+      if (!expected) continue;
+      if (expected.name !== r.name) continue;
+      if (answered.has(r.callId)) continue;
+      answered.add(r.callId);
+      const safe = sanitiseToolResult(r.result, { isKnownSlug });
+      messages.push({ role: 'tool', tool_call_id: r.callId, content: JSON.stringify(safe).slice(0, 4000) });
+    }
+    // a call the browser never answered still needs a reply, or the model waits for a message
+    // that is not coming
+    for (const [callId, p] of pending) {
+      if (answered.has(callId)) continue;
+      messages.push({ role: 'tool', tool_call_id: callId, content: JSON.stringify({ error: 'NO_RESULT', tool: p.name }) });
     }
   } else {
+    /**
+     * The standing topic travels with the sentence.
+     *
+     * Without it the model was handed only the current words and a couple of slugs, so
+     * "now bracelets" retrieved every bracelet in the shop while the keyless engine — which
+     * carries the topic — correctly retrieved gold ones under fifteen grams. The model was
+     * reasoning faithfully about the wrong set, which is worse than not reasoning at all.
+     */
+    const memory = sanitiseMemory(body.memory, { isKnownSlug });
     const grounding = await ground(text, {
       currentSlug: body.context?.currentProduct?.slug ?? null,
       recentSlugs: (body.context?.recentResults ?? []).map((r) => r.slug),
+      memory,
     });
     messages = buildMessages(text, grounding, body.context);
   }
 
   if (round >= MAX_ROUNDS) return fail('ROUNDS', 'that took too many steps; ask again more simply');
-
-  const repo = getRepository();
-  const listable = new Set(await repo.allSlugs());
-  const isKnownSlug = (slug: string) => listable.has(slug);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -184,8 +226,8 @@ export async function POST(request: Request) {
          * validated again inside `executeTool`, because the browser and the realtime data
          * channel do not pass through this route at all.
          */
-        const accepted: { callId: string; name: string; args: Record<string, unknown> }[] = [];
-        const rejected: { callId: string; name: string; result: unknown }[] = [];
+        const accepted: { callId: string; name: ToolName; args: Record<string, unknown> }[] = [];
+        const rejected: { callId: string; result: unknown }[] = [];
         for (const [, call] of toolCalls) {
           let raw: unknown = {};
           try {
@@ -195,7 +237,7 @@ export async function POST(request: Request) {
           }
           const verdict = validateToolCall(call.name, raw, { isKnownSlug, callsSoFar: callsSoFar + accepted.length });
           if (verdict.ok) accepted.push({ callId: call.id, name: verdict.name, args: verdict.args });
-          else rejected.push({ callId: call.id, name: call.name, result: { error: verdict.error.code, message: verdict.error.message } });
+          else rejected.push({ callId: call.id, result: { error: verdict.error.code, message: verdict.error.message } });
         }
 
         messages.push({
@@ -207,19 +249,45 @@ export async function POST(request: Request) {
         // in the next round rather than repeating the same invention
         for (const r of rejected) messages.push({ role: 'tool', tool_call_id: r.callId, content: JSON.stringify(r.result) });
 
-        if (!accepted.length) {
+        /**
+         * Reading the catalogue happens here; acting on the page happens in the browser.
+         *
+         * A tool that only consults the catalogue has no business making a round trip through
+         * a client: the answer is already on this side of the wire, the browser cannot compute
+         * it any better, and routing it outward turns a fact into something that has to be
+         * re-validated on the way back. Tools that *are* browser actions — navigating,
+         * scrolling, opening the selection — still run where the page is.
+         */
+        const serverCalls = accepted.filter((c) => runtimeOf(c.name) === 'server');
+        const browserCalls = accepted.filter((c) => runtimeOf(c.name) !== 'server');
+
+        for (const call of serverCalls) {
+          const result = await runServerTool(call.name, call.args).catch((err) => ({
+            error: 'TOOL_FAILED',
+            message: err instanceof Error ? err.message : 'tool failed',
+          }));
+          messages.push({ role: 'tool', tool_call_id: call.callId, content: JSON.stringify(result).slice(0, 4000) });
+        }
+
+        for (const call of browserCalls) send({ type: 'tool.call', callId: call.callId, name: call.name, args: call.args });
+
+        // nothing for the browser to do, but the server tools produced facts the model has
+        // not seen yet — carry on to the next round with them
+        const needsAnotherRound = browserCalls.length > 0 || serverCalls.length > 0;
+        if (!needsAnotherRound) {
           send({ type: 'turn.done' });
           controller.close();
           return;
         }
-
-        for (const call of accepted) send({ type: 'tool.call', callId: call.callId, name: call.name, args: call.args });
 
         const continuation = seal({
           turnId: body.turnId,
           round: round + 1,
           callsSoFar: Math.min(callsSoFar + accepted.length, MAX_TOOL_CALLS),
           messages,
+          // only the calls the browser was actually asked to run; a server call is already
+          // answered and must not be answerable again from outside
+          pending: browserCalls.map((c) => ({ callId: c.callId, name: c.name, argsHash: hashArgs(c.args) })),
           issuedAt: Date.now(),
         });
         if (continuation) send({ type: 'await.tools', continuation });

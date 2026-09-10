@@ -22,8 +22,18 @@ import type { TurnSource } from '@/state/conciergeStore';
  * twelve. So a fallback changes how an answer reads, not what happens in the room.
  */
 export class FallbackProvider implements ConciergeProvider {
-  readonly id = 'mock' as const;
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'none', contextPush: false };
+  /**
+   * It reports whichever engine is actually answering. Until the first turn resolves that is
+   * the model, because that is what will be tried; once the server says there is no key it
+   * latches to the keyless engine and says so.
+   */
+  get id() {
+    return this.modelOffline ? ('keyless' as const) : ('server-model' as const);
+  }
+
+  get capabilities(): ProviderCapabilities {
+    return this.modelOffline ? this.keyless.capabilities : this.model.capabilities;
+  }
 
   private readonly model = new ServerConciergeProvider();
   private readonly keyless = new MockConciergeProvider();

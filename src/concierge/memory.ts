@@ -104,3 +104,39 @@ export function topicLine(slots: Slots): string {
   ].filter(Boolean);
   return bits.join(' · ');
 }
+
+// ── what the model is allowed to be told ────────────────────────────────────
+
+/** Slugs a projection may carry. Small: this is a reminder, not a transcript. */
+const PROJECTED_DISCUSSED = 8;
+
+/**
+ * The bounded, typed slice of memory that travels to the server with a model turn.
+ *
+ * Without it the model is *worse than the keyless engine* on the sentences that matter most —
+ * "now bracelets", "something lighter", "open the second one" — because the keyless engine
+ * carries a standing topic and the model was being handed only the current sentence and a
+ * couple of slugs. Grounding then retrieved the wrong pieces and the model reasoned faithfully
+ * about the wrong set.
+ *
+ * It is a *projection*, not the memory: no transcript, no timestamps, no free text, and a
+ * hard cap on the slugs. And it is re-validated on arrival — the browser is where it comes
+ * from, so it is evidence of what the visitor was shown, not authority about what exists.
+ */
+export interface MemoryProjection {
+  standingSlots: Slots;
+  anchor: string | null;
+  language: Language | null;
+  discussed: string[];
+}
+
+export function projectMemory(memory: ConversationMemory, turnCount: number, now: number): MemoryProjection {
+  return {
+    // a decayed topic is not sent at all: stale context is worse than none, because the model
+    // has no way to know it is stale
+    standingSlots: topicIsLive(memory, turnCount, now) ? subjectOf(memory.standingSlots) : {},
+    anchor: anchorIsLive(memory, turnCount) ? memory.anchor : null,
+    language: memory.language,
+    discussed: memory.discussed.slice(0, PROJECTED_DISCUSSED),
+  };
+}

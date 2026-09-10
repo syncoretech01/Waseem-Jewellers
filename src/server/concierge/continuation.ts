@@ -17,12 +17,37 @@ import { conciergeEnv } from '../env';
  * and short enough that a captured one is worthless by the time it is useful.
  */
 
+/**
+ * A call this turn actually issued, recorded so the result that comes back can be proved to
+ * belong to it.
+ *
+ * Signing the prior messages was not enough. The messages are what the *model* said; the
+ * results are what the *browser* claims happened, and without binding them a client could
+ * return a result for a call that was never made, return the same one twice, or answer a
+ * `saveToWishlist` with the payload of a `searchProducts`. The argument hash closes the last
+ * gap: a result is tied to the exact call, not merely to a name.
+ */
+export interface PendingCall {
+  callId: string;
+  name: string;
+  /** A short digest of the validated arguments, so a swapped result is detectable. */
+  argsHash: string;
+}
+
 export interface ContinuationPayload {
   turnId: string;
   round: number;
   callsSoFar: number;
   messages: { role: string; content: string; tool_call_id?: string; tool_calls?: unknown }[];
+  /** Exactly the calls the previous round emitted, and nothing else. */
+  pending: PendingCall[];
   issuedAt: number;
+}
+
+/** Stable across JSON key order, because the model's argument order is not ours to rely on. */
+export function hashArgs(args: Record<string, unknown>): string {
+  const stable = JSON.stringify(Object.keys(args).sort().map((k) => [k, args[k]]));
+  return createHmac('sha256', 'args').update(stable).digest('base64url').slice(0, 16);
 }
 
 /** Three rounds answer any question this concierge is asked. */

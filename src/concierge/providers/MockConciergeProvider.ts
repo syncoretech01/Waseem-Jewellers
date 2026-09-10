@@ -20,8 +20,12 @@ function fnv1a(s: string) {
  * same event stream a model provider would emit. Nothing here touches the DOM.
  */
 export class MockConciergeProvider implements ConciergeProvider {
-  readonly id = 'mock' as const;
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'none', contextPush: false };
+  readonly id = 'keyless' as const;
+  /**
+   * Deterministic, and named as such. It streams because the controller wants deltas either
+   * way, and its speech is the browser's, exactly as the model path's is.
+   */
+  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'browser', contextPush: false, intelligence: 'deterministic' };
   private runtime: ProviderRuntime | null = null;
   private timers = new Set<number>();
   private cancelled = new Set<string>();

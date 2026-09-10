@@ -49,6 +49,34 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   { name: 'showGold', description: 'Deprecated. Prefer showDepartment with department "gold".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   { name: 'showDiamond', description: 'Deprecated. Prefer showDepartment with department "diamond".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   { name: 'navigate', description: 'Move to a page of the site.', parameters: { type: 'object', properties: { path: { type: 'string', description: '/, /<department>, /<department>/<kind>, /collections/<slug> or /jewellery/<slug>' } }, required: ['path'] }, runtime: 'browser' },
+  /**
+   * Read-only, and executed on the server where the catalogue is. A tool that only consults
+   * data should not make a round trip through a browser to answer.
+   */
+  {
+    name: 'compareProducts',
+    description: 'Compare two or three pieces on the specifications Waseem publishes. An unpublished figure comes back as null; say so rather than filling it in.',
+    parameters: {
+      type: 'object',
+      properties: {
+        slugs: { type: 'array', items: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' }, minItems: 2, maxItems: 3 },
+      },
+      required: ['slugs'],
+    },
+    runtime: 'server',
+  },
+  {
+    name: 'explainSpecification',
+    description: "Explain what a piece's published specification means — purity, weight, clarity — using general facts about the material.",
+    parameters: { type: 'object', properties: { slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' } }, required: ['slug'] },
+    runtime: 'server',
+  },
+  {
+    name: 'deepSearch',
+    description: 'Search the whole catalogue when the four pieces already shown are not enough.',
+    parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 12, default: 8 } }, required: ['query'] },
+    runtime: 'server',
+  },
   { name: 'getCurrentContext', description: 'What the visitor is looking at right now.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
 ];
 

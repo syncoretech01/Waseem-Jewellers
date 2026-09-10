@@ -7,8 +7,8 @@ import type { TurnSource } from '@/state/conciergeStore';
  * each TODO below maps to one of them. The API key is never read in the browser.
  */
 export class FutureOpenAIRealtimeProvider implements ConciergeProvider {
-  readonly id = 'openai-realtime' as const;
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'native', contextPush: true };
+  readonly id = 'realtime-voice' as const;
+  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'native', contextPush: true, intelligence: 'model' };
   private runtime: ProviderRuntime | null = null;
 
   attach(runtime: ProviderRuntime) {

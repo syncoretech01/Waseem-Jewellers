@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ImageRef } from '@/data/types';
+import type { ProviderId } from '@/concierge/types';
 import { EMPTY_MEMORY, DISCUSSED_MAX, type ConversationMemory } from '@/concierge/memory';
 
 export type ConciergeState =
@@ -139,7 +140,7 @@ interface ConciergeStoreState {
   recentResults: PieceCard[];
   recentCollections: CollectionCard[];
   lastVisitorText: string | null;
-  providerId: 'mock' | 'openai-realtime';
+  providerId: ProviderId;
   voice: VoiceFlags;
   error: ConciergeError | null;
   greeted: boolean;
@@ -188,7 +189,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   recentResults: [],
   recentCollections: [],
   lastVisitorText: null,
-  providerId: 'mock',
+  providerId: 'keyless',
   voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false, preparing: false, denied: false },
   error: null,
   greeted: false,

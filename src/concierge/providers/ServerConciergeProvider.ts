@@ -1,6 +1,8 @@
 'use client';
 
 import { isKnownSlug } from '@/data/clientIndex';
+import { projectMemory } from '../memory';
+import { useConciergeStore } from '@/state/conciergeStore';
 import { validateToolCall } from '../tools/validate';
 import { completeSentences, enforceBrandRegister } from '../register';
 import type { ConciergeProvider, ProviderCapabilities, ProviderRuntime, ToolName } from '../types';
@@ -20,8 +22,13 @@ import type { TurnSource } from '@/state/conciergeStore';
  * not a boundary.
  */
 export class ServerConciergeProvider implements ConciergeProvider {
-  readonly id = 'openai-realtime' as const;
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'none', contextPush: false };
+  readonly id = 'server-model' as const;
+  /**
+   * A text model reached over HTTP. It streams, it reasons, and it does not speak — the
+   * browser's own speech APIs do that, driven by the controller. The realtime voice provider
+   * is a different engine and carries a different name.
+   */
+  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'browser', contextPush: false, intelligence: 'model' };
 
   private runtime: ProviderRuntime | null = null;
   private aborts = new Map<string, AbortController>();
@@ -59,7 +66,17 @@ export class ServerConciergeProvider implements ConciergeProvider {
         const res = await fetch('/api/concierge/turn', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ turnId, text, context: runtime.getCurrentContext(), continuation, toolResults }),
+          body: JSON.stringify({
+            turnId,
+            text,
+            context: runtime.getCurrentContext(),
+            // the standing topic, the anchor and the pieces already discussed — bounded, typed,
+            // and re-validated on arrival. Without it the model is worse than the keyless
+            // engine on "now bracelets" and "something lighter".
+            memory: projectMemory(useConciergeStore.getState().memory, useConciergeStore.getState().turnCount, Date.now()),
+            continuation,
+            toolResults,
+          }),
           signal: abort.signal,
         });
         if (!res.ok || !res.body) throw new ProviderFailure('UPSTREAM', `turn ${res.status}`, spoken.length === 0);
@@ -125,19 +142,36 @@ export class ServerConciergeProvider implements ConciergeProvider {
           }
         }
 
+        /**
+         * The real outcome goes back to the model, not a receipt.
+         *
+         * `ToolOutcome` already separates the two audiences: `result` is the JSON the model
+         * reasons over, `ui` and the labels are what the visitor sees. Sending `{ok:true}`
+         * threw the first away — so a model that had just searched could not say what it
+         * found, could not compare the results, and could not refer to them in the next
+         * sentence. It knew an action had happened and nothing about what it produced.
+         */
+        const results: { callId: string; name: ToolName; result: unknown }[] = [];
         for (const call of calls) {
           runtime.emit({ type: 'tool.call', turnId, callId: call.callId, name: call.name, args: call.args });
           try {
             const outcome = await runtime.executeTool(call.name, call.args, { turnId, callId: call.callId });
             runtime.emit({ type: 'tool.result', turnId, callId: call.callId, outcome });
+            // only `result` travels: `ui` carries image references and card shapes that mean
+            // nothing to a model and would cost tokens to say so
+            results.push({ callId: call.callId, name: call.name, result: outcome.result });
           } catch (err) {
-            runtime.emit({ type: 'tool.error', turnId, callId: call.callId, message: err instanceof Error ? err.message : 'tool failed' });
+            const message = err instanceof Error ? err.message : 'tool failed';
+            runtime.emit({ type: 'tool.error', turnId, callId: call.callId, message });
+            // a failure is a fact the model needs too, or it will describe an action that
+            // did not happen
+            results.push({ callId: call.callId, name: call.name, result: { error: 'TOOL_FAILED', message } });
           }
         }
 
-        if (!awaiting || !calls.length) break;
+        if (!awaiting) break;
         continuation = awaiting;
-        toolResults = calls.map((c) => ({ callId: c.callId, name: c.name, result: { ok: true } }));
+        toolResults = results;
       }
 
       runtime.emit({ type: 'turn.done', turnId });

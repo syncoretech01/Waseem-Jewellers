@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getRepository } from '@/data/repository';
 import { parse, type IntentFrame } from '@/concierge/nlu/parse';
+import type { MemoryProjection } from '@/concierge/memory';
 import { CATEGORY_LABEL, DEPARTMENT_LABEL } from '@/data/labels';
 import type { Category, Department } from '@/data/types';
 import type { PieceRow } from '@/lib/facets';
@@ -31,13 +32,35 @@ export interface Grounding {
   anchor: PieceRow | null;
 }
 
-export async function ground(text: string, context: { currentSlug?: string | null; recentSlugs?: string[] }): Promise<Grounding> {
+export interface GroundContext {
+  currentSlug?: string | null;
+  recentSlugs?: string[];
+  /** Already sanitised by `untrusted.ts` — never the raw thing the browser posted. */
+  memory?: MemoryProjection;
+}
+
+export async function ground(text: string, context: GroundContext): Promise<Grounding> {
   const repo = getRepository();
-  const frame = parse(text);
+  const parsed = parse(text);
   const rows = await repo.rows();
   const bySlug = new Map(rows.map((r) => [r.s, r]));
 
-  const anchor = context.currentSlug ? (bySlug.get(context.currentSlug) ?? null) : null;
+  /**
+   * The standing topic fills in what this sentence left unsaid — the same rule the keyless
+   * engine follows, and for the same reason: "now bracelets" after "21K gold rings under 15
+   * grams" means *gold* bracelets under fifteen grams, and retrieving every bracelet in the
+   * shop would hand the model a set the visitor did not ask for.
+   *
+   * New words always win. The topic only supplies keys the sentence itself did not.
+   */
+  const standing = context.memory?.standingSlots ?? {};
+  const frame: IntentFrame = { ...parsed, slots: { ...standing, ...parsed.slots } };
+
+  const anchor = context.currentSlug
+    ? (bySlug.get(context.currentSlug) ?? null)
+    : context.memory?.anchor
+      ? (bySlug.get(context.memory.anchor) ?? null)
+      : null;
 
   const s = frame.slots;
   const matched = rows.filter((r) => {
@@ -73,9 +96,18 @@ export async function ground(text: string, context: { currentSlug?: string | nul
     candidates.push(r);
   };
 
-  // the piece in view first, then what was just shown, then what the sentence asked for
+  /**
+   * The piece in view first, then what was just shown, then what has been discussed, then what
+   * this sentence asked for.
+   *
+   * The order is the point. "Open the second one" and "something lighter than that" both refer
+   * to pieces the visitor has already seen, and a candidate list built only from the current
+   * sentence would not contain them — so the model would be unable to name what it was being
+   * asked about even though the answer was on screen.
+   */
   add(anchor);
   for (const slug of context.recentSlugs ?? []) add(bySlug.get(slug));
+  for (const slug of context.memory?.discussed ?? []) add(bySlug.get(slug));
   for (const r of ranked) add(r);
 
   return { frame, candidates, anchor };

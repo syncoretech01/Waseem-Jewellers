@@ -1,5 +1,5 @@
 import { TOOL_DEFS } from './toolDefs';
-import type { JsonSchema, ToolDef, ToolName } from '../types';
+import type { JsonSchema, JsonSchemaProperty, ToolDef, ToolName } from '../types';
 
 /**
  * The single gate on every tool call, whichever engine produced it.
@@ -51,26 +51,84 @@ const PATH_ALLOWED = [/^\/$/, /^\/(gold|diamond|bridal|men|kids)(\/[a-z-]+)?(\?[
 
 const byName = new Map<string, ToolDef>(TOOL_DEFS.map((t) => [t.name, t]));
 
-function checkArgs(schema: JsonSchema, args: Record<string, unknown>): string | null {
-  for (const key of schema.required ?? []) {
-    if (args[key] === undefined) return `missing required argument "${key}"`;
-  }
-  for (const [key, value] of Object.entries(args)) {
-    if (value === undefined) continue;
-    const spec = schema.properties[key];
-    // an unknown argument is dropped rather than refused: a model adding a field it invented
-    // should not cost the visitor their answer
-    if (!spec) continue;
-    if (spec.type === 'string' && typeof value !== 'string') return `"${key}" must be a string`;
-    if ((spec.type === 'integer' || spec.type === 'number') && typeof value !== 'number') return `"${key}" must be a number`;
-    if (spec.type === 'boolean' && typeof value !== 'boolean') return `"${key}" must be true or false`;
-    if (spec.enum && typeof value === 'string' && !spec.enum.includes(value)) return `"${key}" must be one of ${spec.enum.join(', ')}`;
-    if (typeof value === 'number') {
-      if (spec.minimum !== undefined && value < spec.minimum) return `"${key}" is below ${spec.minimum}`;
-      if (spec.maximum !== undefined && value > spec.maximum) return `"${key}" is above ${spec.maximum}`;
+function checkValue(key: string, spec: JsonSchemaProperty, value: unknown): string | null {
+  if (spec.type === 'array') {
+    if (!Array.isArray(value)) return `"${key}" must be a list`;
+    if (spec.minItems !== undefined && value.length < spec.minItems) return `"${key}" needs at least ${spec.minItems}`;
+    if (spec.maxItems !== undefined && value.length > spec.maxItems) return `"${key}" takes at most ${spec.maxItems}`;
+    const item = spec.items;
+    if (item) {
+      for (const v of value) {
+        if (item.type === 'string' && typeof v !== 'string') return `every entry of "${key}" must be a string`;
+        if ((item.type === 'integer' || item.type === 'number') && typeof v !== 'number') return `every entry of "${key}" must be a number`;
+        if (item.enum && typeof v === 'string' && !item.enum.includes(v)) return `"${key}" may only contain ${item.enum.join(', ')}`;
+        if (item.pattern && typeof v === 'string' && !new RegExp(item.pattern).test(v)) return `"${key}" contains a malformed entry`;
+      }
     }
+    return null;
   }
+  if (spec.type === 'string') {
+    if (typeof value !== 'string') return `"${key}" must be a string`;
+    if (spec.enum && !spec.enum.includes(value)) return `"${key}" must be one of ${spec.enum.join(', ')}`;
+    if (spec.pattern && !new RegExp(spec.pattern).test(value)) return `"${key}" is malformed`;
+    return null;
+  }
+  /**
+   * A number out of range is a magnitude, not a mistake about what exists — so it is clamped
+   * rather than refused. A model asking for forty pieces meant "several", and refusing the
+   * call over it would cost the visitor their answer to make a point about a bound. Enum
+   * values and patterns are refused instead, because those name things that do not exist.
+   */
+  if (spec.type === 'integer' || spec.type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return `"${key}" must be a number`;
+    return null;
+  }
+  if (spec.type === 'boolean' && typeof value !== 'boolean') return `"${key}" must be true or false`;
   return null;
+}
+
+/**
+ * Brings a validated value inside the bounds its own schema declares.
+ *
+ * The bound travels with the argument rather than living here as a constant: `deepSearch`
+ * permits twelve results and the tray tools permit six, and a single hard-coded clamp quietly
+ * gave the wider tool the narrower limit.
+ */
+function coerce(spec: JsonSchemaProperty, value: unknown): unknown {
+  if (spec.type === 'array') return [...(value as unknown[])];
+  if ((spec.type === 'integer' || spec.type === 'number') && typeof value === 'number') {
+    let n = spec.type === 'integer' ? Math.round(value) : value;
+    if (spec.minimum !== undefined) n = Math.max(spec.minimum, n);
+    if (spec.maximum !== undefined) n = Math.min(spec.maximum, n);
+    return n;
+  }
+  return value;
+}
+
+/**
+ * Validates and **rebuilds** the arguments.
+ *
+ * The distinction matters: the previous version said it dropped undeclared arguments and then
+ * returned the caller's object untouched, so anything a model invented travelled straight
+ * through to `executeTool`. Nothing is copied across here unless the schema declares it, so
+ * the object a tool receives can only contain fields the registry knows about.
+ *
+ * An undeclared argument is still not an *error* — a model adding a field it imagined should
+ * not cost the visitor their answer. It simply does not exist downstream.
+ */
+function sanitiseArgs(schema: JsonSchema, raw: Record<string, unknown>): { error: string } | { args: Record<string, unknown> } {
+  for (const key of schema.required ?? []) {
+    if (raw[key] === undefined) return { error: `missing required argument "${key}"` };
+  }
+  const args: Record<string, unknown> = {};
+  for (const [key, spec] of Object.entries(schema.properties)) {
+    const value = raw[key];
+    if (value === undefined || value === null) continue;
+    const error = checkValue(key, spec, value);
+    if (error) return { error };
+    args[key] = coerce(spec, value);
+  }
+  return { args };
 }
 
 export interface ValidateOptions {
@@ -88,10 +146,11 @@ export function validateToolCall(name: string, rawArgs: unknown, { isKnownSlug, 
   const def = byName.get(name);
   if (!def) return { ok: false, error: { code: 'TOOL_UNKNOWN', message: `there is no tool called "${name}"` } };
 
-  const args: Record<string, unknown> = rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs) ? { ...(rawArgs as Record<string, unknown>) } : {};
+  const raw: Record<string, unknown> = rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs) ? (rawArgs as Record<string, unknown>) : {};
 
-  const argError = checkArgs(def.parameters, args);
-  if (argError) return { ok: false, error: { code: 'TOOL_ARGS', message: argError } };
+  const sanitised = sanitiseArgs(def.parameters, raw);
+  if ('error' in sanitised) return { ok: false, error: { code: 'TOOL_ARGS', message: sanitised.error } };
+  const args = sanitised.args;
 
   // a slug that names no listable piece is refused, not corrected — guessing which piece was
   // meant is how a visitor ends up looking at something nobody chose
@@ -111,9 +170,6 @@ export function validateToolCall(name: string, rawArgs: unknown, { isKnownSlug, 
   if (typeof args.path === 'string' && !PATH_ALLOWED.some((re) => re.test(args.path as string))) {
     return { ok: false, error: { code: 'TOOL_PATH', message: `"${args.path}" is not a page of this site` } };
   }
-
-  // clamp rather than refuse: a model asking for forty pieces meant "several"
-  if (typeof args.limit === 'number') args.limit = Math.max(1, Math.min(6, Math.round(args.limit)));
 
   return { ok: true, name: name as ToolName, args };
 }
