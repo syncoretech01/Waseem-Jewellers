@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { SaveButton } from '@/components/commerce/SaveButton';
 import { Eyebrow, UrduAccent } from '@/components/ui/primitives';
 import { TransitionLink } from '@/components/motion/TransitionLink';
-import { formatPrice } from '@/lib/format';
+import { formatAsOf, formatPrice } from '@/lib/format';
 import { specRows, isMeasured } from '@/lib/specs';
 import { notesFor } from '@/data/editorial/materials';
 import { requestConcierge } from '@/concierge/bridge';
@@ -19,6 +19,12 @@ import { EASE } from '@/lib/motion/easings';
 import type { Product } from '@/data/types';
 import { categoryLabel, departmentLabel, DEPARTMENT_LABEL, MATERIAL_LABEL, describe } from '@/data';
 import { cn } from '@/lib/cn';
+
+/** "As at 9 Sep 2026" where the date parses, and simply "Indicative" where it does not. */
+const asOfLabel = (iso: string) => {
+  const when = formatAsOf(iso);
+  return when ? `Indicative, as at ${when}` : 'Indicative';
+};
 
 export function InfoColumn({ product }: { product: Product }) {
   const scope = useRef<HTMLDivElement>(null);
@@ -60,7 +66,9 @@ export function InfoColumn({ product }: { product: Product }) {
       <div data-rise className="flex flex-col gap-2">
         <p className="eyebrow text-fg">{formatPrice(product.price)}</p>
         <p className="text-[0.75rem] text-fg-muted">
-          {product.price.kind === 'fixed' ? 'Indicative, subject to the gold rate · Prices in Pakistani rupees · Private viewing available in Lahore' : COPY.product.priceNote}
+          {product.price.kind === 'fixed'
+            ? [asOfLabel(product.price.asOf), 'subject to the gold rate', 'Prices in Pakistani rupees', 'Private viewing available in Lahore'].filter(Boolean).join(' · ')
+            : COPY.product.priceNote}
         </p>
       </div>
 

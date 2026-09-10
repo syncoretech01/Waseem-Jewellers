@@ -1,4 +1,5 @@
 import { modelIsConfigured } from '@/server/env';
+import { enquiryIsConfigured } from '@/server/enquiry/sink';
 
 /**
  * What the concierge is allowed to be, today, on this deployment.
@@ -21,6 +22,13 @@ export function GET() {
       /** The languages the keyless engine owns outright; the model widens the phrasing, not the list. */
       languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
       voice: 'browser',
+      /**
+       * 'local' means a consultation request never leaves the visitor's device: the form
+       * hands them a reference and their own WhatsApp message, which is all it has ever
+       * done. It becomes 'server' when Waseem supplies a destination — and that must not
+       * happen before there is a privacy statement and a privacy contact to point at.
+       */
+      enquiry: enquiryIsConfigured() ? 'server' : 'local',
     },
     { headers: { 'cache-control': 'no-store' } },
   );

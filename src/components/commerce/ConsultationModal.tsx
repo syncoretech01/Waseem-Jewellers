@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field, ChoiceRow } from '@/components/ui/Field';
@@ -11,6 +11,7 @@ import { getRow, getRows, loadIndex } from '@/data/clientIndex';
 import { whatsappHref } from '@/data/site';
 import { COPY } from '@/data/copy';
 import { EASE } from '@/lib/motion/easings';
+import { capabilities, probeCapabilities } from '@/concierge/capabilities';
 
 type Stage = 'idle' | 'submitting' | 'success';
 
@@ -27,7 +28,16 @@ const WINDOWS = [
 
 function reference() {
   const d = new Date();
-  const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+  /**
+   * Four characters from the platform CSPRNG rather than `Math.random`, and drawn from an
+   * alphabet with no I, O, 0 or 1 — this code gets read down a telephone.
+   *
+   * While no destination is configured nothing receives it, so a collision is invisible; the
+   * moment one is, the server issues the reference instead and this is not used at all.
+   */
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  const code = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
   return `WJ-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${code}`;
 }
 
@@ -36,7 +46,13 @@ export function ConsultationModal() {
   const consultation = useSiteStore((s) => s.consultation);
   // the index arrives when the form does; a visitor who never opens it never pays for it
   useEffect(() => {
-    if (consultation.open) void loadIndex();
+    if (consultation.open) {
+      void loadIndex();
+      // whether a request may leave the device at all — asked of the server, once
+      void probeCapabilities();
+      // the clock starts when the form is actually in front of someone
+      openedAt.current = Date.now();
+    }
   }, [consultation.open]);
   const close = useSiteStore((s) => s.closeConsultation);
   const [stage, setStage] = useState<Stage>('idle');
@@ -50,6 +66,15 @@ export function ConsultationModal() {
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [ref, setRef] = useState('');
+  /** A hidden field. No visitor fills it; a form-filling script does. */
+  const [honeypot, setHoneypot] = useState('');
+  /**
+   * When the form was opened, so a submission faster than a human can be refused.
+   *
+   * Initialised to 0 rather than to the clock: reading the clock during render is impure, and
+   * the value that matters is set when the dialog actually opens, a few lines below.
+   */
+  const openedAt = useRef(0);
 
   const pieces = useMemo(() => {
     const slugs = consultation.productSlugs ?? (consultation.productSlug ? [consultation.productSlug] : []);
@@ -63,6 +88,7 @@ export function ConsultationModal() {
     if (consultation.open) {
       setStage('idle');
       setErrors({});
+      setHoneypot('');
       const topic = consultation.topic;
       setOccasion(topic === 'bridal' ? 'bridal' : topic === 'bespoke' ? 'bespoke' : topic === 'viewing' ? 'viewing' : null);
     }
@@ -82,14 +108,64 @@ export function ConsultationModal() {
       return;
     }
     setStage('submitting');
-    const code = reference();
-    setRef(code);
-    try {
-      sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: pieces.map((p) => p.s), message, at: Date.now() }));
-    } catch {
-      /* ignore */
+    /**
+     * Nothing leaves the device unless Waseem has given us somewhere to send it.
+     *
+     * `capabilities().enquiry` is 'local' on every deployment today, so this is the same
+     * client-side flow the form has always had: a reference, a note kept in this tab, and
+     * the visitor's own WhatsApp message. It becomes a real request the moment a destination
+     * is configured — which must not happen before there is a privacy statement to point at,
+     * because that is the first time a name and a telephone number would travel.
+     */
+    const local = capabilities().enquiry !== 'server';
+    const fallback = reference();
+
+    const keepLocally = (code: string) => {
+      try {
+        sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: pieces.map((p) => p.s), message, at: Date.now() }));
+      } catch {
+        /* private mode: the reference on screen is still the visitor's copy */
+      }
+    };
+
+    if (local) {
+      setRef(fallback);
+      keepLocally(fallback);
+      window.setTimeout(() => setStage('success'), 700);
+      return;
     }
-    window.setTimeout(() => setStage('success'), 700);
+
+    void fetch('/api/enquiry', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        phone,
+        email,
+        showroom,
+        occasion,
+        date,
+        window: window_,
+        pieceSlugs: pieces.map((p) => p.s),
+        message,
+        budgetPkr: consultation.budgetPkr,
+        elapsedMs: Date.now() - openedAt.current,
+        company: honeypot,
+      }),
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<{ reference: string }>) : Promise.reject(new Error(String(r.status)))))
+      .then(({ reference: issued }) => {
+        setRef(issued);
+        keepLocally(issued);
+        setStage('success');
+      })
+      .catch(() => {
+        // the visitor has already written it out: show them a reference and their own
+        // WhatsApp line rather than losing the request to a failed request
+        setRef(fallback);
+        keepLocally(fallback);
+        setStage('success');
+      });
   };
 
   const showroomName = SITE.showrooms.find((s) => s.id === showroom)?.name ?? '';
@@ -129,6 +205,23 @@ export function ConsultationModal() {
           </motion.div>
         ) : (
           <motion.form key="form" onSubmit={submit} noValidate initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.25 } }} className="mt-6 flex flex-col gap-2">
+            {/*
+              A field no person can see and no person fills. It is hidden from assistive
+              technology too — a screen-reader user is a visitor, not a bot, and must not be
+              asked to skip a decoy. tabIndex keeps it out of the keyboard order.
+            */}
+            <div aria-hidden hidden>
+              <label htmlFor="wj-company">Company</label>
+              <input
+                id="wj-company"
+                name="company"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
             {pieces.length > 0 && (
               <div className="flex flex-wrap gap-3 pt-2">
                 {pieces.map((p) => (

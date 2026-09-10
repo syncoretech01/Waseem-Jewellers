@@ -3,8 +3,9 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQualityStore } from './qualityStore';
-import { useSiteStore } from './siteStore';
+import { migrateSelectionStorage, useSiteStore } from './siteStore';
 import { runtime } from './runtime';
+import { loadIndex } from '@/data/clientIndex';
 
 /** Resolves the quality tier once on the client and follows reduced-motion changes live. */
 export function QualityDetector() {
@@ -47,7 +48,25 @@ export function RouteTracker() {
 /** Rehydrates the persisted selection after mount so SSR and client markup agree. */
 export function StoreHydrator() {
   useEffect(() => {
-    const finish = () => useSiteStore.getState().setHydrated();
+    const finish = () => {
+      useSiteStore.getState().setHydrated();
+      /**
+       * A kept piece can stop existing between visits — withdrawn upstream, renamed, or
+       * withheld pending a name from Waseem — and the ledger would go on holding a slug
+       * that resolves to nothing, showing the visitor a blank card. The index is the only
+       * thing that can answer whether a slug is still real, so pruning waits for it rather
+       * than running now and emptying the ledger against an index that has not loaded.
+       *
+       * It is fetched only when something needs it, so this does not pull the catalogue
+       * down for a visitor with an empty selection.
+       */
+      if (!useSiteStore.getState().selection.length) return;
+      void loadIndex().then(({ bySlug }) => {
+        if (bySlug.size) useSiteStore.getState().pruneSelection((slug) => bySlug.has(slug));
+      });
+    };
+    // v1 -> v2 first, so rehydrate reads a ledger that already carries the old selection
+    migrateSelectionStorage();
     const result = useSiteStore.persist.rehydrate();
     if (result && typeof (result as Promise<void>).then === 'function') {
       (result as Promise<void>).then(finish).catch(finish);

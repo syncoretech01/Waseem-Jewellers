@@ -20,6 +20,8 @@ export interface ConciergeCapabilities {
   /** `none` no voice at all · `browser` the fallback tier · `native` a realtime voice model. */
   voice: 'none' | 'browser' | 'native';
   languages: Language[];
+  /** `local` — the consultation form stays on the device, as it does today. */
+  enquiry: 'local' | 'server';
 }
 
 /** What a deployment is until told otherwise. It is also exactly what ships with no key. */
@@ -27,6 +29,7 @@ export const DEFAULT_CAPABILITIES: ConciergeCapabilities = {
   intelligence: 'keyless',
   voice: 'browser',
   languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
+  enquiry: 'local',
 };
 
 const KEY = 'wj:concierge:capabilities:v1';
@@ -45,6 +48,7 @@ function parse(raw: unknown): ConciergeCapabilities {
     intelligence: r.intelligence === 'model' ? 'model' : 'keyless',
     voice: typeof r.voice === 'string' && VOICES.has(r.voice) ? (r.voice as ConciergeCapabilities['voice']) : 'browser',
     languages: Array.isArray(r.languages) ? (r.languages.filter((l): l is Language => typeof l === 'string') as Language[]) : DEFAULT_CAPABILITIES.languages,
+    enquiry: r.enquiry === 'server' ? 'server' : 'local',
   };
 }
 

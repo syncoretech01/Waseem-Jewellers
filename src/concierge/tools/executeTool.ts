@@ -201,7 +201,8 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       const product = resolveAnchor(args, ctx);
       if (!product) return { result: { needsPiece: true }, label: '' };
       const already = site.wishlist.includes(product.s);
-      if (!already) site.addToWishlist(product.s);
+      // recorded as kept from the conversation, which is what a consultant ringing back wants
+      if (!already) site.addToWishlist(product.s, 'concierge');
       return {
         result: { ok: true, slug: product.s, already },
         runningLabel: CONCIERGE.labels.keeping,
