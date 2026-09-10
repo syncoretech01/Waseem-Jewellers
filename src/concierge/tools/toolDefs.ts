@@ -7,17 +7,19 @@ const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
 /**
  * The kinds a piece is actually classified as.
  *
- * This list used to offer 'set' and 'choker' — neither of which any piece carries, so a
- * model asking for either was told the shop had none — while omitting 'bridal-set', which
- * 23 pieces carry and which the validator therefore refused outright. Both words survive as
- * things a *visitor* may say, mapped to the stored kind by `canonicalCategory`; what a model is
- * offered here is the vocabulary of the catalogue itself.
+ * The stored kinds, plus the two words a visitor uses for two of them.
  *
- * 'tikka' and 'nath' are absent for the opposite reason: the taxonomy has them, but no piece
- * is classified as either today. Offering a kind with nothing behind it is how a concierge
- * ends up apologising for an empty room it walked the visitor into.
+ * This list used to offer 'set' and 'choker' and nothing mapped them, so both matched no piece
+ * at all — while omitting `bridal-set`, which 23 pieces carry and which the validator therefore
+ * refused outright. Both halves are fixed here rather than by narrowing: a visitor really does
+ * say "choker" and "set", the keyless extractor really does produce them, and
+ * `canonicalCategory` maps them to the necklace and the bridal-set the shop actually stores.
+ *
+ * 'tikka' and 'nath' are absent for a different reason: the taxonomy has them, but no piece is
+ * classified as either today. Offering a kind with nothing behind it is how a concierge ends up
+ * apologising for an empty room it walked the visitor into.
  */
-const CATEGORIES = ['bridal-set', 'necklace', 'earrings', 'ring', 'bangle', 'bracelet', 'pendant', 'chain', 'nose-pin', 'cufflink'];
+const CATEGORIES = ['bridal-set', 'set', 'necklace', 'choker', 'earrings', 'ring', 'bangle', 'bracelet', 'pendant', 'chain', 'nose-pin', 'cufflink'];
 
 /** One registry, JSON-schema parameters. The same array feeds the mock and, later, the Realtime session. */
 export const TOOL_DEFS: readonly ToolDef[] = [

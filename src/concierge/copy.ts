@@ -41,6 +41,14 @@ export const CONCIERGE = {
   micDenied: 'Your microphone is switched off for this site. You can write to me instead, or let me show you.',
   micNoAnswer: 'The microphone did not open. You can write to me instead, or let me show you.',
   noSpeech: 'I did not catch that — once more, a little closer.',
+  /**
+ * Said once, and only once, and only when it is true.
+ *
+ * No browser on most platforms carries an Urdu or Punjabi voice. Reading the reply aloud in
+ * English anyway would be confident nonsense; saying nothing at all would look like a
+ * fault. Naming it plainly and continuing in writing is what a person would do.
+ */
+  noVoiceForLanguage: 'I have no voice for this language in your browser — I will write instead.',
   error: 'Forgive me — shall we try that once more?',
   errorLink: 'once more',
   house: 'Waseem Jewellers was founded in Lahore in 1952 by Chaudhry Muhammad Afzal, and receives visitors today at three showrooms across the city.',

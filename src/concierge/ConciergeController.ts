@@ -5,12 +5,15 @@ import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
 import { loadIndex } from '@/data/clientIndex';
+import { recognitionLang } from './voice/languages';
+import { chooseVoiceEngine } from './voice/engine';
+import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
 import { TOOL_DEFS } from './tools/toolDefs';
 import { CONCIERGE } from './copy';
-import { ScriptedExampleAdapter, WebSpeechAdapter, recognitionSupported, type VoiceAdapter } from './voice/adapters';
-import { cancelSpeech, speak, synthesisSupported } from './voice/speech';
+import { recognitionSupported, type VoiceAdapter } from './voice/adapters';
+import { cancelSpeech, planSpeech, speak, synthesisSupported } from './voice/speech';
 import { voiceMeter } from './voice/meter';
 import { EXAMPLE_SCRIPTS } from './voice/scripts';
 import type { ConciergeProvider, ProviderEvent, ProviderRuntime } from './types';
@@ -39,6 +42,8 @@ export class ConciergeController {
   private activeTurn: string | null = null;
   private pendingResult = false;
   private speaking = false;
+  /** The browser has no voice for a language the visitor used. Said once a session. */
+  private saidNoVoice = false;
   private afterOpen: (() => void) | null = null;
   private draftListeners = new Set<(draft: string) => void>();
 
@@ -103,6 +108,8 @@ export class ConciergeController {
      * than on a visitor's first sentence. A visitor who never asks never pays for it.
      */
     void loadIndex();
+    // what this deployment is allowed to be: model or keyless, and which engine hears
+    void probeCapabilities();
     const mode = opts.mode ?? s.mode;
     s.setMode(mode);
     if (s.state === 'IDLE' || s.state === 'HOVER') {
@@ -271,6 +278,16 @@ export class ConciergeController {
       }
       case 'text.ready': {
         if (s.mode === 'voice' && s.voice.spokenReplies && synthesisSupported()) {
+          /**
+           * "No voice for this language" is a modifier on SPEAKING, not a tenth state — the
+           * nine states are unchanged. The concierge still answers; it simply says once that
+           * the answer will be written rather than spoken, and never reads Urdu aloud in an
+           * English voice to avoid the admission.
+           */
+          if (planSpeech(e.text).missingAVoice && !this.saidNoVoice) {
+            this.saidNoVoice = true;
+            s.appendTurn({ id: uid('c'), role: 'concierge', text: CONCIERGE.noVoiceForLanguage, source: 'system', createdAt: Date.now() });
+          }
           this.speaking = true;
           void speak(e.text, { onEnd: () => (this.speaking = false) });
         }
@@ -352,20 +369,24 @@ export class ConciergeController {
   }
 
   // ── voice ─────────────────────────────────────────────────────────────────
+  /**
+   * Which engine listens is not this class's decision any more — it belongs with the
+   * capabilities probe that also chooses the text model, so that adding a realtime voice
+   * to a deployment changes one server variable and nothing in the UI.
+   */
   private chooseAdapter(forceScripted = false): VoiceAdapter {
-    const s = this.store;
-    if (!forceScripted && recognitionSupported() && !/Firefox/i.test(navigator.userAgent)) {
-      s.setVoice({ adapter: 'webspeech' });
-      return new WebSpeechAdapter();
-    }
-    s.setVoice({ adapter: 'scripted' });
-    return new ScriptedExampleAdapter(() => {
-      const kind = useSiteStore.getState().routeKind;
-      const lines = EXAMPLE_SCRIPTS[kind];
-      const line = lines[this.exampleIndex % lines.length]!;
-      this.exampleIndex += 1;
-      return line;
+    const { adapter, kind } = chooseVoiceEngine({
+      forceScripted,
+      exampleLine: () => {
+        const routeKind = useSiteStore.getState().routeKind;
+        const lines = EXAMPLE_SCRIPTS[routeKind];
+        const line = lines[this.exampleIndex % lines.length]!;
+        this.exampleIndex += 1;
+        return line;
+      },
     });
+    this.store.setVoice({ adapter: kind });
+    return adapter;
   }
 
   startListening(forceScripted = false) {
@@ -389,7 +410,16 @@ export class ConciergeController {
       this.store.setVoice({ preparing: false, sessionLive: false });
       this.store.setError({ code: 'MIC_DENIED', message: CONCIERGE.micNoAnswer });
     });
-    const lang = navigator.language && /^(en|ur)/i.test(navigator.language) ? navigator.language : 'en-IN';
+    /**
+     * The language the visitor has been *speaking*, not the one their browser ships in.
+     *
+     * `navigator.language` is a property of the device. A Lahore customer on an en-US phone
+     * asking in Urdu was transcribed as English and understood as nonsense — and the old gate
+     * fell back to en-IN for every language but English and Urdu, so Punjabi never had a
+     * chance. `lang` is per-instance and a fresh instance is built for every utterance, so
+     * this follows the conversation for free.
+     */
+    const lang = recognitionLang(this.store.memory.language);
     void adapter.start({
       lang,
       onStart: () => {

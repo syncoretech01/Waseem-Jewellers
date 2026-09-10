@@ -117,7 +117,7 @@ export interface ConciergeError {
 }
 
 export interface VoiceFlags {
-  adapter: 'webspeech' | 'scripted' | null;
+  adapter: 'webspeech' | 'scripted' | 'realtime' | null;
   recognition: boolean;
   synthesis: boolean;
   spokenReplies: boolean;

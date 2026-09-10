@@ -1,42 +1,47 @@
 'use client';
 
 import { pulseSpeech, stopSpeechEnvelope } from './meter';
+import { RATE_FOR_ROMAN_URDU, speechRuns, voiceFor } from './languages';
 
-let chosen: SpeechSynthesisVoice | null = null;
 let envelope: number | null = null;
+
+const voices = (): SpeechSynthesisVoice[] => (synthesisSupported() ? window.speechSynthesis.getVoices() : []);
 
 export function synthesisSupported() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
 }
 
-function score(v: SpeechSynthesisVoice) {
-  let s = 0;
-  if (/^en-GB/i.test(v.lang)) s += 5;
-  else if (/^en-IN/i.test(v.lang)) s += 4;
-  else if (/^en-AU/i.test(v.lang)) s += 2;
-  else if (/^en/i.test(v.lang)) s += 1;
-  if (/sonia|libby|neerja|heera|kate|serena|moira|fiona|female|woman|google uk english female|hazel|susan/i.test(v.name)) s += 4;
-  if (/male|david|george|ryan|daniel|mark|ravi|prabhat|james/i.test(v.name)) s -= 4;
-  if (v.localService) s += 1;
-  return s;
+/**
+ * Whether this browser can speak a reply at all, and in which parts.
+ *
+ * A reply is split into runs of one script and each run asks for a voice in its own
+ * language. A run with no voice is not spoken by some other language's voice — an Urdu
+ * sentence read by an English voice is confident nonsense in the visitor's ear, which is
+ * worse than silence and much worse than reading it. The caller is told, so it can say so
+ * once and let the written reply stand.
+ */
+export interface SpeechPlan {
+  parts: { text: string; voice: SpeechSynthesisVoice | null; lang: string; rate: number }[];
+  /** True when at least one run of the reply has no voice in its own language. */
+  missingAVoice: boolean;
 }
 
-export function pickVoice(): SpeechSynthesisVoice | null {
-  if (!synthesisSupported()) return null;
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
-  chosen = [...voices].sort((a, b) => score(b) - score(a))[0] ?? null;
-  return chosen;
+export function planSpeech(text: string): SpeechPlan {
+  const available = voices();
+  const parts = speechRuns(text).flatMap((run) => {
+    const voice = voiceFor(run.lang, available);
+    // a Latin run may be English or Roman Urdu; either way an en-IN voice reads it, and the
+    // slower rate is what makes Roman Urdu recognisable rather than merely audible
+    const romanUrdu = run.script === 'latin' && /\b(ka|ki|ke|hai|hain|mujhe|dikhao|chahiye|kitna|kya)\b/i.test(run.text);
+    return sentencesOf(run.text).map((t) => ({ t, voice, lang: run.lang, romanUrdu }));
+  }).map(({ t, voice, lang, romanUrdu }) => ({ text: t, voice, lang, rate: romanUrdu ? RATE_FOR_ROMAN_URDU : 0.95 }));
+  return { parts, missingAVoice: parts.some((p) => p.voice === null) };
 }
 
-if (typeof window !== 'undefined' && synthesisSupported()) {
-  pickVoice();
-  window.speechSynthesis.addEventListener?.('voiceschanged', () => pickVoice());
-}
-
-function chunks(text: string) {
+/** Sentence ends in every script the concierge answers in — the same set the register uses. */
+function sentencesOf(text: string) {
   return text
-    .split(/(?<=[.?!—])\s+/)
+    .split(/(?<=[.?!—۔؟।॥])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
 }
@@ -53,13 +58,16 @@ export function speak(text: string, handlers: { onStart?: () => void; onEnd?: ()
     }
     const synth = window.speechSynthesis;
     synth.cancel();
-    const parts = chunks(text);
-    if (!parts.length) {
+    const { parts } = planSpeech(text);
+    // a run with no voice in its own language is skipped, never spoken in another
+    const speakable = parts.filter((p) => p.voice !== null);
+    if (!speakable.length) {
+      handlers.onEnd?.();
       resolve();
       return;
     }
     let started = false;
-    let remaining = parts.length;
+    let remaining = speakable.length;
     let boundaries = 0;
     let done = false;
     const finish = () => {
@@ -73,10 +81,11 @@ export function speak(text: string, handlers: { onStart?: () => void; onEnd?: ()
       resolve();
     };
     pending = finish;
-    parts.forEach((part) => {
-      const u = new SpeechSynthesisUtterance(part);
-      if (chosen) u.voice = chosen;
-      u.rate = 0.95;
+    speakable.forEach((part) => {
+      const u = new SpeechSynthesisUtterance(part.text);
+      if (part.voice) u.voice = part.voice;
+      u.lang = part.lang;
+      u.rate = part.rate;
       u.pitch = 1;
       u.onstart = () => {
         if (!started) {

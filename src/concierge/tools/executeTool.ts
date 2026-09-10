@@ -2,7 +2,8 @@
 
 import { WORLDS, WORLD_BY_SLUG } from '@/data/worlds';
 import { COLLECTION_BY_SLUG } from '@/data/collections';
-import { getRow, getRows, lighterRows, matchingRows, searchRows, similarRows } from '@/data/clientIndex';
+import { getRow, getRows, isKnownSlug, lighterRows, matchingRows, searchRows, similarRows } from '@/data/clientIndex';
+import { validateToolCall } from './validate';
 import { asDepartment, asKarat, asMaterial, canonicalCategory } from '@/data/vocabulary';
 import { DEPARTMENT_LABEL, CATEGORY_PLURAL, campaignSlugOf } from '@/data/labels';
 import { EMPTY_FACETS, facetPhrases, parseFacets, serialiseFacets, type FacetState, type SortKey } from '@/lib/facets';
@@ -58,8 +59,17 @@ function describeQuery(args: Record<string, unknown>) {
 /**
  * Every Stage 1 tool is a visible browser action. Never throws: unknown tools return an
  * error object so a model (or the mock) can recover.
+ *
+ * The validator runs here as well as on the server, and the duplication is the whole point.
+ * The realtime voice engine holds its own data channel to the model and never passes
+ * through our route at all, so on that path this is not defence in depth — it is the only
+ * gate there is. Running it here also means the keyless engine is held to the same rule as
+ * the model: neither can act on a slug the catalogue does not carry.
  */
-export async function executeTool(name: ToolName, args: Record<string, unknown>): Promise<ToolOutcome> {
+export async function executeTool(name: ToolName, rawArgs: Record<string, unknown>): Promise<ToolOutcome> {
+  const verdict = validateToolCall(name, rawArgs, { isKnownSlug });
+  if (!verdict.ok) return { result: { error: verdict.error.code, message: verdict.error.message }, label: '' };
+  const args = verdict.args;
   const ctx = buildSiteContext();
   const site = useSiteStore.getState();
 

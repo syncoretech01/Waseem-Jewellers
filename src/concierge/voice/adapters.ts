@@ -14,7 +14,7 @@ export interface VoiceHandlers {
 }
 
 export interface VoiceAdapter {
-  readonly kind: 'webspeech' | 'scripted';
+  readonly kind: 'webspeech' | 'scripted' | 'realtime';
   isSupported(): boolean;
   start(handlers: VoiceHandlers): Promise<void>;
   stop(): void;
@@ -25,6 +25,33 @@ export function recognitionSupported() {
   if (typeof window === 'undefined') return false;
   const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
   return Boolean(SR) && window.isSecureContext;
+}
+
+/**
+ * The reading most likely to be a sentence about jewellery.
+ *
+ * Confidence alone picks the engine's favourite, which for Roman Urdu is often an English
+ * near-homophone. A small nudge towards any alternative containing a word this shop deals
+ * in recovers the real utterance without inventing one: the words are only used to *choose*
+ * between readings the engine already produced, never to alter them.
+ */
+const DOMAIN = /\b(sona|sone|soney|haar|har|set|sett|angoothi|anguthi|kangan|jhumka|jhumke|tikka|nath|karat|karrat|carat|tola|lakh|lakhs|crore|hazaar|hazar|polki|kundan|heera|heere|moti|zewar|zewer|jewellery|jewelry|gold|diamond|bridal|bangle|ring|necklace|earring|earrings|bracelet|pendant|gram|grams)\b/i;
+
+function bestAlternative(result: SpeechRecognitionResultLike): string {
+  const first = result[0]?.transcript ?? '';
+  let best = first;
+  let bestScore = -Infinity;
+  for (let i = 0; i < Math.min(result.length, 3); i++) {
+    const alt = result[i];
+    if (!alt?.transcript) continue;
+    // the engine's own ranking leads; a domain word is worth about a tenth of confidence
+    const score = (alt.confidence ?? 0) + (DOMAIN.test(alt.transcript) ? 0.1 : 0) - i * 0.01;
+    if (score > bestScore) {
+      bestScore = score;
+      best = alt.transcript;
+    }
+  }
+  return best;
 }
 
 function isIOSSafari() {
@@ -56,7 +83,15 @@ export class WebSpeechAdapter implements VoiceAdapter {
     rec.lang = h.lang;
     rec.continuous = false;
     rec.interimResults = true;
-    rec.maxAlternatives = 1;
+    /**
+     * Three readings of every utterance, not one.
+     *
+     * Roman Urdu is where browser recognition actually fails: it is Latin text that is not
+     * English, so the engine's first guess is frequently an English word that sounds similar
+     * and means nothing here, while the second or third is the word the visitor said. Asking
+     * for alternatives costs nothing — the engine has already computed them.
+     */
+    rec.maxAlternatives = 3;
     let ended = false;
     rec.onstart = () => {
       h.onStart();
@@ -69,7 +104,7 @@ export class WebSpeechAdapter implements VoiceAdapter {
       let final = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i]!;
-        const t = r[0]?.transcript ?? '';
+        const t = bestAlternative(r);
         if (r.isFinal) final += t;
         else interim += t;
       }
