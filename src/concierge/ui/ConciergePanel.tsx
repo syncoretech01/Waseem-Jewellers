@@ -10,6 +10,7 @@ import { useSiteStore } from '@/state/siteStore';
 import { useController } from '../useConcierge';
 import { ExchangeList } from './Exchange';
 import { Composer } from './Composer';
+import { ContextRibbon } from './ContextRibbon';
 import { VoiceStage } from './VoiceStage';
 import { OrbStatic } from '../orb/OrbStatic';
 import { briefOfSlug } from '../context';
@@ -140,7 +141,7 @@ export function ConciergePanel() {
             data-theme="dark"
             className={cn(
               'fixed flex flex-col bg-surface text-fg',
-              'inset-0 xl:inset-auto xl:bottom-[104px] xl:right-7 xl:h-[min(680px,calc(100dvh-var(--nav-h)-128px))] xl:w-[468px]',
+              'inset-0 xl:inset-auto xl:bottom-[104px] xl:right-7 xl:h-[min(680px,calc(100dvh-var(--nav-h)-128px))] xl:w-[496px]',
             )}
             style={{ zIndex: 'var(--z-concierge)', paddingBottom: 'var(--kb, 0px)', boxShadow: 'var(--salon-shadow)' }}
             initial={reduced ? { opacity: 0 } : { clipPath: 'inset(100% 0 0 0)' }}
@@ -202,6 +203,9 @@ export function ConciergePanel() {
               )}
             </div>
 
+            {/* what the concierge believes it is being asked about, and how to drop a part of it */}
+            <ContextRibbon />
+
             {/* composer + base links */}
             <div className="px-6 pb-5 md:px-7">
               {mode === 'chat' && <Composer autoFocus={!coarse} />}
@@ -222,9 +226,6 @@ export function ConciergePanel() {
         )}
       </AnimatePresence>
 
-      {/* the piece under discussion, kept present while the rail covers the page's own column */}
-      {null}
-
       {/* compact ticket (desktop): the associate steps aside */}
       <AnimatePresence>
         {open && panel === 'compact' && !coarse && lastLine && (
@@ -234,7 +235,7 @@ export function ConciergePanel() {
             onClick={() => controller?.expand()}
             data-salon
             data-theme="dark"
-            className="fixed bottom-[104px] right-7 flex w-[400px] items-start gap-4 bg-surface px-6 py-5 text-left text-fg lg:w-[452px] xl:w-[468px]"
+            className="fixed bottom-[104px] right-7 flex w-[400px] items-start gap-4 bg-surface px-6 py-5 text-left text-fg lg:w-[452px] xl:w-[496px]"
             style={{ zIndex: 'var(--z-concierge)', boxShadow: 'var(--salon-shadow)' }}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE.out } }}

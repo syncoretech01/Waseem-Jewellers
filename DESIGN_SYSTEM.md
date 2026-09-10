@@ -347,3 +347,34 @@ The register is held in `src/data/copy.ts`, `src/concierge/copy.ts` and the conc
 ## Not in Stage 1
 
 There is no visitor-facing theme switch (the register is chosen by the chapter), no localised UI beyond the two Urdu accents, and no checkout or pricing surface beyond "on request" and the private-consultation request.
+
+## The salon
+
+The concierge is a private salon, not a chat window. Three zones, always in the same place:
+
+| Zone | What it is | What belongs in it |
+|---|---|---|
+| **The rail** (right, `--rail-w`) | the associate | words and state — the exchange, the named results, the context ribbon, the composer |
+| **The vitrine** (bottom band) | the jewellery | `ResultTray`: the pieces themselves, at a size worth looking at |
+| **The stage** | the page | the department, the piece, the campaign — it steps aside via `html[data-rail="1"]` |
+
+**The rail never shows an image larger than a 44px thumbnail.** It once rendered the same four
+pieces as a grid of 4:5 photographs directly above the tray already showing them, larger and
+better — two copies of one answer, and the taller copy pushed the concierge's own sentence out
+of view. If the visitor is looking at pieces, they are looking at the vitrine.
+
+**Results do not collapse the rail.** Only an action that takes over the *stage* — opening a
+piece, navigating, the consultation — does that, and each says so with `compact` on its own
+outcome. Collapsing on results took the composer away too, so "Show me 21K gold rings under 15
+grams" and then "Now bracelets" cost an extra click every time.
+
+Anything that reserves room beside the rail derives it from `--rail-w`
+(`xl:pr-[calc(var(--rail-w)+2.75rem)]`), never a written-out pixel value: the hard-coded ones
+were tuned for a 468px rail and silently became too narrow the moment it widened.
+
+### The rules that keep it a salon
+
+No avatars. No bubbles. No timestamps. No "typing…". No emoji. No icons beyond `→` and the mic
+ring. No unread badges. No suggestion *chips* — suggestions are underlined italic serif lines.
+No scroll-to-bottom button. No delivery ticks. One accent (`--gold-hi`), used only for the
+listening ring and focus.

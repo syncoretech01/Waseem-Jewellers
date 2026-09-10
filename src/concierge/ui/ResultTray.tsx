@@ -81,7 +81,13 @@ export function ResultTray() {
           data-lenis-prevent
         >
           <div className="hairline absolute inset-x-0 top-0" />
-          <div className="flex items-center justify-between px-gutter pt-6">
+          {/*
+            The vitrine stops where the rail begins. Derived from --rail-w rather than written
+            out, because these were hard-coded for a 468px rail and silently became too narrow
+            the moment it widened — the tray Close ended up underneath the panel. Below xl the
+            panel covers the screen and there is no rail to avoid, so only xl carries it.
+          */}
+          <div className={cn('flex items-center justify-between px-gutter pt-6', panel === 'full' && 'xl:pr-[calc(var(--rail-w)+2.75rem)]')}>
             <p className="font-display italic text-[1.0625rem] text-fg-2" style={{ fontVariationSettings: '"opsz" 16' }}>
               {title}
             </p>
@@ -91,7 +97,7 @@ export function ResultTray() {
           </div>
           <ol
             ref={list}
-            className={cn('no-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto px-gutter pb-28 pt-5 md:gap-8 md:pb-8', panel === 'full' && 'lg:pr-[496px] xl:pr-[512px]')}
+            className={cn('no-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto px-gutter pb-28 pt-5 md:gap-8 md:pb-8', panel === 'full' && 'xl:pr-[calc(var(--rail-w)+2.75rem)]')}
             style={{ scrollPaddingLeft: 'var(--spacing-gutter)' }}
             data-lenis-prevent-wheel
             role="list"

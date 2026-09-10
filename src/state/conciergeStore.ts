@@ -170,6 +170,7 @@ interface ConciergeStoreState {
   rememberTopic: (slots: ConversationMemory['standingSlots']) => void;
   rememberAnchor: (slug: string | null) => void;
   rememberLanguage: (language: ConversationMemory['language']) => void;
+  dropTerm: (key: 'department' | 'category' | 'material' | 'purity' | 'occasion' | 'weight' | 'piece') => void;
   noteDiscussed: (slugs: string[]) => void;
   forgetTopic: () => void;
   forget: () => void;
@@ -207,6 +208,25 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   },
   // begun again: the subject goes, the visitor's language stays — they did not change that
   forgetTopic: () => set({ memory: { ...EMPTY_MEMORY, language: get().memory.language } }),
+  /**
+   * One condition, not the whole topic.
+   *
+   * "Begin again" was the only way to drop anything, which made a visitor who wanted the
+   * same search without the weight limit start the conversation over. Dropping the anchor
+   * deliberately leaves the standing topic alone, for the same reason a route change does:
+   * ceasing to talk about one piece is not ceasing to look for its kind.
+   */
+  dropTerm: (key) =>
+    set((s) => {
+      if (key === 'piece') return { memory: { ...s.memory, anchor: null, anchorTurn: -1 } };
+      const slots = { ...s.memory.standingSlots };
+      if (key === 'purity') delete slots.karat;
+      else if (key === 'weight') {
+        delete slots.maxWeightGrams;
+        delete slots.minWeightGrams;
+      } else delete slots[key];
+      return { memory: { ...s.memory, standingSlots: slots } };
+    }),
 
   transition: (next, reason = '') => {
     const current = get().state;

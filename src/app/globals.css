@@ -77,7 +77,7 @@
 
   /* the concierge rail's lane: the panel's own width, its inset from the edge, and 24px of air.
      A page marked [data-rail-inset] reserves it while the panel is open so nothing is covered. */
-  --rail-w: 468px;
+  --rail-w: 496px;
   --rail-inset: calc(var(--rail-w) + 52px - var(--spacing-gutter));
 
   /* gold as material / light */

@@ -1,6 +1,5 @@
 'use client';
 
-import { Img } from '@/components/media/Img';
 import { useEffect, useRef } from 'react';
 import { useConciergeStore, type ConciergeTurn, type TurnResult } from '@/state/conciergeStore';
 import { TravellingLight } from '@/components/ui/primitives';
@@ -110,33 +109,38 @@ function Exchange({ turn, first, live }: { turn: ConciergeTurn; first: boolean; 
 
 function Result({ result }: { result: TurnResult }) {
   const controller = useController();
+  /**
+   * The rail names the pieces; the vitrine shows them.
+   *
+   * This used to render the same four pieces as a grid of 4:5 photographs — directly above the
+   * tray already showing those photographs, larger and better. Two copies of one answer, and
+   * the taller copy pushed the sentence the concierge had just said out of view, so the
+   * associate appeared to have shown four things without saying anything about them.
+   *
+   * A rail is an associate: words and state. The ordinals stay, because "open the second one"
+   * needs something to count, and each name opens its piece — but nothing here competes with
+   * the jewellery a foot to the left.
+   */
   if (result.kind === 'pieces' || result.kind === 'wishlist') {
     if (result.pieces.length === 0) return null;
     return (
-      <ol className="mt-3 grid grid-cols-2 gap-x-3 gap-y-6" aria-label={result.kind === 'pieces' ? result.title : 'Your selection'}>
-        {result.pieces.slice(0, 4).map((p) => (
-          <li key={p.slug}>
+      <ol className="mt-1 flex flex-col gap-1.5" aria-label={result.kind === 'pieces' ? result.title : 'Your selection'}>
+        {result.pieces.slice(0, 6).map((p) => (
+          <li key={p.slug} className="flex items-baseline gap-3">
+            <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
+              {String(p.ordinal).padStart(2, '0')}
+            </span>
             <button
               type="button"
               onClick={() => controller?.tapCard(p.slug, p.name)}
-              className="group/recap block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+              className="flex flex-1 items-baseline justify-between gap-4 text-left outline-none transition-colors hover:text-fg focus-visible:underline focus-visible:decoration-gold-hi"
               aria-label={`Open ${p.name}, ${p.priceLabel.toLowerCase()}`}
               data-cursor="view"
             >
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '4 / 5', background: 'var(--salon-well)' }}>
-                <span className="absolute inset-0 block transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/recap:scale-[1.03]">
-                  <Img image={p.image} alt="" sizes="180px" />
-                </span>
+              <span dir="auto" className="font-display text-[0.9375rem] leading-snug text-fg" style={{ fontVariationSettings: '"opsz" 14' }}>
+                {p.name}
               </span>
-              <span className="mt-3 flex items-baseline gap-2">
-                <span className="font-display text-[0.75rem] text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
-                  {String(p.ordinal).padStart(2, '0')}
-                </span>
-                <span className="font-display text-[0.9375rem] leading-snug text-fg" style={{ fontVariationSettings: '"opsz" 14' }}>
-                  {p.name}
-                </span>
-              </span>
-              <span className="micro mt-1 block text-fg-2">{p.priceLabel}</span>
+              <span className="micro shrink-0 text-fg-muted">{p.priceLabel}</span>
             </button>
           </li>
         ))}

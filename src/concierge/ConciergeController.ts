@@ -224,14 +224,47 @@ export class ConciergeController {
       });
   }
 
+  /** Drops one standing condition — see `ContextRibbon`. */
+  dropTerm(key: Parameters<typeof this.store.dropTerm>[0]) {
+    this.store.dropTerm(key);
+  }
+
   retry() {
     const last = this.store.lastVisitorText;
     if (last) this.submitText(last, 'text');
   }
 
+  /**
+   * A click on a piece is not a sentence.
+   *
+   * It used to synthesise "Open the {name}" and push it through the whole engine — the
+   * parser, the planner, and with a key configured a model turn — to rediscover the slug
+   * that was in the caller's hand the entire time. That cost a round trip and a little
+   * money for a certainty, and could get it wrong: two pieces are both called "Gold
+   * Pendant", and only the item code tells them apart.
+   *
+   * So the tool is dispatched directly. It still passes the validator inside `executeTool`,
+   * so a slug the catalogue does not carry is refused here exactly as it would be anywhere
+   * else, and the events are the ones every provider emits — the UI cannot tell the
+   * difference, which is the point.
+   */
   tapCard(slug: string, name: string) {
-    this.submitText(`Open the ${name}`, 'card');
-    void slug;
+    const turnId = uid('t');
+    const callId = uid('c');
+    this.activeTurn = turnId;
+    this.pendingResult = false;
+    this.store.setError(null);
+    this.onEvent({ type: 'turn.start', turnId });
+    this.onEvent({ type: 'tool.call', turnId, callId, name: 'openProduct', args: { slug } });
+    void executeTool('openProduct', { slug })
+      .then((outcome) => {
+        this.onEvent({ type: 'tool.result', turnId, callId, outcome });
+        this.onEvent({ type: 'text.done', turnId, text: CONCIERGE.opened(name) });
+        this.onEvent({ type: 'turn.done', turnId });
+      })
+      .catch(() => {
+        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+      });
   }
 
   cancelTurn() {
@@ -264,9 +297,22 @@ export class ConciergeController {
         if (o.ui) {
           s.setResult(e.turnId, o.ui);
           this.pendingResult = true;
+          /**
+           * Results go to the vitrine; the associate stays in the room.
+           *
+           * Collapsing the rail here took the composer away with it, so after any search there
+           * was no way to say the next thing without first clicking the ticket to bring the
+           * panel back. "Show me 21K gold rings under 15 grams" and then "Now bracelets" — the
+           * follow-up the standing topic exists to serve — cost an extra click every time, and
+           * the ribbon explaining that topic disappeared at the same moment.
+           *
+           * The three zones are the answer, and the tray already knew it: it pads its cards
+           * clear of the rail whenever the panel is full. Only an action that takes over the
+           * *stage* — opening a piece, navigating, the consultation — collapses the rail, and
+           * each of those says so with `compact` on its own outcome.
+           */
           if (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist' || o.ui.kind === 'collections') {
             s.setTrayOpen(o.ui.kind !== 'wishlist' || o.ui.pieces.length > 0);
-            s.setPanel('compact');
           }
         }
         if (o.compact) s.setPanel('compact');
