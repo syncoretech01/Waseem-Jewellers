@@ -202,9 +202,19 @@ export class ConciergeController {
       s.transition('THINKING', 'submit');
     }
     s.setActiveTurn(turnId);
-    void this.provider.submitText(trimmed, { turnId, source }).catch((e) => {
-      this.onEvent({ type: 'turn.error', turnId, message: e instanceof Error ? e.message : 'provider', recoverable: true });
-    });
+    /**
+     * The index is fetched when the panel opens, but a visitor can type faster than a
+     * network round trip. Every slug check fails closed until it lands, so a sentence that
+     * overtook it had each of its tool calls refused as an invented piece — the concierge
+     * appeared not to recognise the very piece the visitor was standing on. Awaiting it
+     * here costs nothing once it has arrived, which is every sentence after the first.
+     */
+    void loadIndex()
+      .catch(() => undefined)
+      .then(() => this.provider.submitText(trimmed, { turnId, source }))
+      .catch((e) => {
+        this.onEvent({ type: 'turn.error', turnId, message: e instanceof Error ? e.message : 'provider', recoverable: true });
+      });
   }
 
   retry() {
@@ -272,7 +282,14 @@ export class ConciergeController {
         break;
       }
       case 'text.done': {
-        s.patchTurn(e.turnId, { streaming: false });
+        /**
+         * The finished reply, not merely the end of one. A turn's text was assembled purely
+         * from deltas, so any reply the streaming path could not break into sentences —
+         * every Urdu one, before the terminators above — reached the visitor as an empty
+         * bubble. This frame carries the filtered text the server settled on, so it is the
+         * authority; deltas are the preview of it.
+         */
+        s.patchTurn(e.turnId, e.text ? { text: e.text, streaming: false } : { streaming: false });
         break;
       }
       case 'turn.done': {

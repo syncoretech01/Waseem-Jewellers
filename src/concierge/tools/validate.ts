@@ -39,9 +39,6 @@ export type Validated =
 /** At most four tool calls answer one sentence. Beyond that the visitor is being walked. */
 export const MAX_TOOL_CALLS = 4;
 
-/** Every argument that names a piece. */
-const SLUG_ARGS = ['slug', 'anchor', 'a', 'b', 'c'] as const;
-
 /**
  * Where the concierge may take a visitor. Departments and kinds are matched by shape rather
  * than enumerated so a new department needs no change here — the route itself still has to
@@ -152,17 +149,25 @@ export function validateToolCall(name: string, rawArgs: unknown, { isKnownSlug, 
   if ('error' in sanitised) return { ok: false, error: { code: 'TOOL_ARGS', message: sanitised.error } };
   const args = sanitised.args;
 
-  // a slug that names no listable piece is refused, not corrected — guessing which piece was
-  // meant is how a visitor ends up looking at something nobody chose
-  for (const key of SLUG_ARGS) {
+  /**
+   * A slug that names no listable piece is refused, not corrected — guessing which piece
+   * was meant is how a visitor ends up looking at something nobody chose.
+   *
+   * Which arguments name a piece comes from the schema, not from their spelling. A
+   * collection slug is checked against its own enum by `checkValue` and is deliberately not
+   * looked up here: "bridal" is a real destination and never a piece.
+   */
+  for (const [key, spec] of Object.entries(def.parameters.properties)) {
     const value = args[key];
-    if (typeof value !== 'string') continue;
-    if (!isKnownSlug(value)) return { ok: false, error: { code: 'TOOL_UNKNOWN_SLUG', message: `no piece with the reference "${value}"` } };
-  }
-  if (Array.isArray(args.slugs)) {
-    for (const value of args.slugs) {
-      if (typeof value !== 'string' || !isKnownSlug(value)) {
-        return { ok: false, error: { code: 'TOOL_UNKNOWN_SLUG', message: `no piece with the reference "${String(value)}"` } };
+    if (value === undefined) continue;
+    if (spec.format === 'piece-slug' && typeof value === 'string' && !isKnownSlug(value)) {
+      return { ok: false, error: { code: 'TOOL_UNKNOWN_SLUG', message: `no piece with the reference "${value}"` } };
+    }
+    if (spec.type === 'array' && spec.items?.format === 'piece-slug' && Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry !== 'string' || !isKnownSlug(entry)) {
+          return { ok: false, error: { code: 'TOOL_UNKNOWN_SLUG', message: `no piece with the reference "${String(entry)}"` } };
+        }
       }
     }
   }

@@ -2,7 +2,7 @@ import 'server-only';
 
 import { SITE } from '@/data/site';
 import { catalogueBlock, type Grounding } from './retrieve';
-import type { SiteContext } from '@/concierge/types';
+import type { SafeContext } from './untrusted';
 
 /**
  * What the model is told, and — more to the point — what it is not.
@@ -33,11 +33,19 @@ const RULES = `Rules, in order of importance:
 5. If nothing in <catalogue> answers the visitor, say so and ask one narrowing question. Never substitute a piece you were not shown.
 6. Do not describe how a piece was made, constructed or assembled. You have seen photographs and published figures, nothing else.`;
 
-export function buildMessages(text: string, grounding: Grounding, ctx: SiteContext): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+export function buildMessages(text: string, grounding: Grounding, ctx: SafeContext): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+  /**
+   * Assembled from what the server itself knows.
+   *
+   * The piece in view is `grounding.anchor` — a row the repository resolved — rather than a
+   * name the browser supplied, and the route has already been matched against the real
+   * shapes of this site. Nothing a visitor can type reaches a system message intact.
+   */
+  const anchor = grounding.anchor;
   const where = [
-    `The visitor is on ${ctx.route}.`,
-    ctx.currentProduct ? `They are looking at: ${ctx.currentProduct.name} (slug=${ctx.currentProduct.slug}).` : null,
-    ctx.wishlist.length ? `Their selection holds ${ctx.wishlist.length} piece${ctx.wishlist.length === 1 ? '' : 's'}.` : null,
+    ctx.route ? `The visitor is on ${ctx.route}.` : null,
+    anchor ? `They are looking at: ${anchor.t} (slug=${anchor.s}).` : null,
+    ctx.wishlistCount ? `Their selection holds ${ctx.wishlistCount} piece${ctx.wishlistCount === 1 ? '' : 's'}.` : null,
   ]
     .filter(Boolean)
     .join(' ');

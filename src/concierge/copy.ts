@@ -99,6 +99,25 @@ export const CONCIERGE = {
     shown: (name: string) => name,
     similar: 'Pieces in the same spirit…',
     similarDone: (count: string) => `${count} pieces in the same spirit`,
+    matching: 'Pieces that would be worn with it…',
+    matchingDone: (name: string) => `Worn with the ${name}`,
+    matchingNone: 'Nothing in the collection is a natural companion to this one',
+    refining: 'Narrowing…',
+    /** The weight is published, so the comparison is a real one and can be said plainly. */
+    lighterDone: 'Lighter pieces',
+    heavierDone: 'Heavier pieces',
+    /**
+     * The weight is *not* published, so the comparison is one of form. Saying which is the
+     * whole point: a visitor told "lighter" assumes a scale was involved.
+     */
+    lighterByForm: 'Lighter in form',
+    heavierByForm: 'Heavier in form',
+    weightUnknown: 'Waseem has not published a weight for this piece',
+    filtering: 'Refining the page…',
+    filtered: (phrase: string) => phrase,
+    cleared: 'Filters cleared',
+    price: 'Checking what is published…',
+    priceOnRequest: 'Price on request',
     keeping: 'Keeping this piece…',
     kept: 'Saved to your selection',
     alreadyKept: 'Already in your selection',

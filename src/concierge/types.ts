@@ -8,6 +8,11 @@ export type ToolName =
   | 'focusProduct'
   | 'openProduct'
   | 'showSimilarPieces'
+  | 'showMatchingPieces'
+  | 'refineResults'
+  | 'filterProducts'
+  | 'clearFilters'
+  | 'showPriceGuidance'
   | 'saveToWishlist'
   | 'removeFromWishlist'
   | 'openWishlist'
@@ -31,15 +36,29 @@ export type ToolName =
  * strings" is not a constraint worth having: the item shape, the bounds and the pattern are
  * where a malformed call is actually caught.
  */
+/**
+ * What a string argument refers to, where the name alone cannot be trusted to say.
+ *
+ * The validator used to decide "is this a piece?" from the argument's *name* — a list
+ * containing 'slug'. That was wrong in both directions at once: `showCollection.slug` is a
+ * collection, so every attempt to open one was refused as a piece that does not exist, and
+ * `openPrivateConsultation.productSlug` is a piece but was not named 'slug', so an
+ * invented one travelled all the way to the consultation form. Declaring the role beside
+ * the argument makes both cases fall out of the same rule.
+ */
+export type SlugFormat = 'piece-slug' | 'collection-slug';
+
 export interface JsonSchemaProperty {
   type: 'string' | 'integer' | 'number' | 'boolean' | 'array';
+  /** Marks a string (or the entries of an array) as naming something that must exist. */
+  format?: SlugFormat;
   description?: string;
   enum?: string[];
   minimum?: number;
   maximum?: number;
   default?: unknown;
   /** Arrays only. */
-  items?: { type: 'string' | 'integer' | 'number'; enum?: string[]; pattern?: string };
+  items?: { type: 'string' | 'integer' | 'number'; enum?: string[]; pattern?: string; format?: SlugFormat };
   minItems?: number;
   maxItems?: number;
   /** Strings only — a slug shape, for instance. */

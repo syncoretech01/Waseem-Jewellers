@@ -58,7 +58,10 @@ export class ServerConciergeProvider implements ConciergeProvider {
 
     let continuation: string | undefined;
     let toolResults: { callId: string; name: string; result: unknown }[] | undefined;
+    /** What the visitor has been shown. Carried across rounds: a turn is one reply. */
     let spoken = '';
+    /** The finished text of rounds already closed, so a new round adds to it rather than replacing it. */
+    let settled = '';
     let buffered = '';
 
     try {
@@ -107,20 +110,46 @@ export class ServerConciergeProvider implements ConciergeProvider {
                 buffered += String(frame.delta ?? '');
                 const { ready, rest } = completeSentences(buffered);
                 if (ready) {
-                  const clean = enforceBrandRegister(ready);
+                  const clean = enforceBrandRegister(settled ? `${settled} ${ready}` : ready);
                   if (clean && clean !== spoken) {
                     const delta = clean.startsWith(spoken) ? clean.slice(spoken.length) : clean;
+                    const first = spoken.length === 0;
                     spoken = clean;
                     runtime.emit({ type: 'text.delta', turnId, delta });
+                    /**
+                     * The voice speaks from `text.ready` and nothing else emits it here, so
+                     * a deployment that added a key went mute: the reply was written but
+                     * never said, while the same build without a key spoke it. This is what
+                     * the sentence buffer above was built to provide — a whole first
+                     * sentence, not half of one.
+                     */
+                    if (first) runtime.emit({ type: 'text.ready', turnId, text: clean });
                   }
                   buffered = rest;
                 }
                 break;
               }
               case 'text.done': {
-                const clean = enforceBrandRegister(String(frame.text ?? ''));
-                spoken = clean;
+                /**
+                 * One reply, capped once — not once per round.
+                 *
+                 * The server applies the register to each round it streams, so a turn that
+                 * took three rounds could put three separate "no more than two sentences"
+                 * replies in front of the visitor, run together. Composing the rounds here
+                 * and filtering the whole thing makes the two-sentence guarantee a fact
+                 * about the answer rather than about a round of it.
+                 */
+                const roundText = String(frame.text ?? '');
+                const clean = enforceBrandRegister(settled ? `${settled} ${roundText}` : roundText);
+                settled = clean;
                 buffered = '';
+                if (clean !== spoken) {
+                  const delta = clean.startsWith(spoken) ? clean.slice(spoken.length) : clean;
+                  const first = spoken.length === 0;
+                  spoken = clean;
+                  if (delta) runtime.emit({ type: 'text.delta', turnId, delta });
+                  if (first && clean) runtime.emit({ type: 'text.ready', turnId, text: clean });
+                }
                 runtime.emit({ type: 'text.done', turnId, text: clean });
                 break;
               }
@@ -135,11 +164,39 @@ export class ServerConciergeProvider implements ConciergeProvider {
                 awaiting = String(frame.continuation);
                 break;
               case 'turn.error':
-                throw new ProviderFailure(String(frame.code ?? 'UPSTREAM'), String(frame.message ?? 'failed'), Boolean(frame.recoverable));
+                /**
+                 * Recoverable only while the visitor has seen nothing.
+                 *
+                 * The server marks a failure recoverable meaning "the model produced
+                 * nothing usable", but by the third round it may have already streamed a
+                 * sentence and run tools. Replaying that turn through the keyless engine
+                 * then answers the same question a second time, differently, under the
+                 * turn the visitor is already reading.
+                 */
+                throw new ProviderFailure(String(frame.code ?? 'UPSTREAM'), String(frame.message ?? 'failed'), Boolean(frame.recoverable) && spoken.length === 0);
               default:
                 break;
             }
           }
+        }
+
+        /**
+         * Whatever never closed a sentence still has to reach the visitor.
+         *
+         * The buffer holds back an unfinished tail on purpose, but at the end of a stream
+         * there is nothing more coming — so an unterminated reply, which the model produces
+         * whenever it stops without punctuation, would otherwise be held forever.
+         */
+        if (buffered.trim()) {
+          const clean = enforceBrandRegister(settled ? `${settled} ${buffered}` : buffered);
+          if (clean && clean !== spoken) {
+            const delta = clean.startsWith(spoken) ? clean.slice(spoken.length) : clean;
+            const first = spoken.length === 0;
+            spoken = clean;
+            runtime.emit({ type: 'text.delta', turnId, delta });
+            if (first) runtime.emit({ type: 'text.ready', turnId, text: clean });
+          }
+          buffered = '';
         }
 
         /**
@@ -177,8 +234,17 @@ export class ServerConciergeProvider implements ConciergeProvider {
       runtime.emit({ type: 'turn.done', turnId });
     } catch (err) {
       if (abort.signal.aborted) return;
+      /**
+       * Thrown, never announced.
+       *
+       * Emitting `turn.error` here put the UI into its error state — banner, ERROR
+       * transition, "shall we try that once more?" — a beat before `FallbackProvider`
+       * caught the same failure and answered the sentence perfectly well with the keyless
+       * engine. On the shipped default, which has no key at all, that happened on every
+       * first sentence. A failure this layer can recover from is not news for the visitor,
+       * and the controller already emits the frame for one that reaches it.
+       */
       const failure = err instanceof ProviderFailure ? err : new ProviderFailure('UPSTREAM', 'the concierge is unavailable', spoken.length === 0);
-      runtime.emit({ type: 'turn.error', turnId, message: failure.message, recoverable: failure.recoverable });
       throw failure;
     } finally {
       this.aborts.delete(turnId);

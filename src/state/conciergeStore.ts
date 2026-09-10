@@ -223,6 +223,13 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   setMode: (mode) => set({ mode }),
   setPanel: (panel) => set({ panel }),
   appendTurn: (turn) => {
+    /**
+     * A turn id appears once. `patchTurn` and `appendDelta` both map over every turn
+     * carrying the id, so a second turn with the same one receives every delta the first
+     * does — the fallback re-runs a failed sentence under the original id, and the reply
+     * was written into the room twice.
+     */
+    if (get().turns.some((t) => t.id === turn.id)) return;
     const turns = [...get().turns, turn];
     set({ turns: turns.length > MAX_TURNS ? turns.slice(turns.length - MAX_TURNS) : turns });
   },

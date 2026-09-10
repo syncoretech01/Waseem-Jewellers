@@ -5,7 +5,7 @@ import { MAX_ROUNDS, hashArgs, open, seal, type ContinuationPayload } from '@/se
 import { MAX_INPUT_CHARS, clientIp, sameOrigin, takeToken } from '@/server/concierge/limits';
 import { getRepository } from '@/data/repository';
 import { runServerTool, runtimeOf } from '@/server/concierge/serverTools';
-import { sanitiseMemory, sanitiseToolResult } from '@/server/concierge/untrusted';
+import { sanitiseContext, sanitiseMemory, sanitiseToolResult } from '@/server/concierge/untrusted';
 import { validateToolCall, MAX_TOOL_CALLS } from '@/concierge/tools/validate';
 import { TOOL_DEFS } from '@/concierge/tools/toolDefs';
 import { enforceBrandRegister } from '@/concierge/register';
@@ -133,12 +133,15 @@ export async function POST(request: Request) {
      * reasoning faithfully about the wrong set, which is worse than not reasoning at all.
      */
     const memory = sanitiseMemory(body.memory, { isKnownSlug });
+    const safeContext = sanitiseContext(body.context);
+    const current = body.context?.currentProduct?.slug;
     const grounding = await ground(text, {
-      currentSlug: body.context?.currentProduct?.slug ?? null,
-      recentSlugs: (body.context?.recentResults ?? []).map((r) => r.slug),
+      // an unknown slug resolves to no anchor rather than to a name the browser chose
+      currentSlug: typeof current === 'string' && isKnownSlug(current) ? current : null,
+      recentSlugs: (body.context?.recentResults ?? []).slice(0, 12).map((r) => r?.slug).filter((x): x is string => typeof x === 'string' && isKnownSlug(x)),
       memory,
     });
-    messages = buildMessages(text, grounding, body.context);
+    messages = buildMessages(text, grounding, safeContext);
   }
 
   if (round >= MAX_ROUNDS) return fail('ROUNDS', 'that took too many steps; ask again more simply');
@@ -271,11 +274,29 @@ export async function POST(request: Request) {
 
         for (const call of browserCalls) send({ type: 'tool.call', callId: call.callId, name: call.name, args: call.args });
 
-        // nothing for the browser to do, but the server tools produced facts the model has
-        // not seen yet — carry on to the next round with them
-        const needsAnotherRound = browserCalls.length > 0 || serverCalls.length > 0;
-        if (!needsAnotherRound) {
-          send({ type: 'turn.done' });
+        /**
+         * Another round happens when there are facts the model has not seen yet — results
+         * from a server tool, an action the browser is about to run, or the refusals of
+         * calls that were all rejected. That last case is the one that used to end in
+         * silence: every call invented a slug, none was accepted, nothing was pending, and
+         * a model that had spoken no words closed the turn with no text, no action and no
+         * error. Giving it the refusals and one more round is how it corrects itself.
+         */
+        const needsAnotherRound = browserCalls.length > 0 || serverCalls.length > 0 || (rejected.length > 0 && !sentText);
+        // sealing a continuation for a round the next request will refuse turns a finished
+        // turn into a ROUNDS error; the last permitted round ends the turn instead
+        const canContinue = round + 1 < MAX_ROUNDS;
+        if (!needsAnotherRound || !canContinue) {
+          /**
+           * Out of rounds with nothing said and nothing done. There is no honest sentence
+           * to invent here, so the turn fails recoverably and the keyless engine — which
+           * has not spoken either — answers it instead.
+           */
+          if (!sentText && accepted.length === 0) {
+            send({ type: 'turn.error', code: 'NO_ANSWER', message: 'let me try that a different way', recoverable: true });
+          } else {
+            send({ type: 'turn.done' });
+          }
           controller.close();
           return;
         }

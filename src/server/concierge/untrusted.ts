@@ -133,3 +133,41 @@ export function sanitiseToolResult(raw: unknown, { isKnownSlug }: SanitiseOption
   const result = walk(raw, 0);
   return result === undefined ? { ok: true } : result;
 }
+
+/**
+ * Where the visitor is standing — the only two facts the prompt needs from the browser.
+ *
+ * `SiteContext` is a TypeScript type on a POST body, which is to say it is a description of
+ * what a well-behaved client sends and no constraint at all on what arrives. Both fields the
+ * prompt used to interpolate were free strings, written into a *system* message above the
+ * catalogue — so a crafted `currentProduct.name` closed the block and issued its own rules,
+ * and neither the tool validator (prose is not a tool call) nor the register filter (it
+ * strips markdown, not invented facts) would have caught the fabricated prices that follow.
+ *
+ * So the piece in view no longer comes from here at all: `ground()` resolves it against the
+ * repository, and a slug the catalogue does not carry resolves to nothing. The route is kept
+ * only when it matches a real page of this site, and the selection is reduced to a count.
+ */
+export interface SafeContext {
+  route: string | null;
+  wishlistCount: number;
+}
+
+/** The same shapes the tool validator allows a visitor to be sent to. */
+const ROUTE_SHAPES = [
+  /^\/$/,
+  /^\/(gold|diamond|bridal|men|kids)(\/[a-z-]{1,40})?$/,
+  /^\/collections\/[a-z0-9-]{1,60}$/,
+  /^\/jewellery\/[a-z0-9-]{1,80}$/,
+];
+
+export function sanitiseContext(raw: unknown): SafeContext {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { route: null, wishlistCount: 0 };
+  const r = raw as Record<string, unknown>;
+  // the query string is dropped rather than parsed: nothing in the prompt reads a facet, and
+  // it is unbounded text that would otherwise be billed as input on every turn
+  const path = typeof r.route === 'string' ? r.route.split('?')[0] ?? '' : '';
+  const route = ROUTE_SHAPES.some((re) => re.test(path)) ? path : null;
+  const wishlistCount = Array.isArray(r.wishlist) ? Math.min(r.wishlist.length, 40) : 0;
+  return { route, wishlistCount };
+}

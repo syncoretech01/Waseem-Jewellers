@@ -35,18 +35,34 @@ const STRIP: [RegExp, string][] = [
   [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ''],
 ];
 
+/**
+ * Where a sentence ends — in every script this concierge answers in.
+ *
+ * Urdu and Shahmukhi Punjabi close a sentence with '۔' (U+06D4) and ask with '؟' (U+061F);
+ * Gurmukhi uses the danda '।'. None of them is an ASCII full stop, and while this recognised
+ * only `.!?` an Urdu reply had no sentence boundary anywhere in it. That was not a
+ * cosmetic fault: the streaming path holds text back until a sentence closes, so a reply
+ * that never closes is a reply that never arrives — the visitor who wrote in Urdu got a
+ * blank turn, which is the one language failure worse than answering in the wrong one.
+ */
+const TERMINATORS = '.!?۔؟।॥';
+
+export const ENDS_A_SENTENCE = /[.!?۔؟।॥]$/;
+
 /** Sentence ends, without splitting "Rs. 380,000" or "21K." */
 function sentences(text: string): string[] {
   const out: string[] = [];
   let start = 0;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
-    if (c !== '.' && c !== '!' && c !== '?') continue;
+    if (!c || !TERMINATORS.includes(c)) continue;
     const next = text[i + 1];
     if (next && next !== ' ' && next !== '\n') continue;
     // "Rs." and an initial are not the end of anything
-    const before = text.slice(Math.max(0, i - 3), i);
-    if (/\b(Rs|Mr|Mrs|Ms|St|No)$/i.test(before)) continue;
+    if (c === '.') {
+      const before = text.slice(Math.max(0, i - 3), i);
+      if (/\b(Rs|Mr|Mrs|Ms|St|No)$/i.test(before)) continue;
+    }
     out.push(text.slice(start, i + 1).trim());
     start = i + 1;
   }
@@ -83,7 +99,7 @@ export function completeSentences(buffer: string): { ready: string; rest: string
   const parts = sentences(buffer);
   if (parts.length < 1) return { ready: '', rest: buffer };
   const last = parts[parts.length - 1]!;
-  const finished = /[.!?]$/.test(last.trim());
+  const finished = ENDS_A_SENTENCE.test(last.trim());
   const ready = finished ? parts.join(' ') : parts.slice(0, -1).join(' ');
   const rest = finished ? '' : last;
   return { ready: ready.trim(), rest };

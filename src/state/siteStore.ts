@@ -30,6 +30,14 @@ export interface ConsultationContext {
   productSlug?: string;
   productSlugs?: string[];
   source?: 'concierge' | 'cta' | 'menu' | 'ledger';
+  /**
+   * What the visitor said they wanted to spend, carried across from the conversation.
+   *
+   * All but seventeen pieces are priced on request, so a budget almost never produces a
+   * filtered result — but it is the most useful thing a jeweller can be told before ringing
+   * back, and losing it at the form boundary means the visitor is asked for it twice.
+   */
+  budgetPkr?: number;
 }
 
 interface SiteState {

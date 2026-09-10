@@ -32,3 +32,21 @@ export const asStyle = (v: unknown): StyleTag | undefined => (typeof v === 'stri
 export const asWorld = (v: unknown): WorldSlug | undefined => (typeof v === 'string' && WORLDS_SET.has(v) ? (v as WorldSlug) : undefined);
 export const asKarat = (v: unknown): Karat | undefined => (typeof v === 'string' && KARATS.has(v) ? (v as Karat) : undefined);
 
+/**
+ * The kind a query word means, in the vocabulary the catalogue stores.
+ *
+ * A visitor says "choker" and "set"; the shop classifies those pieces as 'necklace' and
+ * 'bridal-set'. Comparing the visitor's word to the stored value directly returns nothing —
+ * not an error, just an empty room and a concierge saying the shop has none. The server
+ * search has carried this mapping since Stage 1; the browser index compared exactly.
+ */
+const CANONICAL: Record<string, Category> = {
+  set: 'bridal-set',
+  choker: 'necklace',
+};
+
+export const canonicalCategory = (v: unknown): Category | undefined => {
+  const c = asCategory(v);
+  return c === undefined ? undefined : ((CANONICAL[c] ?? c) as Category);
+};
+

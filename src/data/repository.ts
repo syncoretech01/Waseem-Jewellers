@@ -1,6 +1,7 @@
 import type { Category, Department, Product } from './types';
 import { PRODUCTS, LISTABLE_PRODUCTS, CATALOGUE_DATE } from './products';
 import { searchCatalogue, similarTo, type SearchQuery } from './search';
+import { complementsOf } from '@/lib/relations';
 import { nameOf, DEPARTMENT_LABEL } from './labels';
 import { bandOf, matchesFacets, type Facetable, type PieceRow, type SortKey, type WallCut } from '@/lib/facets';
 
@@ -190,21 +191,8 @@ class SnapshotRepository implements CatalogueRepository {
     const anchor = this.bySlug.get(slug);
     if (!anchor) return [];
     if (anchor.complementary.length) return (await this.getProducts(anchor.complementary)).slice(0, limit);
-    const COMPLEMENT: Partial<Record<Category, Category[]>> = {
-      necklace: ['earrings', 'ring', 'bangle', 'tikka'],
-      earrings: ['necklace', 'ring', 'pendant'],
-      ring: ['earrings', 'pendant', 'bracelet'],
-      bangle: ['necklace', 'earrings', 'ring'],
-      bracelet: ['ring', 'pendant', 'earrings'],
-      pendant: ['chain', 'earrings', 'ring'],
-      chain: ['pendant'],
-      'bridal-set': ['ring', 'bangle', 'tikka'],
-      'nose-pin': ['earrings', 'ring', 'pendant'],
-      cufflink: ['ring', 'bracelet'],
-      tikka: ['necklace', 'earrings', 'nath'],
-      nath: ['tikka', 'earrings', 'necklace'],
-    };
-    const wanted = new Set(anchor.category ? (COMPLEMENT[anchor.category] ?? []) : []);
+    // the table is shared with the browser's slim rows, so the two can never disagree
+    const wanted = complementsOf(anchor.category);
     if (!wanted.size) return [];
     /**
      * A shared *campaign* means two pieces were photographed for the same line. Both being

@@ -2,10 +2,11 @@
 
 import { WORLDS, WORLD_BY_SLUG } from '@/data/worlds';
 import { COLLECTION_BY_SLUG } from '@/data/collections';
-import { getRow, getRows, searchRows, similarRows } from '@/data/clientIndex';
-import { asCategory, asDepartment, asKarat, asMaterial } from '@/data/vocabulary';
-import { DEPARTMENT_LABEL, CATEGORY_PLURAL } from '@/data/labels';
-import type { Category } from '@/data/types';
+import { getRow, getRows, lighterRows, matchingRows, searchRows, similarRows } from '@/data/clientIndex';
+import { asDepartment, asKarat, asMaterial, canonicalCategory } from '@/data/vocabulary';
+import { DEPARTMENT_LABEL, CATEGORY_PLURAL, campaignSlugOf } from '@/data/labels';
+import { EMPTY_FACETS, facetPhrases, parseFacets, serialiseFacets, type FacetState, type SortKey } from '@/lib/facets';
+import type { Category, Department } from '@/data/types';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
 import { productElement } from '@/state/visibility';
 import { runtime, scrollTo } from '@/state/runtime';
@@ -30,6 +31,9 @@ function navigate(href: string, kind: 'curtain' | 'flip' = 'curtain', sourceEl?:
   return Promise.resolve();
 }
 
+/** The department the visitor is standing in, read from the route rather than kept twice. */
+const departmentOf = (ctx: SiteContext): Department | undefined => asDepartment(ctx.route.split('?')[0]?.split('/')[1]);
+
 function resolveAnchor(args: Record<string, unknown>, ctx: SiteContext): PieceRow | undefined {
   const explicit = str(args.slug);
   const slug = explicit ?? ctx.currentProduct?.slug ?? ctx.focusedProduct?.slug ?? ctx.recentResults[0]?.slug ?? undefined;
@@ -45,7 +49,7 @@ function describeQuery(args: Record<string, unknown>) {
   const style = str(args.style);
   const material = str(args.material);
   const department = asDepartment(args.department);
-  const category = asCategory(args.category);
+  const category = canonicalCategory(args.category);
   const kind = category ? (CATEGORY_PLURAL[category as Category] ?? category).toLowerCase() : 'pieces';
   const parts = [style === 'bridal' ? 'bridal' : style === 'traditional' ? 'traditional' : style, material, department ? DEPARTMENT_LABEL[department].toLowerCase() : undefined, kind];
   return parts.filter(Boolean).join(' ');
@@ -63,15 +67,20 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
     case 'searchProducts': {
       const limit = Math.min(Number(args.limit ?? 4), 6);
       /**
-       * Narrowed, not cast. `collection` used to be handed to `world` through `as never`,
-       * which meant a collection slug scored −100 against every product and the tool
-       * silently returned nothing at all.
+       * The campaign filter is gone rather than fixed, and the reasoning is worth keeping.
+       *
+       * `collection` was handed to `world` through `as never`, scoring −100 against every
+       * product; removing the cast left the value unread, so the argument was decorative.
+       * Wiring it properly needed a translation as well — the campaign worlds and the shop's
+       * collection handles disagree on three of six spellings. But once wired it returned an
+       * empty tray anyway, because the campaign pieces are withheld pending their names. An
+       * argument that cannot succeed is worse than one that does nothing, so the schema no
+       * longer offers it. `campaignSlugOf` survives for the facet URL, where the values come
+       * from counts of real pieces and can only name a campaign that has some.
        */
-      const collection = str(args.collection);
-      void collection;
       const results = searchRows({
         query: str(args.query),
-        category: asCategory(args.category),
+        category: canonicalCategory(args.category),
         material: asMaterial(args.material),
         department: asDepartment(args.department),
         purity: asKarat(args.purity),
@@ -283,6 +292,182 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
       };
     }
 
+
+    /**
+     * What would be worn *with* the piece — the question `showSimilarPieces` does not answer.
+     * A visitor looking at a necklace and asking "what goes with this" wants earrings, and
+     * being handed four more necklaces is the moment a concierge stops sounding like a person.
+     */
+    case 'showMatchingPieces': {
+      const anchor = resolveAnchor(args, ctx);
+      if (!anchor) return { result: { needsPiece: true }, label: '' };
+      const results = matchingRows(anchor.s, Math.min(Number(args.limit ?? 4), 6));
+      if (!results.length) {
+        return {
+          result: { anchor: anchor.s, count: 0, items: [], note: 'No complementary piece in the listable collection. Say so; do not offer a piece of the same kind instead.' },
+          label: CONCIERGE.labels.matchingNone,
+          runningLabel: CONCIERGE.labels.matching,
+        };
+      }
+      return {
+        result: { anchor: anchor.s, count: results.length, items: results.map((r) => ({ slug: r.s, name: r.t, kind: r.c })) },
+        runningLabel: CONCIERGE.labels.matching,
+        label: CONCIERGE.labels.matchingDone(anchor.t),
+        ui: { kind: 'pieces', title: `Worn with the ${anchor.t}`, pieces: cardsOf(results) },
+      };
+    }
+
+    /**
+     * "Something lighter." The honesty ladder lives here, and what it returns to the model
+     * carries `basis` so the sentence can match the evidence: a published comparison may be
+     * stated as weight, a comparison of form may only be stated as form. Neither branch ever
+     * produces a gram figure the shop has not published.
+     */
+    case 'refineResults': {
+      const direction = str(args.weight);
+      if (direction === 'lighter' || direction === 'heavier') {
+        const anchor = resolveAnchor(args, ctx);
+        if (!anchor) return { result: { needsPiece: true }, label: '' };
+        const { basis, rows, anchorWeight } = lighterRows(anchor.s, direction, Math.min(Number(args.limit ?? 4), 6));
+        if (basis === 'none') {
+          return {
+            result: {
+              anchor: anchor.s,
+              basis,
+              count: 0,
+              items: [],
+              note: 'Neither a published weight nor a comparable form. Say that a consultant can weigh the pieces at a viewing; do not estimate.',
+            },
+            label: CONCIERGE.labels.weightUnknown,
+            runningLabel: CONCIERGE.labels.refining,
+          };
+        }
+        const heavier = direction === 'heavier';
+        const label =
+          basis === 'published'
+            ? heavier
+              ? CONCIERGE.labels.heavierDone
+              : CONCIERGE.labels.lighterDone
+            : heavier
+              ? CONCIERGE.labels.heavierByForm
+              : CONCIERGE.labels.lighterByForm;
+        return {
+          result: {
+            anchor: anchor.s,
+            basis,
+            anchorWeightGrams: anchorWeight,
+            count: rows.length,
+            items: rows.map((r) => ({ slug: r.s, name: r.t, kind: r.c, grossWeightGrams: r.w })),
+            note:
+              basis === 'published'
+                ? 'These weights are published. You may state them.'
+                : 'Waseem publishes no weight for the piece in view, so this comparison is of form, not of grams. Say "lighter in form" and offer a consultant; never state or estimate a weight.',
+          },
+          runningLabel: CONCIERGE.labels.refining,
+          label,
+          ui: { kind: 'pieces', title: label, pieces: cardsOf(rows) },
+        };
+      }
+
+      // no comparative: an ordinary narrowing of the same question
+      const results = searchRows({
+        category: canonicalCategory(args.category),
+        material: asMaterial(args.material),
+        purity: asKarat(args.purity),
+        maxWeightGrams: typeof args.maxWeightGrams === 'number' ? args.maxWeightGrams : undefined,
+        department: departmentOf(ctx),
+        limit: Math.min(Number(args.limit ?? 4), 6),
+      });
+      const what = describeQuery(args);
+      if (!results.length) return { result: { count: 0, items: [] }, label: CONCIERGE.labels.nothing, runningLabel: CONCIERGE.labels.refining };
+      return {
+        result: { count: results.length, items: results.map((r) => ({ slug: r.s, name: r.t })) },
+        runningLabel: CONCIERGE.labels.refining,
+        label: CONCIERGE.labels.found(capitalise(countInWords(results.length)), what),
+        ui: { kind: 'pieces', title: `${capitalise(countInWords(results.length))} ${what}`, pieces: cardsOf(results) },
+      };
+    }
+
+    /**
+     * Filters go into the URL, not into a state this conversation holds privately.
+     *
+     * That is the whole design: the department page reads its facets from the query string,
+     * so a filter the concierge applies is one the visitor can see in the drawer, undo with
+     * the back button, and send to someone else in a link. A concierge holding its own
+     * parallel filter state would be a second answer to the same question.
+     */
+    case 'filterProducts':
+    case 'clearFilters': {
+      const clearing = name === 'clearFilters';
+      const department = asDepartment(args.department) ?? departmentOf(ctx) ?? 'gold';
+      const [path, search = ''] = ctx.route.split('?');
+      const onDepartment = path === `/${department}`;
+      const current = onDepartment ? parseFacets(search) : { ...EMPTY_FACETS };
+      const campaign = str(args.campaign);
+      const next: FacetState = clearing
+        ? { ...EMPTY_FACETS }
+        : {
+            ...current,
+            category: canonicalCategory(args.category) ?? current.category,
+            material: asMaterial(args.material) ?? current.material,
+            purity: asKarat(args.purity) ?? current.purity,
+            weight: str(args.weight) ?? current.weight,
+            occasion: str(args.occasion) ?? current.occasion,
+            campaign: campaign ? campaignSlugOf(campaign) : current.campaign,
+            sort: (str(args.sort) as SortKey | undefined) ?? current.sort,
+            // a changed filter is a different set of pieces: the ledger starts again
+            shown: EMPTY_FACETS.shown,
+          };
+      const query = serialiseFacets(next);
+      const href = query ? `/${department}?${query}` : `/${department}`;
+      await navigate(href);
+      const phrases = facetPhrases(next);
+      const phrase = phrases.length ? [DEPARTMENT_LABEL[department], ...phrases.map((f) => f.label)].join(' · ') : DEPARTMENT_LABEL[department];
+      return {
+        result: { department, filters: Object.fromEntries(phrases.map((f) => [f.key, f.value])), href },
+        runningLabel: CONCIERGE.labels.filtering,
+        label: clearing ? CONCIERGE.labels.cleared : CONCIERGE.labels.filtered(phrase),
+        navigateTo: href,
+        ui: { kind: 'navigation', label: phrase, href },
+        compact: true,
+      };
+    }
+
+    /**
+     * Price, in a shop where all but seventeen pieces carry none.
+     *
+     * The honest surface is not a number and not a refusal — it is the consultation, with
+     * whatever the visitor said about their budget carried into it, so the conversation
+     * continues on the other side rather than starting again. A budget is a fact about the
+     * visitor, which is the one kind of figure this tool may pass on.
+     */
+    case 'showPriceGuidance': {
+      const anchor = resolveAnchor(args, ctx);
+      const budget = typeof args.budgetPkr === 'number' && args.budgetPkr > 0 ? Math.round(args.budgetPkr) : undefined;
+      const published = anchor && anchor.p > 0 ? anchor.p : undefined;
+      if (anchor && published !== undefined) {
+        return {
+          result: { slug: anchor.s, pricePkr: published, note: 'A published price, confirmed at a viewing. Gold moves daily; do not present it as fixed.' },
+          runningLabel: CONCIERGE.labels.price,
+          label: `Rs. ${new Intl.NumberFormat('en-US').format(published)}`,
+          ui: { kind: 'piece', piece: cardsOf([anchor])[0]!, verb: 'focused' },
+          compact: true,
+        };
+      }
+      site.openConsultation({ topic: 'viewing', productSlug: anchor?.s, source: 'concierge', budgetPkr: budget });
+      return {
+        result: {
+          slug: anchor?.s ?? null,
+          pricePkr: null,
+          budgetCarried: budget ?? null,
+          note: 'Waseem publishes no price for this piece. Say it is on request and that a consultant will confirm it. Never estimate a figure or a range.',
+        },
+        runningLabel: CONCIERGE.labels.price,
+        label: CONCIERGE.labels.priceOnRequest,
+        ui: { kind: 'consultation', topic: 'viewing' },
+        compact: true,
+      };
+    }
     case 'navigate': {
       const path = str(args.path) ?? '/';
       const ok =

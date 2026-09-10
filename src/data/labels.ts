@@ -76,11 +76,35 @@ const CAMPAIGN_LABEL: Record<string, string> = {
   'rang-e-jamal': 'Rang-e-Jamal',
   'aks-e-noor': 'Aks-e-Noor',
   'rukh-e-jana': 'Rukh-e-Jana',
+  // the handle the catalogue actually carries, missing its hyphen
+  'rukhe-jana': 'Rukh-e-Jana',
   'naqsh-e-gul': 'Naqsh-e-Gul',
   'royal-wedding': 'Royal Wedding',
   dewan: 'Dewan',
+  // a working handle that reached production: the facet drawer read "Dewan Final"
+  'dewan-final': 'Dewan',
+  'bridal-collection': 'Bridal',
+  'timeless-treasures': 'Timeless Treasures',
   'bespoke-elegance': 'Bespoke Elegance',
 };
+
+/**
+ * The campaign a *visitor's* word means, in the slug the catalogue actually stores.
+ *
+ * The site's campaign worlds and the shop's collection handles are spelled differently for
+ * three of the six — `rukh-e-jana` against `rukhe-jana`, `rang-e-jamal` against
+ * `range-jamal`, `dewan` against `dewan-final`. Anything that filters on a slug a
+ * visitor or a model supplied has to come through here first, or it filters on a string no
+ * piece carries and returns nothing at all — silently, which is the worst way to be wrong.
+ */
+const CAMPAIGN_SLUG: Record<string, string> = {
+  'rukh-e-jana': 'rukhe-jana',
+  'rang-e-jamal': 'range-jamal',
+  dewan: 'dewan-final',
+  bridal: 'bridal-collection',
+};
+
+export const campaignSlugOf = (slug: string): string => CAMPAIGN_SLUG[slug] ?? slug;
 
 export const campaignLabel = (slug: string) =>
   CAMPAIGN_LABEL[slug] ?? slug.replace(/-/g, ' ').replace(/(^|\s)\p{L}/gu, (m) => m.toUpperCase());

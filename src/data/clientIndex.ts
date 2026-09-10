@@ -2,6 +2,7 @@
 
 import { CATEGORY_LABEL, CATEGORY_PLURAL, METAL_COLOUR_LABEL } from './labels';
 import type { Category, ImageRef, ProductImage } from './types';
+import { complementsOf, formRankOf } from '@/lib/relations';
 import type { PieceRow } from '@/lib/facets';
 
 /**
@@ -44,12 +45,18 @@ export function loadIndex(): Promise<ClientIndex> {
       return cache;
     })
     .catch((err) => {
-      // an index that failed to load must not become an index that answers wrongly: it stays
-      // empty, every existence check says no, and nothing acts on a slug it cannot confirm
+      /**
+       * A failed fetch leaves the index *unloaded*, not empty.
+       *
+       * Failing closed is right — every existence check says no, and nothing acts on a slug
+       * it cannot confirm. Caching that emptiness was not: one dropped request and the
+       * refusal became permanent, so every tool call for the rest of the session was
+       * rejected as an invented slug and the concierge could not open a single piece.
+       * Leaving `cache` null keeps the same safe answer and lets the next ask try again.
+       */
       inflight = null;
       if (process.env.NODE_ENV === 'development') console.warn('[catalogue] index unavailable', err);
-      cache = { rows: [], bySlug: new Map(), generatedAt: '' };
-      return cache;
+      return { rows: [], bySlug: new Map<string, PieceRow>(), generatedAt: '' };
     });
   return inflight;
 }
@@ -130,7 +137,10 @@ export interface RowQuery {
   department?: string;
   occasion?: string;
   purity?: string;
+  /** A campaign slug. Declared *and read* — the field this replaces was silently discarded. */
+  campaign?: string;
   maxWeightGrams?: number;
+  minWeightGrams?: number;
   limit?: number;
 }
 
@@ -145,7 +155,9 @@ export function searchRows(q: RowQuery & { query?: string }): PieceRow[] {
       if (q.purity && row.k !== q.purity) return null;
       if (q.occasion && !row.o.includes(q.occasion)) return null;
       if (q.material && !matchesMaterial(row, q.material)) return null;
+      if (q.campaign && row.cp !== q.campaign) return null;
       if (q.maxWeightGrams !== undefined && (row.w === undefined || row.w > q.maxWeightGrams)) return null;
+      if (q.minWeightGrams !== undefined && (row.w === undefined || row.w < q.minWeightGrams)) return null;
       let score = 1;
       const hay = `${row.t} ${row.c ?? ''} ${row.m ?? ''} ${row.cp ?? ''}`.toLowerCase();
       for (const w of asked) if (hay.includes(w)) score += 1;
@@ -193,3 +205,71 @@ export function similarRows(slug: string, limit = 4): PieceRow[] {
 
 export const categoryPlural = (c?: string) => (c ? CATEGORY_PLURAL[c as Category] ?? c : 'Pieces');
 export const metalColourLabel = METAL_COLOUR_LABEL;
+
+/**
+ * What would be worn *with* this piece — the complement of `similarRows`, which finds more
+ * of the same kind. The table is shared with the repository, so the tray and the page cannot
+ * answer the same question differently.
+ */
+export function matchingRows(slug: string, limit = 4): PieceRow[] {
+  const anchor = getRow(slug);
+  if (!anchor || !cache) return [];
+  const wanted = complementsOf(anchor.c);
+  if (!wanted.size) return [];
+  // both being campaign-less is not a shared campaign: 640 pieces carry none, and testing it
+  // with `===` once made every one of them a match for every other
+  const sameCampaign = (r: PieceRow) => anchor.cp !== undefined && r.cp === anchor.cp;
+  const sameDepartment = (r: PieceRow) => r.d.some((d) => anchor.d.includes(d));
+  return cache.rows
+    .filter((r) => r.s !== slug && r.c && wanted.has(r.c) && (sameCampaign(r) || sameDepartment(r)))
+    .map((r) => ({ r, rank: (sameCampaign(r) ? 0 : 2) + (sameDepartment(r) ? 0 : 4) }))
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, limit)
+    .map((x) => x.r);
+}
+
+/** Which rung of the honesty ladder a "something lighter" question can be answered on. */
+export type WeightBasis = 'published' | 'form' | 'none';
+
+export interface LighterResult {
+  basis: WeightBasis;
+  rows: PieceRow[];
+  /** The anchor's published weight, when it has one. Never a figure derived from anything else. */
+  anchorWeight?: number;
+}
+
+/**
+ * "Something lighter than this" — answered three ways, in descending order of honesty.
+ *
+ * 1. The anchor publishes a gross weight (583 of 599 do): a true numeric comparison.
+ * 2. It publishes none: fall back to *form* — a ring is lighter than a bangle — and the
+ *    caller is told, so the reply can say "lighter in form" rather than implying a figure.
+ * 3. Neither the anchor nor its kind is known: return nothing and let the reply say so.
+ *
+ * There is no fourth branch that estimates grams. Upstream publishes `variants[].grams` as 0
+ * on every one of 750 products, so a number produced here would be invention wearing the
+ * costume of a specification.
+ */
+export function lighterRows(slug: string, direction: 'lighter' | 'heavier', limit = 4): LighterResult {
+  const anchor = getRow(slug);
+  if (!anchor || !cache) return { basis: 'none', rows: [] };
+  const pool = cache.rows.filter((r) => r.s !== slug && (r.c === anchor.c || r.d.some((d) => anchor.d.includes(d))));
+
+  if (anchor.w !== undefined) {
+    const rows = pool
+      .filter((r) => r.w !== undefined && (direction === 'lighter' ? r.w < anchor.w! : r.w > anchor.w!))
+      .sort((a, b) => (direction === 'lighter' ? b.w! - a.w! : a.w! - b.w!))
+      .slice(0, limit);
+    if (rows.length) return { basis: 'published', rows, anchorWeight: anchor.w };
+  }
+
+  const rank = formRankOf(anchor.c);
+  if (rank === undefined) return { basis: 'none', rows: [] };
+  const rows = pool
+    .filter((r) => {
+      const other = formRankOf(r.c);
+      return other !== undefined && (direction === 'lighter' ? other < rank : other > rank);
+    })
+    .slice(0, limit);
+  return rows.length ? { basis: 'form', rows } : { basis: 'none', rows: [] };
+}
