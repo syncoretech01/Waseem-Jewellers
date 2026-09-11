@@ -76,7 +76,9 @@ It also answers `hello`, `what can you do`, `how much is this`, `show me my sele
 | `npm start` | Production server on port 3300. |
 | `npm run typecheck` | `tsc --noEmit`. |
 | `npm run lint` | ESLint. |
-| `npm run check` | typecheck, lint and build in sequence. |
+| `npm run check` | The gate: typecheck, lint, `copy:check`, `nlu:check`, `enquiry:check`, build, `secret:scan`, in sequence. On a memory-constrained machine build with `NEXT_BUILD_CPUS=1`. |
+| `npm run leak:check [base]` | **Browser acceptance / regression, run by hand — not part of `check`.** Against a running production build (`npx next start -p 3399`): five route loops and twenty concierge cycles in a real Chromium, DOM nodes, listeners and heap sampled after forced GC. Fails on more than 15% growth. |
+| `npm run bundle:report [base] ['?tier=HIGH']` | Measures what each route actually downloads, gzipped, against the budget. Also by hand, against a running build. |
 | `npm run assets` | Re-encodes the videos and re-localises the images from the manifest. Needs ffmpeg and network access. |
 | `npm run assets:images` / `assets:videos` | Either half of the above. |
 

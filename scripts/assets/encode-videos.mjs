@@ -4,9 +4,9 @@
  * plus poster frames. Trims are input-side (-ss, then -t duration). Muted, faststart, yuv420p.
  * Writes .cache/videos.json for the image localiser to merge into the asset map.
  *
- * Every variant is encoded twice: h264, which everything plays, and AV1 (SVT-AV1), which
- * every current Chrome, Firefox, Edge and Safari 17+ prefers when offered first and which
- * comes in at roughly half the bytes for the same quality. The browser chooses — a `<source>`
+ * Every variant is encoded twice: h264, which everything plays, and AV1 (SVT-AV1) — offered
+ * first, taken where supported, verified in Chromium; other browsers have not been tested here.
+ * It comes in at roughly a third fewer bytes for the same quality. The browser chooses — a `<source>`
  * with an AV1 codec string ahead of the h264 one — so a device that cannot decode AV1 never
  * downloads it. On disk the total goes up; per visit it goes down by close to half, and the
  * per-visit figure is the one a visitor pays.

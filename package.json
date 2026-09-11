@@ -2,7 +2,7 @@
   "name": "waseem-jewellers",
   "version": "0.1.0",
   "private": true,
-  "description": "Waseem Jewellers — digital flagship, Stage 1 local experience",
+  "description": "Waseem Jewellers — digital flagship, Stage 2: the catalogue, the departments, the semantic motion system and the multilingual Concierge",
   "engines": {
     "node": ">=22"
   },

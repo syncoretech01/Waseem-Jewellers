@@ -19,7 +19,7 @@ A number in the table below being missed is a conversation. One of the three abo
 | drei | pulled in only by the craft object, so HIGH and MEDIUM only | no separate chunk — bundled into the 232 kB three chunk |
 | Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier). 358 on LOW, where three never loads. |
 | Images | webp; 2880 px for the four full-bleed campaign frames, 2250 px or less for everything else | met (see manifest) |
-| Video, one codec, all variants | ≤ 25 MB | h264 31.2 MB — over; **AV1 21.6 MB — within**, and the one a current browser downloads (11 Sep 2026) |
+| Video, one codec, all variants | ≤ 25 MB | h264 31.2 MB — over; **AV1 21.6 MB — within** where AV1 is supported (verified in Chromium, 11 Sep 2026) |
 | CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | not measured |
 
 ## Measured
@@ -251,9 +251,9 @@ Cache and compression headers beyond `minimumCacheTTL`, AV1/HEVC or adaptive (HL
 ## Video: AV1 first
 
 Every clip is encoded twice (`npm run assets:videos`): h264, which everything plays, and AV1 through
-SVT-AV1, which every current Chrome, Firefox, Edge and Safari 17+ takes when it is offered first.
-The browser chooses — the AV1 `<source>` precedes the h264 one — so a device that cannot decode it
-never fetches it. Verified in Chromium: only the `.av1.mp4` is requested.
+SVT-AV1. AV1 where supported, H.264 fallback; verified in Chromium. The browser chooses — the AV1 `<source>` precedes the h264 one — so a
+device that cannot decode it never fetches it; in Chromium only the `.av1.mp4` is requested. No
+other browser has been tested against this build.
 
 | | h264 | AV1 | saving |
 |---|---|---|---|
@@ -276,7 +276,9 @@ and every ancestor. The portrait file is chosen with `matchMedia` in JS instead.
 
 ## Leaks
 
-`npm run leak:check` (against a running production build) walks / → /gold → a PDP → / →
+`npm run leak:check` is a browser acceptance and regression command, **not part of `npm run
+check`**: it needs a running production build (`npx next start -p 3399`) and drives a real
+Chromium, so it is run by hand before a release rather than on every gate. It walks / → /gold → a PDP → / →
 /collections/bridal → / five times through the app's own links, then opens and closes the
 concierge twenty times, forcing GC through CDP before every sample. The audit that motivated it
 (11 Sep 2026) found +4,400 DOM nodes, +768 listeners and +1 MB of heap per loop — a whole previous
