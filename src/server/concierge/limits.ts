@@ -19,15 +19,27 @@ import { createHash } from 'node:crypto';
  * asked what.
  */
 
-const PER_MINUTE = 12;
-const PER_HOUR = 60;
+/**
+ * A limit is a pair of windows. The concierge allows a conversation; the enquiry form allows
+ * a visitor to change their mind once or twice. The two are sized differently because a
+ * limiter tuned for talking would let a script file sixty consultation requests an hour.
+ */
+export interface Limit {
+  perMinute: number;
+  perHour: number;
+}
+
+export const CONCIERGE_LIMIT: Limit = { perMinute: 12, perHour: 60 };
+/** Three in a minute is a retry; five in an hour is a person being thorough. More is not a person. */
+export const ENQUIRY_LIMIT: Limit = { perMinute: 3, perHour: 5 };
 
 interface Bucket {
   minute: { count: number; until: number };
   hour: { count: number; until: number };
 }
 
-const buckets = new Map<string, Bucket>();
+/** One map per scope, so an hour of conversation cannot spend the enquiry allowance or vice versa. */
+const scopes = new Map<string, Map<string, Bucket>>();
 let lastSweep = 0;
 
 /** A stable, non-identifying key. The salt is per-process, so it does not survive a restart. */
@@ -37,7 +49,7 @@ const keyFor = (ip: string) => createHash('sha256').update(`${SALT}:${ip}`).dige
 function sweep(now: number) {
   if (now - lastSweep < 60_000) return;
   lastSweep = now;
-  for (const [k, b] of buckets) if (b.hour.until < now) buckets.delete(k);
+  for (const buckets of scopes.values()) for (const [k, b] of buckets) if (b.hour.until < now) buckets.delete(k);
 }
 
 export interface LimitResult {
@@ -45,20 +57,22 @@ export interface LimitResult {
   retryAfterSeconds?: number;
 }
 
-export function takeToken(ip: string): LimitResult {
+export function takeToken(ip: string, scope = 'concierge', limit: Limit = CONCIERGE_LIMIT): LimitResult {
   const now = Date.now();
   sweep(now);
+  const buckets = scopes.get(scope) ?? new Map<string, Bucket>();
+  scopes.set(scope, buckets);
   const key = keyFor(ip);
   const b = buckets.get(key) ?? { minute: { count: 0, until: now + 60_000 }, hour: { count: 0, until: now + 3_600_000 } };
 
   if (b.minute.until < now) b.minute = { count: 0, until: now + 60_000 };
   if (b.hour.until < now) b.hour = { count: 0, until: now + 3_600_000 };
 
-  if (b.minute.count >= PER_MINUTE) {
+  if (b.minute.count >= limit.perMinute) {
     buckets.set(key, b);
     return { ok: false, retryAfterSeconds: Math.ceil((b.minute.until - now) / 1000) };
   }
-  if (b.hour.count >= PER_HOUR) {
+  if (b.hour.count >= limit.perHour) {
     buckets.set(key, b);
     return { ok: false, retryAfterSeconds: Math.ceil((b.hour.until - now) / 1000) };
   }

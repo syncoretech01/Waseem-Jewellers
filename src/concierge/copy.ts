@@ -74,7 +74,8 @@ export const CONCIERGE = {
   restart: 'Begun again. What would you like to see?',
   /** Said when the running topic supplied the subject, so the visitor can see it and correct it. */
   stillIn: (topic: string) => `Still in ${topic} — say otherwise and I will widen it.`,
-  consultationKnown: (code: string) => `Your request ${code} is with our team. I can arrange a further viewing whenever you wish.`,
+  // true whether or not anything was sent: the reference exists either way
+  consultationKnown: (code: string) => `Your reference is ${code}. I can arrange a further viewing whenever you wish.`,
   priceOnRequest: 'This piece is priced on request — we share full details at a private viewing, which I can arrange.',
   priceKnown: (label: string, karat?: string) => `This piece is ${label}${karat ? `, in ${karat}` : ''}. Shall I arrange a viewing?`,
   saved: 'Kept in your selection. It will be here when you return.',

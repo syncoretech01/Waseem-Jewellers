@@ -1,8 +1,8 @@
 'use client';
 
-import { useController } from '../useConcierge';
+import { requestConcierge } from '../bridge';
 import { CONCIERGE } from '../copy';
-import { MicGlyph } from '@/components/collection/CollectionExperience';
+import { MicGlyph } from '@/components/ui/MicGlyph';
 import { preloadOrbCanvas } from '../orb/Orb';
 import { cn } from '@/lib/cn';
 
@@ -11,13 +11,13 @@ import { cn } from '@/lib/cn';
  * a hairline mic ring (a light travels its circumference every six seconds), the name, and the line.
  */
 export function ConciergeInvitation({ className }: { className?: string }) {
-  const controller = useController();
+  // the hero is on every first load; the bridge keeps the controller out of it
   return (
     <div className={cn('flex items-center gap-5', className)} data-concierge-invitation>
       <button
         type="button"
         aria-label={CONCIERGE.voice.start}
-        onClick={() => controller?.open({ mode: 'voice', autoListen: true })}
+        onClick={() => requestConcierge({ mode: 'voice', autoListen: true })}
         onPointerEnter={preloadOrbCanvas}
         className="group/ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ivory/80 transition-colors hover:text-ivory"
       >
@@ -27,7 +27,7 @@ export function ConciergeInvitation({ className }: { className?: string }) {
         </svg>
         <MicGlyph />
       </button>
-      <button type="button" onClick={() => controller?.open({ mode: 'chat' })} className="group/inv flex flex-col items-start gap-1 text-left">
+      <button type="button" onClick={() => requestConcierge({ mode: 'chat' })} className="group/inv flex flex-col items-start gap-1 text-left">
         <span className="micro text-champagne">{CONCIERGE.name}</span>
         <span className="font-display italic text-[1.0625rem] leading-snug text-ivory/85 transition-colors group-hover/inv:text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
           {CONCIERGE.placeholder}

@@ -12,7 +12,7 @@
     "start": "next start -p 3300",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run copy:check && npm run nlu:check && npm run build && npm run secret:scan",
+    "check": "npm run typecheck && npm run lint && npm run copy:check && npm run nlu:check && npm run enquiry:check && npm run build && npm run secret:scan",
     "assets:images": "node scripts/assets/localize.mjs",
     "assets:videos": "node scripts/assets/encode-videos.mjs",
     "assets": "npm run assets:videos && npm run assets:images",
@@ -33,6 +33,8 @@
     "catalogue:build": "npm run catalogue:parse && npm run catalogue:classify && npm run catalogue:media && npm run catalogue:emit",
     "catalogue": "npm run catalogue:fetch && npm run catalogue:build && npm run catalogue:verify && npm run catalogue:audit",
     "nlu:check": "node scripts/dev/nlu-check.mjs",
+    "enquiry:check": "node scripts/dev/enquiry-check.mjs",
+    "bundle:report": "node scripts/dev/bundle-report.mjs",
     "secret:scan": "node scripts/dev/secret-scan.mjs"
   },
   "dependencies": {

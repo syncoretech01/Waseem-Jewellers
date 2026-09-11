@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useConciergeStore, BUSY_STATES } from '@/state/conciergeStore';
 import { useController } from '../useConcierge';
 import { CONCIERGE } from '../copy';
-import { MicGlyph } from '@/components/collection/CollectionExperience';
+import { MicGlyph } from '@/components/ui/MicGlyph';
 import { cn } from '@/lib/cn';
 
 /** A single hairline-underlined serif field with the mic ring as the only glyph. */

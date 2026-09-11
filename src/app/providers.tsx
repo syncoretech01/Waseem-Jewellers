@@ -6,14 +6,11 @@ import { MotionConfig } from 'motion/react';
 import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
 import { SmoothScroll } from '@/components/motion/SmoothScroll';
 import { TransitionLayer } from '@/components/motion/TransitionLayer';
-import { CursorLayer } from '@/components/motion/CursorLayer';
 import { Loader } from '@/components/loader/Loader';
 import { Nav } from '@/components/chrome/Nav';
-import { MenuOverlay } from '@/components/chrome/MenuOverlay';
 import { Footer } from '@/components/chrome/Footer';
-import { SelectionLedger } from '@/components/commerce/SelectionLedger';
-import { ConsultationModal } from '@/components/commerce/ConsultationModal';
-import { ConciergeRoot } from '@/concierge/ui/ConciergeRoot';
+import { LazyChrome } from '@/components/chrome/LazyChrome';
+import { ConciergeMount } from '@/concierge/ui/ConciergeMount';
 import { QualityDetector, RouteTracker, RuntimeBridge, StoreHydrator } from '@/state/trackers';
 import { installDevInspector } from '@/lib/devInspector';
 
@@ -22,7 +19,9 @@ import { installDevInspector } from '@/lib/devInspector';
  *  1. quality is resolved before any canvas can mount,
  *  2. GSAP is configured before Lenis is ticked by it,
  *  3. Lenis wraps the page; SmoothScroll wires gsap.ticker → lenis.raf → ScrollTrigger.update,
- *  4. persistent chrome (nav, menu, concierge, transition layer) mounts once, outside the routed tree.
+ *  4. persistent chrome (nav, menu, concierge, transition layer) mounts once, outside the routed tree —
+ *     and what is invisible until an interaction (the menu, the ledger, the consultation form, the
+ *     salon behind the orb, the cursor) hydrates on idle after the ritual rather than with the page.
  */
 export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -47,12 +46,9 @@ export function Providers({ children }: { children: ReactNode }) {
         <Footer />
         <TransitionLayer />
         <Nav />
-        <MenuOverlay />
-        <ConciergeRoot />
-        <SelectionLedger />
-        <ConsultationModal />
+        <ConciergeMount />
+        <LazyChrome />
         <Loader />
-        <CursorLayer />
       </ReactLenis>
     </MotionConfig>
   );

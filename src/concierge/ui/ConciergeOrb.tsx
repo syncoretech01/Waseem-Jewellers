@@ -4,15 +4,27 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
-import { useController } from '../useConcierge';
+import { requestConcierge } from '../bridge';
 import { OrbStatic } from '../orb/OrbStatic';
 import { preloadOrbCanvas } from '../orb/Orb';
 import { CONCIERGE } from '../copy';
 import { EASE } from '@/lib/motion/easings';
 
+/** The same two transitions the controller makes on hover, without the controller. */
+function hover(on: boolean) {
+  const s = useConciergeStore.getState();
+  if (on && s.state === 'IDLE') s.transition('HOVER', 'pointer');
+  else if (!on && s.state === 'HOVER') s.transition('IDLE', 'pointer');
+}
+
 /** The persistent jewel: 56px CSS gem, bottom-right; the panel unfolds above it. */
 export function ConciergeOrb() {
-  const controller = useController();
+  /**
+   * No controller here. The orb is the one piece of the concierge that is eager — it has to
+   * be, it is the door — and importing the controller from it pulled the lexicon, the tools
+   * and the providers into every first load. Hover is two lines against the store; a click
+   * is a request on the bridge, and whatever is mounted answers it.
+   */
   const state = useConciergeStore((s) => s.state);
   const panel = useConciergeStore((s) => s.panel);
   const invitationVisible = useSiteStore((s) => s.heroInvitationVisible);
@@ -61,7 +73,7 @@ export function ConciergeOrb() {
               <motion.button
                 key={`ticket-${lastLine.slice(0, 24)}`}
                 type="button"
-                onClick={() => controller?.expand()}
+                onClick={() => requestConcierge({ action: 'expand' })}
                 className="line-clamp-2 max-w-[62vw] text-left font-display text-[0.9375rem] leading-snug text-fg"
                 style={{ fontVariationSettings: '"opsz" 14' }}
                 initial={{ opacity: 0, x: 8 }}
@@ -80,17 +92,16 @@ export function ConciergeOrb() {
             aria-expanded={open}
             data-cursor="ask"
             onPointerEnter={() => {
-              controller?.hover(true);
+              hover(true);
               preloadOrbCanvas();
             }}
-            onPointerLeave={() => controller?.hover(false)}
-            onFocus={() => controller?.hover(true)}
-            onBlur={() => controller?.hover(false)}
+            onPointerLeave={() => hover(false)}
+            onFocus={() => hover(true)}
+            onBlur={() => hover(false)}
             onClick={() => {
-              if (!controller) return;
-              if (open && panel === 'compact') controller.expand();
-              else if (open) controller.close();
-              else controller.open({ mode: window.innerWidth < 768 ? 'voice' : 'chat' });
+              if (open && panel === 'compact') requestConcierge({ action: 'expand' });
+              else if (open) requestConcierge({ action: 'close' });
+              else requestConcierge({ action: 'open', mode: window.innerWidth < 768 ? 'voice' : 'chat' });
             }}
             className="relative block h-14 w-14 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-gold-hi md:h-14 md:w-14"
           >

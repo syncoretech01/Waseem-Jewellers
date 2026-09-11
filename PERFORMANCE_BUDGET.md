@@ -14,13 +14,77 @@ A number in the table below being missed is a conversation. One of the three abo
 
 | Target | Value | Status |
 |---|---|---|
-| Base route JS | ≤ 170 kB gz | not measured |
-| three + R3F chunk | ≈ 220 kB gz, requested once per document; never under REDUCED | not measured |
-| drei | pulled in only by the craft object, so HIGH and MEDIUM only | not measured |
-| Homepage first load including three | ≤ 400 kB gz | not measured |
+| Base route JS | ≤ 170 kB gz | **309 kB — over by 139** (home, 11 Sep 2026, after the hydration work; was 349). Every route 294–309. See *Measured* below. |
+| three + R3F chunk | ≈ 220 kB gz, requested once per document; never under REDUCED | **253 kB — over by 33** (HIGH tier via `?tier=HIGH` on a QA build, 11 Sep 2026). Two chunks: 232 + 21. |
+| drei | pulled in only by the craft object, so HIGH and MEDIUM only | no separate chunk — bundled into the 232 kB three chunk |
+| Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier). 358 on LOW, where three never loads. |
 | Images | webp; 2880 px for the four full-bleed campaign frames, 2250 px or less for everything else | met (see manifest) |
 | Video on disk, all variants | ≤ 25 MB | 31.2 MB — over |
 | CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | not measured |
+
+## Measured
+
+`npm run bundle:report` loads each route in a real browser from a running production build, captures
+every script response, gzips it here and attributes it by content. Read from a manifest, a number
+says what *could* load; read from a browser, it says what *did*. First run, 11 September 2026, against
+the build at `99ac717`:
+
+| Route | Initial (HTML-referenced) | Settled (after idle) |
+|---|---|---|
+| `/` | 349 kB | 358 kB |
+| `/gold` | 336 kB | 363 kB |
+| `/jewellery/[slug]` | 340 kB | 371 kB |
+| `/collections/bridal` | 331 kB | 358 kB |
+
+Where the 349 kB on the homepage goes, by chunk:
+
+| gz kB | What | Avoidable on first paint? |
+|---|---|---|
+| 70 | React runtime | no |
+| 44 | Next app-router runtime | no |
+| 58 | GSAP core + ScrollTrigger + SplitText + CustomEase | no — the loading ritual is GSAP |
+| 68 | Application shell: the `motion` library, Loader, Nav, `Img`, the client index | partly — `motion` is only used by surfaces that open on interaction |
+| **39** | **The concierge: lexicon, parser, tools, controller** | **yes — nothing here is visible until the panel opens** |
+| **25** | **Concierge UI, Lenis** | **yes, the UI part** |
+| 45 | Chapters and the rest | partly — `MenuOverlay`, `SelectionLedger`, `ConsultationModal` all mount on every route, invisible |
+
+The 179 kB overage is not the animation system; it is that everything a visitor *might* open is
+hydrated before they can open anything. That is the S2F hydration work, and its target — at least
+120 kB off the initial figure — is now a measurement rather than an estimate.
+
+### After the hydration work
+
+Same day, same method, after the surfaces invisible until an interaction — the salon behind the
+orb, the menu, the ledger, the consultation form, the cursor — were moved off the initial script
+set and onto idle-or-interaction (`ConciergeMount`, `LazyChrome`):
+
+| Route | Before | After | Off |
+|---|---|---|---|
+| `/` | 349 kB | 309 kB | 40 |
+| `/gold` | 336 kB | 294 kB | 42 |
+| `/jewellery/[slug]` | 340 kB | 300 kB | 40 |
+| `/collections/bridal` | 331 kB | 296 kB | 35 |
+
+The concierge is now entirely absent from the initial set — its 31 kB chunk arrives on idle, or
+on the first request if that comes sooner, and a request that arrives before the chunk is held
+and replayed (measured: 555 ms from a pre-idle click on the orb to an open salon). The homepage
+needed one more cut than the others: the hero's invitation imported the controller directly,
+and a seven-line microphone glyph was being imported from the campaign page component.
+
+**Forty kilobytes, not the hundred and twenty the plan estimated.** The estimate assumed the
+deferred surfaces were ~120 kB together; measured, they were ~65. What remains initial is React
+(70), the Next router (43), GSAP with the plugins the ritual needs (57), and the `motion` library
+that the nav and the orb animate with (~35, inside a 56 kB shell chunk). Taking the last two off
+the first paint would mean re-animating the loader, the nav and the orb without them, which is a
+redesign of finished work rather than a stabilisation, and is not done here. The 170 kB line
+is therefore not reachable on this architecture; **309 kB is the honest floor**, and the budget
+document should be read with that.
+
+**On measuring three.** Headless Chromium has no real GPU, so `QualityDetector` resolves LOW and
+the craft object never mounts; the ordinary report reads 0 for that line. The figure above comes
+from a QA build (`NEXT_PUBLIC_QA_TIER_OVERRIDE=1`) loaded with `?tier=HIGH` and scrolled to
+CH02, where the chunk is requested on approach. On software GL that page runs at about two frames
+a second — which is what the frame-rate monitor now demotes a real visitor away from.
 
 ## Quality tiers
 
@@ -183,3 +247,28 @@ Be clear with anyone reading these numbers:
 ## Not in Stage 1
 
 Cache and compression headers beyond `minimumCacheTTL`, AV1/HEVC or adaptive (HLS) video variants, a CI performance gate, and real-user monitoring are deferred to Stage 2.
+
+## The frame-rate monitor
+
+`src/lib/perf/fpsMonitor.ts` samples the same `gsap.ticker` that drives every tween — a 120-frame
+ring of frame durations, plus a `PerformanceObserver('longtask')` count for the inspector. Three
+consecutive seconds under 45 fps demotes the tier one step through `useQualityStore.demote`,
+which cascades exactly as a detected tier does: DPR cap, `useCanWebGL`, video variant, `data-tier`.
+
+Once per session, never back up. A page that promotes itself the moment it recovers oscillates,
+and the visitor sees the site change its mind. `data-demoted` on `<html>` carries the fps that
+caused it, and `detectedTier` in the store keeps what the device claimed, so the two can be told
+apart.
+
+Held off where a low reading would be true and irrelevant: during the loading ritual, while
+`html.is-transitioning`, for 800 ms after any `ScrollTrigger.refresh()` (the one place a
+stale-clock trap actually lives), and while the document is hidden. REDUCED is never a demotion
+target — it is the visitor's own preference.
+
+Not drei's `PerformanceMonitor`, which sees only R3F frames; this page's cost is DOM and
+compositing, and the object it would watch is the smallest part of it.
+
+Proven in a browser (11 Sep 2026): a QA build on `?tier=HIGH`, CPU throttled 30× under CDP while
+scrolling, demoted to MEDIUM at a measured 2 fps after the ring filled and the three-second window
+elapsed, and stayed at MEDIUM after the throttle was lifted. `__wjFps()` is exposed on QA and dev
+builds so the reading can be watched rather than trusted.

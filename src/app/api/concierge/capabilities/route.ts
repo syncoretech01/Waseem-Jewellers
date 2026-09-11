@@ -1,5 +1,5 @@
 import { modelIsConfigured } from '@/server/env';
-import { enquiryIsConfigured } from '@/server/enquiry/sink';
+import { enquiryReadiness } from '@/server/enquiry/sink';
 
 /**
  * What the concierge is allowed to be, today, on this deployment.
@@ -16,6 +16,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export function GET() {
+  const enquiry = enquiryReadiness();
   return Response.json(
     {
       intelligence: modelIsConfigured() ? 'model' : 'keyless',
@@ -28,7 +29,13 @@ export function GET() {
        * done. It becomes 'server' when Waseem supplies a destination — and that must not
        * happen before there is a privacy statement and a privacy contact to point at.
        */
-      enquiry: enquiryIsConfigured() ? 'server' : 'local',
+      enquiry: enquiry.ready ? 'server' : 'local',
+      /**
+       * The disclosure travels with the permission. When the form may post, it must show the
+       * visitor where the privacy statement is and whom to write to — and it must not be able
+       * to post without them, which is why they are part of the same readiness decision.
+       */
+      privacy: enquiry.ready ? { url: enquiry.config.privacyUrl, contact: enquiry.config.privacyContact } : null,
     },
     { headers: { 'cache-control': 'no-store' } },
   );

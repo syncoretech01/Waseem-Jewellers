@@ -73,19 +73,41 @@ export const COPY = {
     mark: 'Waseem Jewellers',
     since: 'Since 1952',
     correspondence: 'Occasional letters from Waseem.',
-    correspondenceSuccess: 'Thank you. The first letter will find you soon.',
+    /**
+     * Nothing receives this address yet — it is kept on the device and nowhere else. The line
+     * used to promise a letter, which nobody was positioned to send. Same rule as the
+     * consultation form: say what happened, not what a finished system would have done.
+     */
+    correspondenceSuccess: 'Noted. Letters have not begun; when they do, this is where they will go.',
     legal: '© 2026 Waseem Jewellers · Lahore',
   },
   consultation: {
     eyebrow: 'Private consultation',
     title: 'Meet us in Lahore.',
     sub: 'Lahore · By appointment',
-    success: {
-      title: 'Your request has been received.',
-      line: 'A Waseem consultant will be in touch to confirm your private consultation.',
+    /**
+     * Two acknowledgements, because two different things can have happened.
+     *
+     * While no destination is configured — every deployment today — nothing has left the
+     * visitor's device, so "received" would be untrue and "a consultant will be in touch"
+     * a promise nobody is positioned to keep. That state says what is true: the details are
+     * ready, and WhatsApp is how they reach Waseem. Only a submission the server actually
+     * delivered may say Waseem has it.
+     */
+    ready: {
+      title: 'Your consultation details are ready.',
+      line: 'Continue on WhatsApp to send them to Waseem.',
       whatsapp: 'Continue on WhatsApp',
       close: 'Close',
     },
+    delivered: {
+      title: 'Your request has been received.',
+      line: 'A Waseem consultant will be in touch to confirm your private consultation.',
+      whatsapp: 'Also send on WhatsApp',
+      close: 'Close',
+    },
+    consent: (contact: string) => `By sending, you agree to our privacy statement. Questions about your data: ${contact}.`,
+    consentLink: 'privacy statement',
   },
   ledger: {
     title: 'Your Selection',

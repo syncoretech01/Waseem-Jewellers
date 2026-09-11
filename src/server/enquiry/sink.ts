@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { assessEnquiryReadiness, type EnquiryReadiness } from './readiness';
+
 /**
  * Where a consultation request goes — and, today, the fact that it goes nowhere.
  *
@@ -70,10 +72,17 @@ function webhookSink(url: string): EnquirySink {
   };
 }
 
-export function enquirySink(): EnquirySink {
-  const url = process.env.ENQUIRY_WEBHOOK_URL?.trim();
-  return url ? webhookSink(url) : nullSink;
-}
+/**
+ * The single readiness decision, over the real environment.
+ *
+ * `/api/enquiry` and the capabilities endpoint both call this and nothing else, so the client
+ * can never be told the form may post to a route that will refuse it — or the reverse. A
+ * webhook alone is not readiness: see `readiness.ts` for what is, and `enquiry-check.mjs`
+ * for the proof that runs on every `npm run check`.
+ */
+export const enquiryReadiness = (): EnquiryReadiness => assessEnquiryReadiness(process.env);
 
-/** Whether a visitor's details may leave their device at all. */
-export const enquiryIsConfigured = () => Boolean(process.env.ENQUIRY_WEBHOOK_URL?.trim());
+export function enquirySink(): EnquirySink {
+  const r = enquiryReadiness();
+  return r.ready ? webhookSink(r.config.destination) : nullSink;
+}

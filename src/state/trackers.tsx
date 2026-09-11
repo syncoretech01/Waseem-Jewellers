@@ -6,6 +6,7 @@ import { useQualityStore } from './qualityStore';
 import { migrateSelectionStorage, useSiteStore } from './siteStore';
 import { runtime } from './runtime';
 import { loadIndex } from '@/data/clientIndex';
+import { installFpsMonitor } from '@/lib/perf/fpsMonitor';
 
 /** Resolves the quality tier once on the client and follows reduced-motion changes live. */
 export function QualityDetector() {
@@ -16,7 +17,12 @@ export function QualityDetector() {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
     const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
     mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    // detection says what the device claims; the monitor says what it is achieving
+    const uninstall = installFpsMonitor();
+    return () => {
+      mq.removeEventListener('change', onChange);
+      uninstall();
+    };
   }, [detect, setReducedMotion]);
   return null;
 }

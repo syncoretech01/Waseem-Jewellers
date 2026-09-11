@@ -22,6 +22,12 @@ export interface ConciergeCapabilities {
   languages: Language[];
   /** `local` — the consultation form stays on the device, as it does today. */
   enquiry: 'local' | 'server';
+  /**
+   * The privacy statement and contact, present exactly when `enquiry` is 'server'. The
+   * server issues them together with the permission, so a form that may post always has
+   * something to show the visitor before they do.
+   */
+  privacy: { url: string; contact: string } | null;
 }
 
 /** What a deployment is until told otherwise. It is also exactly what ships with no key. */
@@ -30,6 +36,7 @@ export const DEFAULT_CAPABILITIES: ConciergeCapabilities = {
   voice: 'browser',
   languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
   enquiry: 'local',
+  privacy: null,
 };
 
 const KEY = 'wj:concierge:capabilities:v1';
@@ -40,6 +47,9 @@ let inflight: Promise<ConciergeCapabilities> | null = null;
 
 const VOICES = new Set(['none', 'browser', 'native']);
 
+const isPrivacy = (v: unknown): v is { url: string; contact: string } =>
+  !!v && typeof v === 'object' && typeof (v as { url?: unknown }).url === 'string' && typeof (v as { contact?: unknown }).contact === 'string';
+
 /** Narrowed field by field: this arrives over a network and is not trusted for its shape. */
 function parse(raw: unknown): ConciergeCapabilities {
   if (!raw || typeof raw !== 'object') return DEFAULT_CAPABILITIES;
@@ -48,7 +58,9 @@ function parse(raw: unknown): ConciergeCapabilities {
     intelligence: r.intelligence === 'model' ? 'model' : 'keyless',
     voice: typeof r.voice === 'string' && VOICES.has(r.voice) ? (r.voice as ConciergeCapabilities['voice']) : 'browser',
     languages: Array.isArray(r.languages) ? (r.languages.filter((l): l is Language => typeof l === 'string') as Language[]) : DEFAULT_CAPABILITIES.languages,
-    enquiry: r.enquiry === 'server' ? 'server' : 'local',
+    // the disclosure is only honoured alongside the permission; one without the other is
+    // treated as neither, because that is the case the server never produces
+    ...(r.enquiry === 'server' && isPrivacy(r.privacy) ? { enquiry: 'server' as const, privacy: r.privacy } : { enquiry: 'local' as const, privacy: null }),
   };
 }
 

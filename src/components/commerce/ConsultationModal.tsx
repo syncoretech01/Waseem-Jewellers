@@ -13,7 +13,13 @@ import { COPY } from '@/data/copy';
 import { EASE } from '@/lib/motion/easings';
 import { capabilities, probeCapabilities } from '@/concierge/capabilities';
 
-type Stage = 'idle' | 'submitting' | 'success';
+/**
+ * `ready` is the local outcome: details prepared on the device, nothing sent. `delivered` is
+ * the server outcome: the route accepted it and the sink took it. They are different states
+ * because they are different facts, and the acknowledgement must not say the second when
+ * only the first happened — including when a server submission fails and falls back.
+ */
+type Stage = 'idle' | 'submitting' | 'ready' | 'delivered';
 
 const OCCASIONS = [
   { value: 'bridal', label: 'Bridal' },
@@ -44,14 +50,23 @@ function reference() {
 /** Private consultation — no backend. The request is kept in sessionStorage and acknowledged by the concierge. */
 export function ConsultationModal() {
   const consultation = useSiteStore((s) => s.consultation);
+  /** What this deployment allows; re-read when the dialog opens, after the probe has answered. */
+  const [caps, setCaps] = useState(capabilities);
   // the index arrives when the form does; a visitor who never opens it never pays for it
   useEffect(() => {
     if (consultation.open) {
       void loadIndex();
       // whether a request may leave the device at all — asked of the server, once
-      void probeCapabilities();
-      // the clock starts when the form is actually in front of someone
-      openedAt.current = Date.now();
+      void probeCapabilities().then(setCaps);
+      /**
+       * One clock and one key per enquiry, not per opening. The fields persist when the
+       * dialog is closed and reopened, so resetting the clock there refused a genuine visitor
+       * who came back to press the button — and minting a fresh key made a resubmission
+       * after a dropped response into a second enquiry rather than the same one. Both are
+       * reset together when a submission has actually concluded.
+       */
+      if (!openedAt.current) openedAt.current = Date.now();
+      if (!idempotencyKey.current) idempotencyKey.current = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
     }
   }, [consultation.open]);
   const close = useSiteStore((s) => s.closeConsultation);
@@ -75,6 +90,8 @@ export function ConsultationModal() {
    * the value that matters is set when the dialog actually opens, a few lines below.
    */
   const openedAt = useRef(0);
+  /** One per opening of the form, so a retry after a dropped connection is not a second enquiry. */
+  const idempotencyKey = useRef('');
 
   const pieces = useMemo(() => {
     const slugs = consultation.productSlugs ?? (consultation.productSlug ? [consultation.productSlug] : []);
@@ -117,7 +134,7 @@ export function ConsultationModal() {
      * is configured — which must not happen before there is a privacy statement to point at,
      * because that is the first time a name and a telephone number would travel.
      */
-    const local = capabilities().enquiry !== 'server';
+    const local = caps.enquiry !== 'server';
     const fallback = reference();
 
     const keepLocally = (code: string) => {
@@ -131,7 +148,7 @@ export function ConsultationModal() {
     if (local) {
       setRef(fallback);
       keepLocally(fallback);
-      window.setTimeout(() => setStage('success'), 700);
+      window.setTimeout(() => setStage('ready'), 700);
       return;
     }
 
@@ -151,20 +168,28 @@ export function ConsultationModal() {
         budgetPkr: consultation.budgetPkr,
         elapsedMs: Date.now() - openedAt.current,
         company: honeypot,
+        idempotencyKey: idempotencyKey.current,
       }),
     })
-      .then((r) => (r.ok ? (r.json() as Promise<{ reference: string }>) : Promise.reject(new Error(String(r.status)))))
-      .then(({ reference: issued }) => {
-        setRef(issued);
-        keepLocally(issued);
-        setStage('success');
+      .then(async (r) => {
+        const json = (await r.json().catch(() => ({}))) as { reference?: string; error?: string };
+        if (r.ok && json.reference) return { delivered: true, reference: json.reference };
+        // a delivery failure may still carry the reference the sink recorded before timing out
+        return { delivered: false, reference: typeof json.reference === 'string' ? json.reference : fallback };
       })
-      .catch(() => {
+      .catch(() => ({ delivered: false, reference: fallback }))
+      .then(({ delivered, reference: issued }) => {
         // the visitor has already written it out: show them a reference and their own
         // WhatsApp line rather than losing the request to a failed request
-        setRef(fallback);
-        keepLocally(fallback);
-        setStage('success');
+        setRef(issued);
+        keepLocally(issued);
+        // it did not arrive, so the words must not say it did
+        setStage(delivered ? 'delivered' : 'ready');
+        if (delivered) {
+          // this enquiry is concluded; the next one gets its own clock and key
+          openedAt.current = 0;
+          idempotencyKey.current = '';
+        }
       });
   };
 
@@ -185,21 +210,21 @@ export function ConsultationModal() {
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        {stage === 'success' ? (
+        {stage === 'ready' || stage === 'delivered' ? (
           <motion.div key="success" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE.out }} className="mt-10 flex flex-col gap-6">
             <p className="font-display text-heading" style={{ fontVariationSettings: '"opsz" 32' }}>
-              {COPY.consultation.success.title}
+              {COPY.consultation[stage].title}
             </p>
-            <p className="max-w-[30em] text-fg-muted">{COPY.consultation.success.line}</p>
+            <p className="max-w-[30em] text-fg-muted">{COPY.consultation[stage].line}</p>
             <p className="micro text-fg-muted">
               Reference <span className="text-gold font-display text-[1rem] tracking-normal">{ref}</span>
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-8">
               <Button variant="bracket" href={whatsappHref(waText)} target="_blank">
-                {COPY.consultation.success.whatsapp}
+                {COPY.consultation[stage].whatsapp}
               </Button>
               <Button variant="text" onClick={close}>
-                {COPY.consultation.success.close}
+                {COPY.consultation[stage].close}
               </Button>
             </div>
           </motion.div>
@@ -244,6 +269,21 @@ export function ConsultationModal() {
             </div>
             <Field label="A note for us" multiline value={message} onChange={(e) => setMessage(e.target.value)} />
             <div className="mt-8 flex items-center gap-8">
+              {/*
+                Shown only when a submission will leave the device. The server hands these
+                two values over with the permission itself, so this line cannot be absent on
+                a deployment that posts — and is never shown on one that does not, where it
+                would be a disclosure about a transmission that is not happening.
+              */}
+              {caps.enquiry === 'server' && caps.privacy && (
+                <p className="micro max-w-[34em] text-fg-muted">
+                  {COPY.consultation.consent(caps.privacy.contact).split(COPY.consultation.consentLink)[0]}
+                  <a href={caps.privacy.url} target="_blank" rel="noreferrer" className="underline underline-offset-4 decoration-line-strong hover:decoration-gold-hi">
+                    {COPY.consultation.consentLink}
+                  </a>
+                  {COPY.consultation.consent(caps.privacy.contact).split(COPY.consultation.consentLink)[1]}
+                </p>
+              )}
               <Button variant="bracket" type="submit" disabled={stage === 'submitting'}>
                 {stage === 'submitting' ? 'A moment' : 'Request a consultation'}
               </Button>

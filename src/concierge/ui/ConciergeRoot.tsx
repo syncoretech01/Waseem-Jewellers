@@ -1,28 +1,40 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ConciergeOrb } from './ConciergeOrb';
 import { ConciergePanel } from './ConciergePanel';
 import { ResultTray } from './ResultTray';
 import { useController } from '../useConcierge';
-import { onConciergeRequest } from '../bridge';
+import { onConciergeRequest, type ConciergeRequest } from '../bridge';
 import { useSiteStore } from '@/state/siteStore';
-import type { ConciergeState } from '@/state/conciergeStore';
+import { OPEN_STATES, useConciergeStore, type ConciergeState } from '@/state/conciergeStore';
 
 const STATES: ConciergeState[] = ['IDLE', 'HOVER', 'OPENING', 'CHAT', 'VOICE_READY', 'LISTENING', 'THINKING', 'SPEAKING', 'EXECUTING_ACTION', 'RESULT', 'ERROR'];
 
-/** Mounted once in Providers: the jewel, the panel, the tray, and the bridge that lets any page ask for the concierge. */
-export function ConciergeRoot() {
+/**
+ * The salon: the panel, the tray, the controller, and the bridge that lets any page ask for it.
+ *
+ * Not mounted with the page. `ConciergeMount` puts it in the tree on the first request or on
+ * idle after the ritual, whichever comes first, so the lexicon, the tools and the providers
+ * hydrate off the critical path. A request that arrived before this mounted is handed in as
+ * `pending` and answered as soon as the controller exists.
+ */
+export function ConciergeRoot({ pending }: { pending?: ConciergeRequest | null } = {}) {
   const controller = useController();
   const pathname = useSiteStore((s) => s.pathname);
 
   useEffect(() => {
     if (!controller) return;
-    return onConciergeRequest((req) => {
+    const handle = (req: ConciergeRequest) => {
+      const action = req.action ?? 'open';
+      if (action === 'close') return controller.close();
+      if (action === 'expand') return controller.expand();
+      if (action === 'toggle' && OPEN_STATES.includes(useConciergeStore.getState().state)) return controller.close();
       if (req.product) useSiteStore.getState().setFocusedProduct(req.product);
       controller.open({ mode: req.mode ?? 'chat', submit: req.submit, prefill: req.prefill, autoListen: req.autoListen, example: req.example });
-    });
-  }, [controller]);
+    };
+    if (pending) handle(pending);
+    return onConciergeRequest(handle);
+  }, [controller, pending]);
 
   // a route change while a turn is in flight keeps the panel; the tray closes
   useEffect(() => {
@@ -32,7 +44,6 @@ export function ConciergeRoot() {
   return (
     <>
       <DevPreview />
-      <ConciergeOrb />
       <ConciergePanel />
       <ResultTray />
     </>

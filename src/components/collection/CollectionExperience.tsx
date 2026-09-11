@@ -1,5 +1,6 @@
 'use client';
 
+import { MicGlyph } from '@/components/ui/MicGlyph';
 import { useEffect, useMemo, useRef } from 'react';
 import { CollectionOpening } from './CollectionOpening';
 import { StoryChapterView } from './StoryBlocks';
@@ -154,15 +155,6 @@ function Intro({ collection }: { collection: Collection }) {
         </div>
       </div>
     </section>
-  );
-}
-
-export function MicGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1" className={className} aria-hidden>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
-    </svg>
   );
 }
 

@@ -4,7 +4,7 @@ import { useConciergeStore } from '@/state/conciergeStore';
 import { useController } from '../useConcierge';
 import { Orb } from '../orb/Orb';
 import { CONCIERGE } from '../copy';
-import { MicGlyph } from '@/components/collection/CollectionExperience';
+import { MicGlyph } from '@/components/ui/MicGlyph';
 import { TravellingLight } from '@/components/ui/primitives';
 import { cn } from '@/lib/cn';
 

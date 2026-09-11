@@ -100,7 +100,7 @@ export interface ConsultationContext {
   budgetPkr?: number;
 }
 
-interface SiteState {
+export interface SiteState {
   route: string;
   routeKind: RouteKind;
   pathname: string;
