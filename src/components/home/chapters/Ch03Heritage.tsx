@@ -161,7 +161,8 @@ export function Ch03Heritage() {
           ))}
           {/* seal */}
           <div className="heritage-panel relative flex w-full shrink-0 flex-col items-center justify-center gap-6 py-[6svh] text-center md:h-full md:w-[26vw] md:py-0">
-            <WaseemLockup tone="ink" className="h-28 w-auto" />
+            {/* the lockup is 3.4:1; at h-28 it is 384px wide, which is wider than a 360px phone */}
+            <WaseemLockup tone="ink" className="h-auto w-[min(24rem,80vw)] md:h-28 md:w-auto" />
             <p className="h-line display text-[clamp(1.5rem,2.2vw,2.4rem)] text-ink">{COPY.heritage.closing}</p>
           </div>
         </div>

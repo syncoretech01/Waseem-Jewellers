@@ -89,6 +89,25 @@ const config = [
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
+  {
+    /**
+     * `as never` is banned where it once did damage. It turned an unrecognised value into a
+     * query that scored -100 against every product and returned an empty room, silently, on
+     * every path it touched. `src/data/vocabulary.ts` narrows instead; a value that is not in
+     * the vocabulary becomes `undefined`, and an undefined filter matches everything rather
+     * than nothing. The rule keeps it that way.
+     */
+    files: ['src/concierge/**/*.{ts,tsx}', 'src/data/**/*.{ts,tsx}', 'src/server/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSAsExpression > TSNeverKeyword',
+          message: 'Narrow the value through @/data/vocabulary (asCategory, asDepartment, ...) instead of casting it to never.',
+        },
+      ],
+    },
+  },
 ];
 
 export default config;

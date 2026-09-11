@@ -19,7 +19,7 @@ A number in the table below being missed is a conversation. One of the three abo
 | drei | pulled in only by the craft object, so HIGH and MEDIUM only | no separate chunk — bundled into the 232 kB three chunk |
 | Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier). 358 on LOW, where three never loads. |
 | Images | webp; 2880 px for the four full-bleed campaign frames, 2250 px or less for everything else | met (see manifest) |
-| Video on disk, all variants | ≤ 25 MB | 31.2 MB — over |
+| Video, one codec, all variants | ≤ 25 MB | h264 31.2 MB — over; **AV1 21.6 MB — within**, and the one a current browser downloads (11 Sep 2026) |
 | CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | not measured |
 
 ## Measured
@@ -247,6 +247,53 @@ Be clear with anyone reading these numbers:
 ## Not in Stage 1
 
 Cache and compression headers beyond `minimumCacheTTL`, AV1/HEVC or adaptive (HLS) video variants, a CI performance gate, and real-user monitoring are deferred to Stage 2.
+
+## Video: AV1 first
+
+Every clip is encoded twice (`npm run assets:videos`): h264, which everything plays, and AV1 through
+SVT-AV1, which every current Chrome, Firefox, Edge and Safari 17+ takes when it is offered first.
+The browser chooses — the AV1 `<source>` precedes the h264 one — so a device that cannot decode it
+never fetches it. Verified in Chromium: only the `.av1.mp4` is requested.
+
+| | h264 | AV1 | saving |
+|---|---|---|---|
+| hero-royal 1280 | 5.24 MB | 3.13 MB | 40 % |
+| bridal-cinema 1280 | 5.57 MB | 3.76 MB | 33 % |
+| menu-ambient 1280 | 4.09 MB | 2.88 MB | 29 % |
+| diamond-studio 1280 | 2.59 MB | 2.26 MB | 13 % |
+| all fifteen files | 31.20 MB | 21.56 MB | 31 % |
+
+The first pass landed AV1 *larger* than h264 on the 720 and portrait tiers, and larger on one 1280
+clip: SVT-AV1 reads CRF on a different scale, and the shipped h264 had been encoded tighter than
+the script's defaults. The values in the encoder are the third pass, checked frame against frame
+(SSIM 0.986 between codecs on the hero at 1280; the kundan and the emerald beads read identically
+at 1:1). The plan's 40–50 % estimate is met on the hero and not on the quiet clips; 31 % overall
+is the honest figure.
+
+No `<source>` carries a `media` attribute any more. Chromium keeps a MediaQueryList listener for
+one as a pending activity after the element is gone, and through it the video, its buffered film
+and every ancestor. The portrait file is chosen with `matchMedia` in JS instead.
+
+## Leaks
+
+`npm run leak:check` (against a running production build) walks / → /gold → a PDP → / →
+/collections/bridal → / five times through the app's own links, then opens and closes the
+concierge twenty times, forcing GC through CDP before every sample. The audit that motivated it
+(11 Sep 2026) found +4,400 DOM nodes, +768 listeners and +1 MB of heap per loop — a whole previous
+homepage retained per visit, the hero video and its 31 seconds of film five times over after five
+visits. Four retainers, each sufficient on its own:
+
+1. `Observer.create` caches its target in a module-level array that `kill()` never prunes
+   (`lazyPlugins.ts` → `killObserver`).
+2. `gsap.quickTo` is a paused tween on the global timeline, removed only on completion; six per
+   home visit were never killed (Ch01Hero, Ch06Wall, Ch08Duality).
+3. A `<source media>` element is pinned by Blink after unmount (above).
+4. `gsap.matchMedia().add()` attaches a change handler to every MediaQueryList it creates and
+   neither `kill()` nor `revert()` removes it — 47 per loop, an upstream bug in gsap 3.15,
+   contained in `gsap.ts`.
+
+After: nodes 2,189 on every loop, listeners 740 on every loop, concierge cycles flat, heap
+8.8 → 9.9 MB with the increment shrinking each loop (browser performance-entry buffers, not ours).
 
 ## The frame-rate monitor
 

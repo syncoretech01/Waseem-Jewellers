@@ -224,7 +224,8 @@ export function MenuOverlay() {
                   {SITE.hours} · {SITE.phone}
                 </span>
               </div>
-              <div className="micro flex gap-6">
+              {/* four names at gap-6 outrun 360px; wrapping is the whole fix, and a scrollable menu is a defect */}
+              <div className="micro flex flex-wrap gap-x-6 gap-y-2">
                 {SITE.socials.map((s) => (
                   <a key={s.label} href={s.href} target="_blank" rel="noreferrer" className="transition-colors hover:text-ivory">
                     {s.label}

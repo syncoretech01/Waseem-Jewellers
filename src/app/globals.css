@@ -247,9 +247,38 @@
     background: var(--color-gold);
     color: var(--color-ink);
   }
+  /*
+    The ring is gold-hi on ink, where it reads at 13:1 — and was gold-hi on ivory too, where it
+    reads at 1.33:1 and a keyboard user could not find it. One token per surface; the utilities
+    that draw their own ring (focus-visible:ring-*) read the same variable.
+  */
+  :root {
+    --ring: var(--color-gold-hi);
+  }
+  [data-theme="ivory"] {
+    --ring: var(--color-gold-deep);
+  }
   :focus-visible {
-    outline: 1px solid var(--color-gold-hi);
+    outline: 1px solid var(--ring);
     outline-offset: 4px;
+  }
+  /* the first Tab stop on every page; visible only while focused */
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 100;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-ink);
+    color: var(--color-ivory);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transform: translateY(-200%);
+  }
+  .skip-link:focus-visible {
+    transform: none;
+    outline-color: var(--color-gold-hi);
   }
   a {
     color: inherit;

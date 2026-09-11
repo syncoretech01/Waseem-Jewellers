@@ -172,7 +172,7 @@ export function Ch04Worlds() {
                     <a
                       key={id}
                       href={w.href}
-                      className="block outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+                      className="block outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
                       data-cursor="explore"
                       aria-label={`${w.name} — explore the world`}
                       onFocus={() => hover(i)}

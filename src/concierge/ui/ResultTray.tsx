@@ -91,7 +91,7 @@ export function ResultTray() {
             <p className="font-display italic text-[1.0625rem] text-fg-2" style={{ fontVariationSettings: '"opsz" 16' }}>
               {title}
             </p>
-            <button type="button" onClick={() => controller?.dismissTray()} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close">
+            <button type="button" onClick={() => controller?.dismissTray()} aria-label="Close the results" className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close">
               Close
             </button>
           </div>
@@ -115,7 +115,7 @@ export function ResultTray() {
                   data-slug={p.slug}
                   data-name={p.name}
                   onClick={() => controller?.tapCard(p.slug, p.name)}
-                  className="group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+                  className="group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
                   aria-label={`Piece ${p.ordinal} of ${pieces.length}, ${p.name}, ${p.priceLabel.toLowerCase()}`}
                   data-cursor="view"
                 >
@@ -138,7 +138,7 @@ export function ResultTray() {
             ))}
             {collections?.map((c, i) => (
               <motion.li key={c.slug} className="w-[240px] shrink-0 snap-start md:w-[300px]" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.15 + i * 0.08 } }}>
-                <button type="button" data-ordinal={c.ordinal} data-slug={c.slug} data-name={c.name} onClick={() => controller?.submitText(`Show me ${c.name}`, 'card')} className={cn('group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-gold-hi')} aria-label={`World ${c.ordinal} of ${collections.length}, ${c.name}`} data-cursor="explore">
+                <button type="button" data-ordinal={c.ordinal} data-slug={c.slug} data-name={c.name} onClick={() => controller?.submitText(`Show me ${c.name}`, 'card')} className={cn('group/tray block w-full text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]')} aria-label={`World ${c.ordinal} of ${collections.length}, ${c.name}`} data-cursor="explore">
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '3 / 2', background: 'var(--salon-well)' }}>
                     <span className="absolute inset-0 block transition-transform duration-700 group-hover/tray:scale-[1.04]">
                       <Img image={c.image} alt="" sizes="(min-width:768px) 300px, 240px" />

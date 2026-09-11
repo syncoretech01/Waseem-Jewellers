@@ -82,7 +82,7 @@ export function ContextRibbon() {
           <button
             type="button"
             onClick={() => controller?.dropTerm(t.key)}
-            className="font-display text-[0.8125rem] leading-snug text-fg-2 underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-gold-hi focus-visible:outline-none focus-visible:decoration-gold-hi"
+            className="font-display text-[0.8125rem] leading-snug text-fg-2 underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-gold-hi focus-visible:decoration-gold-hi"
             style={{ fontVariationSettings: '"opsz" 12' }}
             aria-label={`Stop looking at ${t.label}`}
           >

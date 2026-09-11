@@ -15,7 +15,9 @@ const config: NextConfig = {
    * pages without the peak. The repository seam is what will eventually let a page load
    * only what it needs; until then this is the honest constraint.
    */
-  experimental: { cpus: 3 },
+  // three workers is the ceiling; NEXT_BUILD_CPUS=1 on a machine short of memory, where a worker
+  // dying with STATUS_STACK_BUFFER_OVERRUN is the symptom
+  experimental: { cpus: Number(process.env.NEXT_BUILD_CPUS) || 3 },
 
   images: {
     formats: ['image/webp'],

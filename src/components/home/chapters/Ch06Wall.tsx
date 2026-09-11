@@ -1,5 +1,6 @@
 'use client';
 
+import { TransitionLink } from '@/components/motion/TransitionLink';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
@@ -112,12 +113,21 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
     const root = ref.current;
     if (!root || coarse || reduced) return;
     bindPointer();
-    let rx = gsap.quickTo(root, 'x');
-    let ry = rx;
+    // no placeholder tween: it was a paused quickTo on the section that nothing ever invoked
+    // and nothing ever killed
+    let rx: ReturnType<typeof gsap.quickTo> | null = null;
+    let ry: ReturnType<typeof gsap.quickTo> | null = null;
     let bound: HTMLElement | null = null;
+    const release = () => {
+      rx?.tween.kill();
+      ry?.tween.kill();
+      rx = ry = null;
+    };
     const bind = (el: HTMLElement) => {
       if (bound === el) return;
       bound = el;
+      // the previous tile's setters go with it, or every tile hovered leaves two behind
+      release();
       rx = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: 'power3' });
       ry = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: 'power3' });
     };
@@ -128,8 +138,8 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
       const r = el.getBoundingClientRect();
       const nx = ((pointer.x - r.left) / r.width) * 2 - 1;
       const ny = ((pointer.y - r.top) / r.height) * 2 - 1;
-      rx(-ny * 3);
-      ry(nx * 3);
+      rx?.(-ny * 3);
+      ry?.(nx * 3);
       el.style.setProperty('--sx', `${((nx + 1) / 2) * 100}%`);
       el.style.setProperty('--sy', `${((ny + 1) / 2) * 100}%`);
     };
@@ -155,6 +165,7 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
     });
     return () => {
       gsap.ticker.remove(tick);
+      release();
       pieces.forEach((p) => {
         p.removeEventListener('pointerenter', onEnter);
         p.removeEventListener('pointerleave', onLeave);
@@ -167,7 +178,10 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
     () => {
       const root = ref.current;
       if (!root || reduced) return;
-      gsap.fromTo(root.querySelector('.wall-rule'), { scaleX: 0 }, { scaleX: 1, duration: 1.4, ease: 'wj.out', scrollTrigger: { trigger: root, start: 'top 75%', once: true } });
+      // the rule is rendered only when there is a single cut; with six, the selector is null and
+      // GSAP logged three warnings on every visit to the homepage
+      const rule = root.querySelector('.wall-rule');
+      if (rule) gsap.fromTo(rule, { scaleX: 0 }, { scaleX: 1, duration: 1.4, ease: 'wj.out', scrollTrigger: { trigger: root, start: 'top 75%', once: true } });
     },
     { scope: ref, dependencies: [reduced] },
   );
@@ -254,13 +268,13 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
        */}
       <nav aria-label="Departments" className="mt-[10svh] flex flex-col gap-4 border-t border-ink/10 pt-10 md:mt-[12svh]">
         {departments.map(({ department, count }) => (
-          <a key={department} href={`/${department}`} className="group/gate flex items-baseline justify-between gap-6 text-ink/60 transition-colors hover:text-ink" data-cursor="discover" data-rise>
+          <TransitionLink key={department} href={`/${department}`} className="group/gate flex items-baseline justify-between gap-6 text-ink/60 transition-colors hover:text-ink" data-cursor="discover" data-rise>
             <span className="display relative text-[clamp(1.5rem,3.4vw,2.75rem)] leading-tight">
               {DEPARTMENT_LABEL[department]}
               <span aria-hidden className="absolute inset-x-0 -bottom-1 h-px origin-left scale-x-0 bg-ink/40 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/gate:scale-x-100" />
             </span>
             <span className="micro shrink-0 tabular-nums text-ink/45">{count} pieces</span>
-          </a>
+          </TransitionLink>
         ))}
       </nav>
     </section>

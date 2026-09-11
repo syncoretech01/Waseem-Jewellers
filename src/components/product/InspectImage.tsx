@@ -139,7 +139,7 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
             role: 'button' as const,
             tabIndex: 0,
             'aria-pressed': inspecting,
-            'aria-label': inspecting ? 'Close the close view' : 'Look closely at this image',
+            'aria-label': inspecting ? `Close the close view of ${image.alt}` : `Look closely at ${image.alt}`,
             onKeyDown: (e: React.KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -148,7 +148,7 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
             },
           }
         : {})}
-      className={cn('relative w-full overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-gold-hi', mount ? 'bg-pearl' : 'bg-bg-2', inspecting && 'cursor-grab active:cursor-grabbing', className)}
+      className={cn('relative w-full overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]', mount ? 'bg-pearl' : 'bg-bg-2', inspecting && 'cursor-grab active:cursor-grabbing', className)}
       style={{ aspectRatio: ratio, maxHeight: '100svh' }}
       data-cursor={inspecting ? 'drag' : macro ? 'inspect' : undefined}
       data-flip-target={flipTarget ? 'product-hero' : undefined}

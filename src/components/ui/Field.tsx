@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes, useRef } from 'react';
 import { cn } from '@/lib/cn';
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
@@ -70,15 +70,49 @@ interface PillGroupProps {
 }
 
 /** A row of tracked words with a sliding hairline beneath the chosen one — no pills. */
+/**
+ * A row of choices that behaves like the radio group it claims to be.
+ *
+ * `role="radiogroup"` promises a screen reader two things: one Tab stop for the group, and
+ * arrow keys to move between the options. Every option here was its own Tab stop and the
+ * arrows did nothing — so the announced pattern and the real one disagreed, which is worse
+ * than not claiming the role at all. Roving tabindex fixes the first; the key handler the
+ * second. The error, when there is one, is attached to the group so it is read with it.
+ */
 export function ChoiceRow({ label, options, value, onChange, error }: PillGroupProps) {
   const id = useId();
+  const group = useRef<HTMLDivElement>(null);
+  const selected = options.findIndex((o) => o.value === value);
+  // the checked option is the Tab stop; with nothing checked, the first is
+  const stop = selected >= 0 ? selected : 0;
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const n = options.length;
+    let next: number | null = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % n;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (index - 1 + n) % n;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = n - 1;
+    if (next === null) return;
+    e.preventDefault();
+    onChange(options[next]!.value);
+    group.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+  };
+
   return (
-    <div role="radiogroup" aria-labelledby={`${id}-label`} className="pt-5">
+    <div
+      ref={group}
+      role="radiogroup"
+      aria-labelledby={`${id}-label`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `${id}-error` : undefined}
+      className="pt-5"
+    >
       <p id={`${id}-label`} className="micro text-fg-muted">
         {label}
       </p>
       <div className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-        {options.map((o) => {
+        {options.map((o, i) => {
           const active = o.value === value;
           return (
             <button
@@ -86,7 +120,9 @@ export function ChoiceRow({ label, options, value, onChange, error }: PillGroupP
               type="button"
               role="radio"
               aria-checked={active}
+              tabIndex={i === stop ? 0 : -1}
               onClick={() => onChange(o.value)}
+              onKeyDown={(e) => onKeyDown(e, i)}
               className={cn(
                 'eyebrow relative pb-1 transition-colors duration-300',
                 active ? 'text-fg' : 'text-fg-muted hover:text-fg',
@@ -101,7 +137,11 @@ export function ChoiceRow({ label, options, value, onChange, error }: PillGroupP
           );
         })}
       </div>
-      {error && <p className="mt-2 text-[0.75rem] text-burgundy">{error}</p>}
+      {error && (
+        <p id={`${id}-error`} className="mt-2 text-[0.75rem] text-burgundy">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

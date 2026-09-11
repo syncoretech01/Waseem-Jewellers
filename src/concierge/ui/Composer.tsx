@@ -51,7 +51,7 @@ export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
           placeholder={CONCIERGE.composerPlaceholder}
           /* Urdu and Shahmukhi run right to left; the field follows what is typed into it */
           dir="auto"
-          className="w-full border-b border-line bg-transparent py-2 font-display text-[1.0625rem] text-fg placeholder:text-fg-muted/70 focus:border-line-strong focus:outline-none"
+          className="w-full border-b border-line bg-transparent py-2 font-display text-[1.0625rem] text-fg placeholder:text-fg-muted/70 focus:border-b-2 focus:border-gold-hi focus:outline-none"
           style={{ fontVariationSettings: '"opsz" 16' }}
           autoComplete="off"
           enterKeyHint="send"

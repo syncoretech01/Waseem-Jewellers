@@ -507,22 +507,4 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
   }
 }
 
-export function ordinalFromWord(word: string): number | null {
-  const map: Record<string, number> = { first: 1, '1st': 1, one: 1, second: 2, '2nd': 2, two: 2, third: 3, '3rd': 3, three: 3, fourth: 4, '4th': 4, four: 4, fifth: 5, '5th': 5, five: 5, sixth: 6, '6th': 6, six: 6 };
-  return map[word] ?? null;
-}
-
-/** "Open the second one" resolves against recent results, then recent collections, then what is visible. */
-export function resolveOrdinal(n: number, ctx: SiteContext): { kind: 'product'; slug: string } | { kind: 'collection'; slug: string } | null {
-  const idx = n === -1 ? -1 : n - 1;
-  const pick = <T,>(list: T[]) => (idx === -1 ? list[list.length - 1] : list[idx]);
-  const r = pick(ctx.recentResults);
-  if (r) return { kind: 'product', slug: r.slug };
-  const c = pick(ctx.recentCollections);
-  if (c) return { kind: 'collection', slug: c };
-  const v = pick(ctx.visibleProducts);
-  if (v) return { kind: 'product', slug: v.slug };
-  return null;
-}
-
 export { useConciergeStore };

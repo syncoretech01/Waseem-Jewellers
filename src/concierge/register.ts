@@ -33,6 +33,15 @@ const STRIP: [RegExp, string][] = [
   [/\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b/g, ''],
   // emoji and the pictographic blocks
   [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ''],
+  /**
+   * "House" was retired as Waseem's name in Stage 2 — a competitor owns the adjacent language.
+   * The prompt says so; this makes it a guarantee rather than an instruction, on the one path
+   * where a model chooses the words. Copy-guard checks the authored strings at build time and
+   * cannot see these. Only the capitalised, definite form is Waseem-as-a-name; "a house of
+   * cards" and "in-house" are left alone.
+   */
+  [/\b(?:the|our|this) House\b/g, 'Waseem'],
+  [/\bHouse of Waseem\b/g, 'Waseem Jewellers'],
 ];
 
 /**

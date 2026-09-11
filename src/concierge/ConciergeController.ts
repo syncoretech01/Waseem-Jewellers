@@ -1,6 +1,6 @@
 'use client';
 
-import { useConciergeStore, type ConciergeMode, type ConciergeState, type ConciergeTurn, type TurnSource } from '@/state/conciergeStore';
+import { useConciergeStore, OPEN_STATES, type ConciergeMode, type ConciergeState, type ConciergeTurn, type TurnSource } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
@@ -42,6 +42,8 @@ export class ConciergeController {
   private activeTurn: string | null = null;
   private pendingResult = false;
   private speaking = false;
+  /** The element that had focus when the salon opened. See . */
+  private opener: HTMLElement | null = null;
   /** The browser has no voice for a language the visitor used. Said once a session. */
   private saidNoVoice = false;
   private afterOpen: (() => void) | null = null;
@@ -100,6 +102,9 @@ export class ConciergeController {
 
   open(opts: OpenOptions = {}) {
     const s = this.store;
+    // whoever had focus when the salon was asked for gets it back when the salon closes;
+    // captured here, before the composer autofocuses and takes it
+    if (!OPEN_STATES.includes(s.state)) this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     /**
      * The catalogue index arrives with the concierge, not with the page.
      *
@@ -157,6 +162,10 @@ export class ConciergeController {
     s.setTranscript({ interim: '', final: '', active: false });
     s.setVoice({ sessionLive: false, preparing: false });
     s.transition('IDLE', 'close');
+    // back to the orb, or the ENQUIRE button, or wherever it was — not to <body>
+    const opener = this.opener;
+    this.opener = null;
+    if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
   }
 
   setMode(mode: ConciergeMode) {

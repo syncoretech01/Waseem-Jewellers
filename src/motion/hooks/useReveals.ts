@@ -160,12 +160,23 @@ export function useRise(scope: RefObject<HTMLElement | null>, opts: { start?: st
       const pending = [...els].filter((el) => !composed.includes(el));
       if (composed.length) gsap.set(composed, { autoAlpha: 1, y: 0 });
       if (pending.length === 0) return;
-      ScrollTrigger.batch(pending, {
-        start,
-        once: true,
-        onEnter: (batch) => gsap.to(batch, { autoAlpha: 1, y: 0, duration: 1.1, stagger: 0.08, ease: 'wj.out', overwrite: 'auto' }),
-      });
-      gsap.set(pending, { autoAlpha: 0, y });
+      /**
+       * Opacity, not autoAlpha. autoAlpha sets visibility:hidden, and a hidden element leaves
+       * the sequential focus order — so a keyboard user on a department page went from piece
+       * three straight to "Show 24 more", with twenty-one pieces below the fold unreachable
+       * until they had been scrolled into view by some other means. Opacity keeps every piece
+       * focusable; the focusin listener below makes sure a piece that receives focus is also
+       * visible, whether or not the scroll has reached it.
+       */
+      const reveal = (batch: Element[]) => gsap.to(batch, { opacity: 1, y: 0, duration: 1.1, stagger: 0.08, ease: 'wj.out', overwrite: 'auto' });
+      ScrollTrigger.batch(pending, { start, once: true, onEnter: reveal });
+      gsap.set(pending, { opacity: 0, y });
+      const onFocusIn = (e: FocusEvent) => {
+        const cell = (e.target as Element | null)?.closest<HTMLElement>('[data-rise]');
+        if (cell && pending.includes(cell) && gsap.getProperty(cell, 'opacity') !== 1) reveal([cell]);
+      };
+      root.addEventListener('focusin', onFocusIn);
+      return () => root.removeEventListener('focusin', onFocusIn);
     },
     { scope, dependencies: [reduced] },
   );

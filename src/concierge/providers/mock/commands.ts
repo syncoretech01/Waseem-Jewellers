@@ -2,7 +2,7 @@ import { WORLDS } from '@/data/worlds';
 import { byName, getRow, getRows, similarRows, describeRow, priceLabelOf, specLineOf } from '@/data/clientIndex';
 import { countInWords, capitalise } from '@/lib/format';
 import { CONCIERGE } from '../../copy';
-import { ordinalFromWord, resolveOrdinal } from '../../tools/executeTool';
+import { ordinalFromWord, resolveOrdinal } from '../../ordinals';
 import { corePlan } from './corePlan';
 import type { SiteContext, ToolName, ToolOutcome } from '../../types';
 

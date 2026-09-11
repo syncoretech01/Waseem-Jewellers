@@ -90,6 +90,10 @@ export function ConsultationModal() {
    * the value that matters is set when the dialog actually opens, a few lines below.
    */
   const openedAt = useRef(0);
+  useEffect(() => {
+    if (!Object.keys(errors).length) return;
+    document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"]')?.focus();
+  }, [errors]);
   /** One per opening of the form, so a retry after a dropped connection is not a second enquiry. */
   const idempotencyKey = useRef('');
 
@@ -119,11 +123,9 @@ export function ConsultationModal() {
     if (!showroom) next.showroom = 'Choose a showroom.';
     if (!occasion) next.occasion = 'Choose an occasion.';
     setErrors(next);
-    if (Object.keys(next).length) {
-      const first = document.querySelector<HTMLElement>('[aria-invalid="true"]');
-      first?.focus();
-      return;
-    }
+    // focus moves in the effect below, once React has rendered aria-invalid — a querySelector
+    // here ran before it existed and found nothing, so the visitor was told nothing
+    if (Object.keys(next).length) return;
     setStage('submitting');
     /**
      * Nothing leaves the device unless Waseem has given us somewhere to send it.

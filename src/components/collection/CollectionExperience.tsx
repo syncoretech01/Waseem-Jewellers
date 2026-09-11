@@ -1,6 +1,7 @@
 'use client';
 
 import { MicGlyph } from '@/components/ui/MicGlyph';
+import { TransitionLink } from '@/components/motion/TransitionLink';
 import { useEffect, useMemo, useRef } from 'react';
 import { CollectionOpening } from './CollectionOpening';
 import { StoryChapterView } from './StoryBlocks';
@@ -172,10 +173,10 @@ function Closing({ collection, onConsult }: { collection: Collection; onConsult:
             Private consultation
           </Button>
           {/* the story ends; the index begins */}
-          <a href={`/${collection.slug}`} className="group/index eyebrow relative pb-1 text-fg-muted transition-colors hover:text-fg" data-cursor="discover">
+          <TransitionLink href={`/${collection.slug}`} className="group/index eyebrow relative pb-1 text-fg-muted transition-colors hover:text-fg" data-cursor="discover">
             See every {collection.name.toLowerCase()} piece
             <span aria-hidden className="hairline absolute inset-x-0 bottom-0 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/index:scale-x-100" />
-          </a>
+          </TransitionLink>
         </div>
       </div>
     </section>

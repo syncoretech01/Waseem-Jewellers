@@ -20,6 +20,28 @@ import { ScriptedExampleAdapter, WebSpeechAdapter, recognitionSupported, type Vo
  * against a newer deployment — selection falls through to the browser rather than failing.
  */
 
+/**
+ * What the realtime engine has to do when it arrives — kept here, at the seam, rather than
+ * in a dead provider class. The earlier stub implemented `ConciergeProvider` (text turns),
+ * read an environment variable that no longer exists, and was imported by nothing; the seam
+ * the code actually built expects a `VoiceAdapter` registered through `registerVoiceEngine`.
+ *
+ *   1. POST /api/concierge/realtime-token with the site context → an ephemeral token; the
+ *      API key is never read in the browser.
+ *   2. new RTCPeerConnection(); getUserMedia({ audio: true }); addTrack.
+ *   3. pc.ontrack → a detached <audio autoplay>; an AnalyserNode drives voiceMeter.speech.
+ *   4. pc.createDataChannel('oai-events'); parse JSON frames; match event types by suffix.
+ *   5. POST offer.sdp to the realtime calls endpoint with the token; setRemoteDescription.
+ *   6. Text in: conversation.item.create + response.create. Cancel: response.cancel and
+ *      output_audio_buffer.clear.
+ *   7. function_call_arguments.done → executeTool(name, args) — which validates on its own,
+ *      because on this path nothing else will — → function_call_output + response.create.
+ *   8. Context changes → a debounced session.update with the rendered site context.
+ *   9. Teardown: data channel, mic tracks, peer connection, AudioContext, the meter, <audio>.
+ *
+ * Identity: `realtime-voice`, voice `native`. The server advertises it through the
+ * capabilities probe only when its credential is configured.
+ */
 type EngineFactory = () => VoiceAdapter;
 
 let nativeEngine: EngineFactory | null = null;

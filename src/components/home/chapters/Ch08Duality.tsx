@@ -82,6 +82,7 @@ export function Ch08Duality() {
     return () => {
       gsap.ticker.remove(tick);
       breathTween.current?.kill();
+      pointerTo.tween.kill();
     };
   }, [ref, reduced, coarse, bias]);
 

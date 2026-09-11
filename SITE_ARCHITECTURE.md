@@ -287,17 +287,20 @@ the only exceptions. Flip and Observer register on first use through `lazyPlugin
 
 ## The concierge, in one paragraph
 
-`ConciergeRoot` mounts the orb, the panel and the result tray once, in `Providers`.
-`ConciergeController` owns the provider, the voice adapter, speech output and every timer, and
-reduces provider events into store transitions — the UI reads only the store. `createProvider()`
-returns `MockConciergeProvider`, the keyless concierge that ships as the default; setting
-`NEXT_PUBLIC_CONCIERGE_PROVIDER=openai` logs a notice in development and still returns it, because
-`FutureOpenAIRealtimeProvider` is a seam. All fifteen tools declared in `tools/toolDefs.ts` have
-`runtime: 'browser'` and are executed by `tools/executeTool.ts` against the stores, the section
-registry and the transition layer. Voice uses the browser's own recognition (`voice/adapters.ts`, with
-a scripted adapter behind it) and synthesis (`voice/speech.ts`). Any component can summon the
-concierge by dispatching through `concierge/bridge.ts` — no import of the concierge itself. The full
-account is in `CONCIERGE_ARCHITECTURE.md`.
+`ConciergeMount` is mounted once, in `Providers`: the orb eagerly, and the salon — controller,
+panel, tray, lexicon, tools — lazily, on the first request, a hover of the orb, or idle after the
+ritual. `ConciergeController` owns the provider, the voice adapter, speech output and every timer,
+and reduces provider events into store transitions — the UI reads only the store.
+`createProvider()` returns a `FallbackProvider`, which tries the server-mediated model
+(`/api/concierge/turn`, live when `CONCIERGE_API_KEY` is set) and answers with the keyless engine
+on any recoverable failure — including the ordinary case of no key. Nothing `NEXT_PUBLIC_` selects
+a provider. Twenty-four tools are declared in `tools/toolDefs.ts`; twenty-one run in the browser
+through `tools/executeTool.ts`, and three that only read the catalogue (`compareProducts`,
+`explainSpecification`, `deepSearch`) run on the server. Every call passes `tools/validate.ts`
+first. Voice uses the browser's own recognition and synthesis as the fallback tier
+(`voice/adapters.ts`, `voice/speech.ts`), with `voice/engine.ts` as the seam a realtime engine
+plugs into. Any component can summon the concierge by dispatching through `concierge/bridge.ts` —
+no import of the concierge itself. The full account is in `CONCIERGE_ARCHITECTURE.md`.
 
 ## Scripts
 

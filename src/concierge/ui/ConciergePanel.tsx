@@ -19,6 +19,7 @@ import { CONCIERGE } from '../copy';
 import { TravellingLight } from '@/components/ui/primitives';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
+import { trapFocus } from '@/lib/focusTrap';
 
 /**
  * Desktop: a floating spatial panel above the jewel, unfolding upward from its base hairline.
@@ -91,6 +92,32 @@ export function ConciergePanel() {
     },
     [],
   );
+
+  /**
+   * Where focus goes, and where it comes back to.
+   *
+   * On a phone the sheet covers the page and says so with aria-modal — but said it without
+   * doing it: focus stayed on <body> and sixteen Tab presses walked the department page
+   * underneath. Now it is what the consultation dialog already is: the page behind is inert,
+   * focus lands inside, Tab wraps. On desktop the rail is not modal and traps nothing — but
+   * closing it still has to put focus back where it came from, which is the orb or the
+   * ENQUIRE button, rather than dropping it on the body for a screen reader to lose.
+   */
+  useEffect(() => {
+    const el = root.current;
+    if (!open || !el || !coarse) return;
+    const page = document.getElementById('page-root');
+    page?.setAttribute('inert', '');
+    // trapFocus restores whatever had focus when it was called; by then the controller has
+    // already recorded the true opener, and it is the controller that sends focus back on
+    // close — an effect here would run after the composer autofocused and hand focus to a
+    // field that is about to unmount
+    const release = trapFocus(el);
+    return () => {
+      page?.removeAttribute('inert');
+      release();
+    };
+  }, [open, coarse]);
 
   useEffect(() => {
     if (!full) return;

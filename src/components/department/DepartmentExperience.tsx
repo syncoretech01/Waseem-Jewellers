@@ -1,5 +1,6 @@
 'use client';
 
+import { TransitionLink } from '@/components/motion/TransitionLink';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { PieceGrid } from './PieceGrid';
@@ -200,14 +201,14 @@ function Intro({ info, categories, current }: { info: DepartmentInfo; categories
         <div className="flex flex-col gap-10 md:pl-[6vw]">
           {categories.length > 0 && (
             <nav aria-label="Kinds" className="flex flex-col gap-3" data-rise>
-              <a href={`/${info.slug}`} className={cn('group/cat flex items-baseline justify-between gap-6', !current ? 'text-fg' : 'text-fg-muted hover:text-fg')}>
+              <TransitionLink href={`/${info.slug}`} className={cn('group/cat flex items-baseline justify-between gap-6', !current ? 'text-fg' : 'text-fg-muted hover:text-fg')}>
                 <span className="eyebrow relative pb-1">
                   Everything
                   <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)]', current ? 'scale-x-0 group-hover/cat:scale-x-100' : 'scale-x-100')} />
                 </span>
-              </a>
+              </TransitionLink>
               {categories.map(({ category, count }) => (
-                <a
+                <TransitionLink
                   key={category}
                   href={`/${info.slug}/${category}`}
                   className={cn('group/cat flex items-baseline justify-between gap-6 transition-colors', current === category ? 'text-fg' : 'text-fg-muted hover:text-fg')}
@@ -223,7 +224,7 @@ function Intro({ info, categories, current }: { info: DepartmentInfo; categories
                     />
                   </span>
                   <span className="micro tabular-nums text-fg-muted">{count}</span>
-                </a>
+                </TransitionLink>
               ))}
             </nav>
           )}

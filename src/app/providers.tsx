@@ -42,11 +42,22 @@ export function Providers({ children }: { children: ReactNode }) {
           <RouteTracker />
         </Suspense>
         <StoreHydrator />
-        <div id="page-root">{children}</div>
-        <Footer />
-        <TransitionLayer />
+        {/*
+          The nav and the orb are position:fixed, so where they sit in the DOM changes nothing
+          visually and everything for the keyboard: after the page and the footer, a visitor
+          on a department page pressed Tab twenty-eight times to reach the menu that had been
+          at the top of their screen the whole time.
+        */}
+        <a href="#page-root" className="skip-link">
+          Skip to content
+        </a>
         <Nav />
         <ConciergeMount />
+        <div id="page-root" tabIndex={-1}>
+          {children}
+        </div>
+        <Footer />
+        <TransitionLayer />
         <LazyChrome />
         <Loader />
       </ReactLenis>

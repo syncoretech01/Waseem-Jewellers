@@ -131,6 +131,10 @@ export interface VideoAsset {
   src1280: string;
   src720: string;
   srcPortrait: string;
+  /** AV1 siblings, offered first; a browser that cannot decode them never fetches them. Absent until encoded. */
+  src1280Av1?: string;
+  src720Av1?: string;
+  srcPortraitAv1?: string;
   poster: string;
   posterBlur: string;
   width: number;

@@ -96,7 +96,15 @@ Untouched originals live in `media-originals/`, which is git-ignored. Everything
 
 ## Environment
 
-No environment file is required. `.env.example` documents the variables reserved for a future OpenAI Realtime provider; copy it to `.env.local` only if you are working on that path. `NEXT_PUBLIC_CONCIERGE_PROVIDER` defaults to `mock`, which is the `MockConciergeProvider` that ships as Stage 1's concierge; setting it to `openai` logs a note in development and returns the same provider. `OPENAI_API_KEY` is read server-side only, in `src/app/api/concierge/realtime-token/route.ts` and nowhere else.
+No environment file is required. `.env.example` documents every variable and what it enables.
+The concierge ships keyless; setting `CONCIERGE_API_KEY` on the server and redeploying the same
+build activates the model path — the bundle does not change, the browser asks
+`/api/concierge/capabilities` what it is allowed to be. Consultation delivery stays on the
+visitor's device until all four of `ENQUIRY_WEBHOOK_URL`, `NEXT_PUBLIC_SITE_URL`,
+`ENQUIRY_PRIVACY_URL` and `ENQUIRY_PRIVACY_CONTACT` are set and valid (`npm run enquiry:check`
+proves a webhook alone is not enough). Every secret is read only under `src/server/`, which is
+`server-only`, banned from client imports by ESLint, and checked against the built client chunks
+by `npm run secret:scan`.
 
 ## Documentation
 

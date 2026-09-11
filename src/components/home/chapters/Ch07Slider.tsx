@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { gsap, ScrollTrigger, useGSAP } from '@/lib/motion/gsap';
-import { loadObserver } from '@/lib/motion/lazyPlugins';
+import { killObserver, loadObserver } from '@/lib/motion/lazyPlugins';
 import { snapLocked, snapWithLenis } from '@/lib/motion/snapWithLenis';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useFocusScroll } from '@/motion/hooks/useFocusScroll';
@@ -142,13 +142,14 @@ export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
 
         // Drag: the pointer writes the scroll position directly, and only a release settles
         // onto a piece — in the direction the visitor was actually travelling.
-        let observer: { kill: () => void } | null = null;
+        let observer: { kill: () => void; _dc?: { kill: () => void } } | null = null;
+        const stage = root.querySelector('.vitrine-stage');
         let startScroll = 0;
         void loadObserver().then((Observer) => {
           // gsap contexts report isReverted, not isActive — the wrong name silently killed drag
           if (ctx.isReverted) return;
           observer = Observer.create({
-            target: root.querySelector('.vitrine-stage'),
+            target: stage,
             type: 'pointer',
             dragMinimum: 4,
             onPress: () => {
@@ -179,7 +180,8 @@ export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
         });
         return () => {
           setPinned(false);
-          observer?.kill();
+          // kill() alone leaves the target in Observer's module cache and the page with it
+          killObserver(observer, stage);
           st.kill();
         };
       });
@@ -259,7 +261,7 @@ export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
                   type="button"
                   onClick={() => goTo(i)}
                   aria-label={`Bring the ${p.t} to the centre`}
-                  className="group/side relative block w-full outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+                  className="group/side relative block w-full outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
                   data-cursor="explore"
                 >
                   <span className="relative block w-full overflow-hidden bg-bg-2" style={{ aspectRatio: '4 / 5' }}>
@@ -292,7 +294,7 @@ export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
                     onClick={() => goTo(i)}
                     aria-label={`${p.t}, piece ${i + 1} of ${N}`}
                     aria-current={i === centre ? 'true' : undefined}
-                    className="group/tick block px-1.5 py-3 outline-none focus-visible:ring-1 focus-visible:ring-gold-hi"
+                    className="group/tick block px-1.5 py-3 outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
                   >
                     <span className={cn('block h-px w-7 transition-colors duration-500', i === centre ? 'bg-gold-hi' : 'bg-ivory/25 group-hover/tick:bg-ivory/55')} />
                   </button>
@@ -334,7 +336,7 @@ function VitrineArrow({ direction, disabled, onClick }: { direction: 'prev' | 'n
       aria-label={direction === 'prev' ? 'Previous piece' : 'Next piece'}
       className={cn(
         'inline-flex h-11 w-11 items-center justify-center rounded-full border outline-none transition-colors duration-500',
-        'focus-visible:ring-1 focus-visible:ring-gold-hi',
+        'focus-visible:ring-1 focus-visible:ring-[var(--ring)]',
         disabled ? 'cursor-default border-ivory/10 text-ivory/20' : 'border-ivory/30 text-ivory/70 hover:border-gold-hi hover:text-ivory',
       )}
       data-cursor={disabled ? undefined : 'explore'}

@@ -35,6 +35,7 @@
     "nlu:check": "node scripts/dev/nlu-check.mjs",
     "enquiry:check": "node scripts/dev/enquiry-check.mjs",
     "bundle:report": "node scripts/dev/bundle-report.mjs",
+    "leak:check": "node scripts/dev/leak-check.mjs",
     "secret:scan": "node scripts/dev/secret-scan.mjs"
   },
   "dependencies": {

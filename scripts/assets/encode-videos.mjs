@@ -3,6 +3,13 @@
  * Encodes the campaign films into web clips: 1280 landscape, 720 landscape, 404×720 portrait,
  * plus poster frames. Trims are input-side (-ss, then -t duration). Muted, faststart, yuv420p.
  * Writes .cache/videos.json for the image localiser to merge into the asset map.
+ *
+ * Every variant is encoded twice: h264, which everything plays, and AV1 (SVT-AV1), which
+ * every current Chrome, Firefox, Edge and Safari 17+ prefers when offered first and which
+ * comes in at roughly half the bytes for the same quality. The browser chooses — a `<source>`
+ * with an AV1 codec string ahead of the h264 one — so a device that cannot decode AV1 never
+ * downloads it. On disk the total goes up; per visit it goes down by close to half, and the
+ * per-visit figure is the one a visitor pays.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,12 +21,28 @@ const OUT = path.join(PUBLIC, 'video');
 ensureDir(OUT);
 ensureDir(CACHE);
 
-const BUDGET_BYTES = 42 * 1024 * 1024;
+/** The line PERFORMANCE_BUDGET.md draws. It was 42 MB here while the document said 25 — the message lied. */
+const BUDGET_BYTES = 25 * 1024 * 1024;
 const results = [];
 let total = 0;
+let totalAv1 = 0;
 
 const BASE_ARGS = ['-y', '-hide_banner', '-loglevel', 'error'];
 const CODEC_ARGS = ['-c:v', 'libx264', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1', '-g', '50', '-movflags', '+faststart'];
+/**
+ * SVT-AV1 preset 6 is the speed/quality knee for short clips. Its CRF is read on a different
+ * scale from x264, and the first pass here got the offset wrong: at 32/36/37 the 1280 tier came
+ * in 29–48% smaller, and the 720 and portrait tiers came in *larger* than the h264 files beside
+ * them — the small tiers were already encoded hard (x264 CRF 27–28), and AV1 needs to be
+ * pushed correspondingly further to beat them. The values below are the second pass, measured.
+ * 10-bit is deliberately not used: it decodes on fewer devices and buys nothing for content
+ * this bright.
+ */
+const AV1_ARGS = ['-c:v', 'libsvtav1', '-preset', '6', '-pix_fmt', 'yuv420p', '-g', '50', '-svtav1-params', 'tune=0', '-movflags', '+faststart'];
+const AV1_CRF = { 1280: 38, 720: 45, portrait: 46 };
+
+/** A re-run after retuning: the h264 files are deterministic and already on disk. */
+const ONLY_AV1 = process.env.ONLY_AV1 === '1';
 
 for (const v of VIDEOS) {
   const input = path.join(ROOT, v.input);
@@ -48,6 +71,8 @@ for (const v of VIDEOS) {
   const entry = { id: v.id, label: v.label, subject: v.subject, duration, files: {} };
   for (const variant of variants) {
     const file = path.join(OUT, `${v.id}-${variant.name}.mp4`);
+    if (ONLY_AV1 && fs.existsSync(file)) console.log(`keeping ${path.basename(file)}`);
+    else {
     console.log(`encoding ${v.id} ${variant.name}…`);
     await run('ffmpeg', [
       ...BASE_ARGS,
@@ -61,12 +86,24 @@ for (const v of VIDEOS) {
       ...CODEC_ARGS.slice(4),
       file,
     ]);
+    }
     const info = await ffprobe(file);
     if (Math.abs(info.duration - duration) > 0.25) throw new Error(`${file}: duration ${info.duration} ≠ ${duration}`);
     if (info.width % 2 || info.height % 2) throw new Error(`${file}: odd dimensions ${info.width}×${info.height}`);
     total += info.size;
     entry.files[variant.name] = { path: file, src: `/assets/waseem/video/${path.basename(file)}`, width: info.width, height: info.height, bytes: info.size };
     console.log(`  ${path.basename(file)} ${info.width}×${info.height} ${fmtBytes(info.size)}`);
+
+    // the AV1 sibling, same frames, same trim, same fade
+    const av1 = path.join(OUT, `${v.id}-${variant.name}.av1.mp4`);
+    console.log(`encoding ${v.id} ${variant.name} av1…`);
+    await run('ffmpeg', [...BASE_ARGS, '-ss', String(v.start), '-i', input, '-t', String(duration), '-an', '-vf', variant.vf, ...AV1_ARGS.slice(0, 4), '-crf', String(AV1_CRF[variant.name]), ...AV1_ARGS.slice(4), av1]);
+    const av1Info = await ffprobe(av1);
+    if (Math.abs(av1Info.duration - duration) > 0.25) throw new Error(`${av1}: duration ${av1Info.duration} ≠ ${duration}`);
+    totalAv1 += av1Info.size;
+    entry.files[variant.name].srcAv1 = `/assets/waseem/video/${path.basename(av1)}`;
+    entry.files[variant.name].bytesAv1 = av1Info.size;
+    console.log(`  ${path.basename(av1)} ${fmtBytes(av1Info.size)}  (${Math.round((1 - av1Info.size / info.size) * 100)}% smaller)`);
   }
 
   // poster = a frame from the trimmed 1280 clip, so it matches what plays
@@ -86,5 +123,6 @@ for (const v of VIDEOS) {
 }
 
 fs.writeFileSync(path.join(CACHE, 'videos.json'), JSON.stringify(results, null, 2));
-console.log(`\nvideo total ${fmtBytes(total)} (${total <= BUDGET_BYTES ? 'within' : 'OVER'} the 25 MB budget)`);
+console.log(`\nh264 total ${fmtBytes(total)} · av1 total ${fmtBytes(totalAv1)} · a visit downloads one variant of one codec`);
+console.log(`h264 on disk ${total <= BUDGET_BYTES ? 'within' : 'OVER'} the 25 MB line; av1 ${totalAv1 <= BUDGET_BYTES ? 'within' : 'OVER'}, and ${Math.round((1 - totalAv1 / total) * 100)}% smaller for the same clips`);
 console.log(`wrote ${rel(path.join(CACHE, 'videos.json'))}`);

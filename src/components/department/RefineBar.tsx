@@ -138,7 +138,11 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                           style={{ fontVariationSettings: '"opsz" 18' }}
                         >
                           {facetValueLabel(key, value)}
-                          <span className="micro ml-2 align-baseline text-fg-muted">{n}</span>
+                          {/* the count reads as part of the label without the separator: "Pendant48" */}
+                          <span className="micro ml-2 align-baseline text-fg-muted" aria-hidden>
+                            {n}
+                          </span>
+                          <span className="sr-only">, {n} {n === 1 ? 'piece' : 'pieces'}</span>
                           <span
                             aria-hidden
                             className={cn(

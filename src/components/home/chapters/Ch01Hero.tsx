@@ -164,6 +164,9 @@ export function Ch01Hero() {
     gsap.ticker.add(tick);
     return () => {
       gsap.ticker.remove(tick);
+      // a quickTo is a paused tween on the global timeline; unkilled, it holds the hero — and
+      // the hero holds the video with 31 seconds of film buffered — on every visit after this
+      for (const q of [tx, ty, px, py]) q.tween.kill();
     };
   }, [ref, coarse, reduced]);
 

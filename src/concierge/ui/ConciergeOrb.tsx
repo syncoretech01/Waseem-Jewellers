@@ -103,7 +103,7 @@ export function ConciergeOrb() {
               else if (open) requestConcierge({ action: 'close' });
               else requestConcierge({ action: 'open', mode: window.innerWidth < 768 ? 'voice' : 'chat' });
             }}
-            className="relative block h-14 w-14 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-gold-hi md:h-14 md:w-14"
+            className="relative block h-14 w-14 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] md:h-14 md:w-14"
           >
             <OrbStatic state={state === 'IDLE' || state === 'HOVER' ? state : open ? 'CHAT' : state} size={56} />
           </button>

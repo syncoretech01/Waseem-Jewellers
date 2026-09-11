@@ -40,6 +40,8 @@ const EXEMPT = [
   /Never call Waseem/, // the model instruction that enforces this
   /copy-guard/,
   /BRAND\.md/,
+  // the register filter's own strip patterns — `[/…House…/g, 'Waseem']` — exist to remove the word, not to say it
+  /^\s*\[\/.*\/g?, '/,
 ];
 
 async function* walk(dir) {

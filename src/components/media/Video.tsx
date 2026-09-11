@@ -46,6 +46,15 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
   const paused = useSiteStore((s) => s.videoPaused);
   const firstFrameSent = useRef(false);
   const [revealed, setRevealed] = useState(false);
+  const [isPortraitPhone, setIsPortraitPhone] = useState(false);
+  useEffect(() => {
+    if (!portrait) return;
+    const mq = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
+    const onChange = (e: MediaQueryListEvent) => setIsPortraitPhone(e.matches);
+    mq.addEventListener('change', onChange);
+    onChange({ matches: mq.matches } as MediaQueryListEvent);
+    return () => mq.removeEventListener('change', onChange);
+  }, [portrait]);
 
   useImperativeHandle(ref, () => ({
     get el() {
@@ -56,6 +65,26 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
     },
     pause: () => el.current?.pause(),
   }));
+
+  /**
+   * Release the element on unmount, because Blink will not.
+   *
+   * A <source> with a media attribute registers a MediaQueryList listener that Chromium keeps
+   * as a pending activity after the element is gone — and through it the <source>, the <video>,
+   * the 31 seconds of film it buffered, and every ancestor up to the page. Measured: the whole
+   * previous page tree retained per visit, three copies for the homepage. The <picture> path
+   * unregisters correctly; the <video> path does not. Removing the sources first and then
+   * loading an empty element is what actually lets go; clearing src alone does not.
+   */
+  useEffect(() => {
+    const video = el.current;
+    if (!video) return;
+    return () => {
+      for (const source of [...video.querySelectorAll('source')]) source.remove();
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, []);
 
   useEffect(() => {
     const video = el.current;
@@ -135,7 +164,20 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
   }, [asset, tier, paused, autoPlayInView]);
 
   if (!asset) return null;
-  const src = tier === 'LOW' && light ? asset.src720 : asset.src1280;
+  /**
+   * Which file, decided here rather than by a `media` attribute on a <source>.
+   *
+   * A <source media="…"> registers a MediaQueryList listener that Chromium keeps as a pending
+   * activity after the element is gone — and through it the <source>, the <video>, its
+   * buffered film, and every ancestor up to the page. Removing the sources on unmount let go
+   * of most of it; the bare <source> nodes stayed pinned regardless, about one per visit.
+   * Choosing the file with matchMedia and rendering a plain <source> is the whole fix.
+   */
+
+  const landscape = tier === 'LOW' && light ? asset.src720 : asset.src1280;
+  const landscapeAv1 = tier === 'LOW' && light ? asset.src720Av1 : asset.src1280Av1;
+  const src = isPortraitPhone ? asset.srcPortrait : landscape;
+  const srcAv1 = isPortraitPhone ? asset.srcPortraitAv1 : landscapeAv1;
   const subject = `${Math.round(asset.subject[0] * 100)}% ${Math.round(asset.subject[1] * 100)}%`;
   const tierKnown = tier !== 'unresolved';
 
@@ -162,8 +204,13 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
         aria-label={ariaLabel}
         aria-hidden={ariaLabel ? undefined : true}
       >
-        {tierKnown && portrait && <source src={asset.srcPortrait} type="video/mp4" media="(max-width: 767px) and (orientation: portrait)" />}
-        {tierKnown && <source src={src} type="video/mp4" />}
+        {/*
+          AV1 first, h264 after: the browser takes the first source it can play, so a device
+          that decodes AV1 downloads roughly half the bytes and one that cannot never sees
+          the AV1 file at all. The codec string is Main profile, level 4.0, 8-bit.
+        */}
+        {tierKnown && srcAv1 && <source key={srcAv1} src={srcAv1} type='video/mp4; codecs="av01.0.08M.08"' />}
+        {tierKnown && <source key={src} src={src} type="video/mp4" />}
       </video>
     </span>
   );
