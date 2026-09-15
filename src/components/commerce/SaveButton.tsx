@@ -33,7 +33,7 @@ export function SaveButton({ slug, variant = 'compact', className, onSaved }: Sa
       className="shrink-0"
       style={{ transition: 'color 400ms var(--ease-silk)' }}
     >
-      <path d="M12 2.5 19 9.5 12 21.5 5 9.5Z" fill={isSaved ? 'currentColor' : 'none'} fillOpacity={isSaved ? 1 : 0} stroke="currentColor" strokeWidth={1} strokeLinejoin="round" style={{ transition: 'fill-opacity 400ms var(--ease-silk)' }} />
+      <path d="M12 2.5 19 9.5 12 21.5 5 9.5Z" fill="currentColor" fillOpacity={isSaved ? 1 : 0} stroke="currentColor" strokeWidth={1} strokeLinejoin="round" style={{ transition: 'fill-opacity 400ms var(--ease-silk)' }} />
       <path d="M5 9.5h14M8.5 9.5 12 2.5l3.5 7" fill="none" stroke="currentColor" strokeWidth={1} strokeLinejoin="round" opacity={isSaved ? 0.35 : 0.7} style={{ transition: 'opacity 400ms var(--ease-silk)' }} />
     </motion.svg>
   );

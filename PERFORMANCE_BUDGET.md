@@ -14,10 +14,10 @@ A number in the table below being missed is a conversation. One of the three abo
 
 | Target | Value | Status |
 |---|---|---|
-| Base route JS | ≤ 170 kB gz | **309 kB — over by 139** (home, 11 Sep 2026, after the hydration work; was 349). Every route 294–309. See *Measured* below. |
+| Base route JS | ≤ 170 kB gz | **316 kB — over by 146** (home, 16 Sep 2026, after Stage 2.2: the five figures and the doors cost 7 kB on the app chunk; was 309 on 11 Sep, 349 before the hydration work). Every route 296–316. See *Measured* below. |
 | three + R3F chunk | ≈ 220 kB gz, requested once per document; never under REDUCED | **253 kB — over by 33** (HIGH tier via `?tier=HIGH` on a QA build, 11 Sep 2026). Two chunks: 232 + 21. |
 | drei | pulled in only by the craft object, so HIGH and MEDIUM only | no separate chunk — bundled into the 232 kB three chunk |
-| Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier). 358 on LOW, where three never loads. |
+| Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier, 11 Sep). **435 on LOW** (16 Sep 2026, settled, where three never loads; was 358 — the concierge chunk now arrives on idle and is counted as settled). |
 | Images | webp; 2880 px for the four full-bleed campaign frames, 2250 px or less for everything else | met (see manifest) |
 | Video, one codec, all variants | ≤ 25 MB | h264 31.2 MB — over; **AV1 21.6 MB — within** where AV1 is supported (verified in Chromium, 11 Sep 2026) |
 | CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | not measured |
