@@ -4,33 +4,50 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
+import { useRise } from '@/motion/hooks/useReveals';
 import { useQualityStore } from '@/state/qualityStore';
 import { Img } from '@/components/media/Img';
 import { LoaderStone } from '@/components/loader/LoaderStone';
+import { PieceLink } from '@/components/commerce/PieceLink';
+import { SemanticFigure } from '@/semantic/SemanticFigure';
+import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import { craftProgress, CRAFT_WINDOWS, stageAt } from './craftProgress';
 import { cn } from '@/lib/cn';
 import { useSiteStore } from '@/state/siteStore';
+import type { PieceRow } from '@/lib/facets';
 
 const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), { ssr: false, loading: () => null });
 
 /**
- * CH02 — the signature craft object. Pinned 450 vh; the hero's end frame dissolves as the
- * stone condenses out of the dark, then stone, setting, metal and hand finishing separate
- * beneath fixed editorial labels. The WebGL object (M5) mounts in `.craft-scene`; until then
- * the stage carries the house stone in SVG, filling with light as the visitor scrolls.
+ * CH02 — the signature craft object, and then the real thing.
+ *
+ * The stage is pinned for two viewports: the hero's end frame dissolves as the stone
+ * condenses out of the dark, then stone, setting, metal and hand finishing separate beneath
+ * fixed editorial labels. The WebGL object mounts in `.craft-scene` on tiers that can carry
+ * it; elsewhere the stage carries the drawn stone in SVG, filling with light as the visitor
+ * scrolls.
+ *
+ * Then the pin releases and the coda answers the drawing with a photograph: a ring Waseem
+ * actually sells, its stone, halo and shank named where they sit in the one frame. The
+ * object teaches the vocabulary; the coda proves it on a piece that can be opened.
  */
-export function Ch02Craft() {
+export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   const { ref, ready } = useChapter({ id: 'craft', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const tier = useQualityStore((s) => s.tier);
   const webgl = useQualityStore((s) => s.webgl);
   const loaderDone = useSiteStore((s) => s.loaderDone);
   const stage = useRef<HTMLDivElement>(null);
+  const codaScope = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [lostOnce, setLostOnce] = useState(0);
+  const [lit, setLit] = useState<string | null>(null);
   const wantsScene = webgl && (tier === 'HIGH' || tier === 'MEDIUM') && loaderDone && near && lostOnce < 2;
+  const descriptor = coda ? semanticFor(coda.s) : undefined;
+  useRise(codaScope);
 
   // the object mounts when the chapter is within a viewport of the visitor
   useEffect(() => {
@@ -56,6 +73,7 @@ export function Ch02Craft() {
         const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
         // the media query is the source of truth: gsap reverts the other branch when it flips
         const still = reduce || reduced;
+        const wrap = root.querySelector<HTMLElement>('.craft-stage-wrap');
         const backdrop = root.querySelector<HTMLElement>('.craft-backdrop');
         const stone = root.querySelector<HTMLElement>('.craft-stone');
         const halo = root.querySelector<HTMLElement>('.craft-halo');
@@ -65,7 +83,7 @@ export function Ch02Craft() {
         const notes = root.querySelectorAll<HTMLElement>('.craft-note');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
         const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
-        if (!stone || !backdrop) return;
+        if (!stone || !backdrop || !wrap) return;
         const setReveal = gsap.quickSetter(stone, '--reveal');
 
         if (still) {
@@ -92,7 +110,8 @@ export function Ch02Craft() {
         const proxy = { p: 0 };
         const tl = gsap.timeline({
           scrollTrigger: {
-            trigger: root,
+            // the stage pins, not the section: the coda beneath it scrolls in when the pin releases
+            trigger: wrap,
             start: 'top top',
             end: mobile ? '+=160%' : '+=200%',
             pin: true,
@@ -136,69 +155,132 @@ export function Ch02Craft() {
     { scope: ref, dependencies: [reduced] },
   );
 
+  const codaSizes = '(min-width: 768px) 46vw, 92vw';
+
   return (
-    <section ref={ref} id="ch02" className="relative h-svh overflow-hidden bg-ink text-ivory" aria-labelledby="craft-title">
-      {/* hero end-state backdrop, dissolving */}
-      <div className="craft-backdrop pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 origin-center scale-[0.84] -translate-y-[4svh]">
-          <Img id="still-royal-13" sizes="100vw" alt="" className="object-cover" />
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
-          <div className="absolute inset-x-0 top-0 h-[12svh] origin-top scale-y-[0.7] bg-ink" />
-          <div className="absolute inset-x-0 bottom-0 h-[12svh] origin-bottom scale-y-[0.7] bg-ink" />
-        </div>
-      </div>
-
-      {/* the stage */}
-      <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady ? '1' : '0'}>
-        {wantsScene && (
-          <div className={cn('absolute inset-0 transition-opacity duration-700', sceneReady ? 'opacity-100' : 'opacity-0')}>
-            <CraftScene key={lostOnce} onReady={onSceneReady} onLost={onSceneLost} />
-          </div>
-        )}
-        <div className="craft-halo pointer-events-none absolute left-1/2 top-1/2 h-[min(70vw,70svh)] w-[min(70vw,70svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ background: 'radial-gradient(circle, rgba(228,207,163,0.22) 0%, rgba(228,207,163,0.06) 38%, transparent 66%)' }} />
-        <div className="craft-band pointer-events-none absolute left-1/2 top-1/2 h-[min(9vw,9svh)] w-[min(58vw,58svh)] -translate-x-1/2 -translate-y-1/2 rounded-[100%] opacity-0" style={{ background: 'linear-gradient(180deg, #f1e2bf 0%, #a8894f 45%, #4a3818 100%)', boxShadow: '0 12px 40px -10px rgba(0,0,0,.8)' }} />
-        <div className="craft-ring pointer-events-none absolute left-1/2 top-1/2 h-[min(40vw,40svh)] w-[min(40vw,40svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ border: '2px solid transparent', background: 'linear-gradient(#0b0a09,#0b0a09) padding-box, conic-gradient(from 200deg, #6e5527, #f1e2bf 30%, #a8894f 55%, #f1e2bf 80%, #6e5527) border-box', boxShadow: '0 0 40px -8px rgba(228,207,163,0.35)' }} />
-        <div className="craft-stone absolute left-1/2 top-1/2 h-[min(46vw,46svh)] w-[min(46vw,46svh)] -translate-x-1/2 -translate-y-1/2" style={{ ['--reveal' as string]: 0 }}>
-          <LoaderStone id="craft" />
-        </div>
-      </div>
-
-      {/* editorial labels */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-gutter py-[9svh] md:py-[10svh]">
-        <div className="flex items-start justify-between">
-          <p className="craft-eyebrow micro text-champagne opacity-0">{COPY.craft.eyebrow}</p>
-          <h2 id="craft-title" className="sr-only">
-            {COPY.craft.title}
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
-          <ol className="flex flex-col gap-2 md:gap-3">
-            {COPY.craft.labels.map((l) => (
-              <li key={l.key} className={cn('craft-label flex items-baseline gap-4 transition-all duration-500 data-[lit=1]:translate-x-2 data-[lit=1]:opacity-100', 'opacity-25')} data-lit="0">
-                <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
-                  {l.numeral}
-                </span>
-                <span className="micro text-ivory">{l.name}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="relative min-h-[3.5rem] md:text-right">
-            {COPY.craft.labels.map((l) => (
-              <p key={l.key} className="craft-note absolute inset-x-0 bottom-0 font-display italic text-[1.0625rem] leading-snug text-ivory/85 opacity-0 transition-opacity duration-500 data-[lit=1]:opacity-100" style={{ fontVariationSettings: '"opsz" 16' }} data-lit="0">
-                {l.note}
-              </p>
-            ))}
+    <section ref={ref} id="ch02-craft" className="relative bg-ink text-ivory" aria-labelledby="craft-title">
+      <div className="craft-stage-wrap relative h-svh overflow-hidden">
+        {/* hero end-state backdrop, dissolving */}
+        <div className="craft-backdrop pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 origin-center scale-[0.84] -translate-y-[4svh]">
+            <Img id="still-royal-13" sizes="100vw" alt="" className="object-cover" />
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
+            <div className="absolute inset-x-0 top-0 h-[12svh] origin-top scale-y-[0.7] bg-ink" />
+            <div className="absolute inset-x-0 bottom-0 h-[12svh] origin-bottom scale-y-[0.7] bg-ink" />
           </div>
         </div>
+
+        {/* the stage */}
+        <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady ? '1' : '0'}>
+          {wantsScene && (
+            <div className={cn('absolute inset-0 transition-opacity duration-700', sceneReady ? 'opacity-100' : 'opacity-0')}>
+              <CraftScene key={lostOnce} onReady={onSceneReady} onLost={onSceneLost} />
+            </div>
+          )}
+          <div className="craft-halo pointer-events-none absolute left-1/2 top-1/2 h-[min(70vw,70svh)] w-[min(70vw,70svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ background: 'radial-gradient(circle, rgba(228,207,163,0.22) 0%, rgba(228,207,163,0.06) 38%, transparent 66%)' }} />
+          <div className="craft-band pointer-events-none absolute left-1/2 top-1/2 h-[min(9vw,9svh)] w-[min(58vw,58svh)] -translate-x-1/2 -translate-y-1/2 rounded-[100%] opacity-0" style={{ background: 'linear-gradient(180deg, #f1e2bf 0%, #a8894f 45%, #4a3818 100%)', boxShadow: '0 12px 40px -10px rgba(0,0,0,.8)' }} />
+          <div className="craft-ring pointer-events-none absolute left-1/2 top-1/2 h-[min(40vw,40svh)] w-[min(40vw,40svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ border: '2px solid transparent', background: 'linear-gradient(#0b0a09,#0b0a09) padding-box, conic-gradient(from 200deg, #6e5527, #f1e2bf 30%, #a8894f 55%, #f1e2bf 80%, #6e5527) border-box', boxShadow: '0 0 40px -8px rgba(228,207,163,0.35)' }} />
+          <div className="craft-stone absolute left-1/2 top-1/2 h-[min(46vw,46svh)] w-[min(46vw,46svh)] -translate-x-1/2 -translate-y-1/2" style={{ ['--reveal' as string]: 0 }}>
+            <LoaderStone id="craft" />
+          </div>
+        </div>
+
+        {/* editorial labels — the eyebrow sits beneath the nav band, never inside it */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-gutter pb-[9svh] pt-[calc(var(--nav-h)+1.25rem)] md:pb-[10svh]">
+          <div className="flex items-start justify-between">
+            <p className="craft-eyebrow micro text-champagne opacity-0">{COPY.craft.eyebrow}</p>
+            <h2 id="craft-title" className="sr-only">
+              {COPY.craft.title}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
+            <ol className="flex flex-col gap-2 md:gap-3">
+              {COPY.craft.labels.map((l) => (
+                <li key={l.key} className={cn('craft-label flex items-baseline gap-4 transition-all duration-500 data-[lit=1]:translate-x-2 data-[lit=1]:opacity-100', 'opacity-25')} data-lit="0">
+                  <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
+                    {l.numeral}
+                  </span>
+                  <span className="micro text-ivory">{l.name}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="relative min-h-[3.5rem] md:text-right">
+              {COPY.craft.labels.map((l) => (
+                <p key={l.key} className="craft-note absolute inset-x-0 bottom-0 font-display italic text-[1.0625rem] leading-snug text-ivory/85 opacity-0 transition-opacity duration-500 data-[lit=1]:opacity-100" style={{ fontVariationSettings: '"opsz" 16' }} data-lit="0">
+                  {l.note}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="craft-closing pointer-events-none absolute inset-x-0 bottom-[9svh] flex flex-col items-center opacity-0 md:bottom-[10svh]">
+          <p className="display text-center text-[clamp(2rem,5vw,5rem)] leading-[1.02] text-ivory">
+            {COPY.craft.closing[0]}
+            <br />
+            <span className="italic text-champagne">{COPY.craft.closing[1]}</span>
+          </p>
+        </div>
       </div>
 
-      <div className="craft-closing pointer-events-none absolute inset-x-0 bottom-[9svh] flex flex-col items-center opacity-0 md:bottom-[10svh]">
-        <p className="display text-center text-[clamp(2rem,5vw,5rem)] leading-[1.02] text-ivory">
-          {COPY.craft.closing[0]}
-          <br />
-          <span className="italic text-champagne">{COPY.craft.closing[1]}</span>
-        </p>
-      </div>
+      {/* the coda: the same anatomy, photographed once, on a piece that can be opened */}
+      {coda && descriptor && (
+        <div ref={codaScope} className="craft-coda relative px-gutter pb-[12svh] pt-[9svh] md:pb-[13svh] md:pt-[10svh]">
+          <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] md:grid-cols-12 md:items-center">
+            <div className="md:col-span-6" data-rise>
+              <PieceLink
+                product={pieceRefOf(coda)}
+                sizes={codaSizes}
+                aspect="1 / 1"
+                cursor="view"
+                className="mx-auto w-full md:w-[min(46vw,74svh)]"
+                figure={
+                  <SemanticFigure
+                    descriptor={descriptor}
+                    sizes={codaSizes}
+                    flipSource={coda.s}
+                    onLit={setLit}
+                    fallback={
+                      <div className="absolute inset-0 bg-pearl">
+                        <Img image={pieceRefOf(coda).media.hero} sizes={codaSizes} plain data={{ 'flip-source': coda.s }} />
+                      </div>
+                    }
+                  />
+                }
+              >
+                <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
+                  <div className="flex flex-col gap-1">
+                    <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+                      {coda.t}
+                    </p>
+                    <p className="micro text-ivory/55">{specLineOf(coda) || priceLabelOf(coda)}</p>
+                  </div>
+                  <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.craft.coda.view}</span>
+                </div>
+              </PieceLink>
+            </div>
+
+            <div className="flex flex-col gap-6 md:col-span-5 md:col-start-8 md:gap-8">
+              <div className="flex flex-col gap-4" data-rise>
+                <p className="micro text-champagne">{COPY.craft.coda.eyebrow}</p>
+                <p className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ivory">{COPY.craft.coda.title}</p>
+                <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.craft.coda.line}</p>
+              </div>
+              {/* the index of the figure's holds, lit in step with the camera */}
+              <ol className="hidden flex-col gap-3 border-t border-ivory/10 pt-6 md:flex" data-rise>
+                {descriptor.regions.map((r, i) => (
+                  <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-40 transition-opacity duration-500 data-[lit=1]:opacity-100">
+                    <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="micro text-ivory">{r.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

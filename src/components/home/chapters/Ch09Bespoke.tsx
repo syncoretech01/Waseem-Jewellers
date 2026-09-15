@@ -1,175 +1,174 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useQualityStore } from '@/state/qualityStore';
 import { useSiteStore } from '@/state/siteStore';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
-import { LoaderStone } from '@/components/loader/LoaderStone';
-import { facetPath, GEM_OUTLINE } from '@/lib/three/gemGeometry';
+import { PieceLink } from '@/components/commerce/PieceLink';
+import { SemanticFigure, type SemanticFigureHandle } from '@/semantic/SemanticFigure';
+import { beatsFor } from '@/semantic/resolve';
+import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
-import { cn } from '@/lib/cn';
+import type { PieceRow } from '@/lib/facets';
 
-const GEM_MASK = `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='${facetPath(GEM_OUTLINE)}' fill='black'/></svg>`)}")`;
+const DESKTOP = '(min-width: 768px)';
 
 /**
- * CH09 — bespoke. Five cards laid on the tray, one per step: an idea drawn as a stone
- * outline on paper, the stone itself, form (the outline becoming a photograph), craft, and
- * the piece worn. The consultation is the only door.
+ * CH09 — bespoke: made for one person.
+ *
+ * The chapter used to argue for bespoke with five cards — a drawn outline, a stone, a
+ * photograph masked into the outline — which read as a diagram rather than as jewellery. It
+ * now argues with one pair of earrings Waseem made, looked at as a jeweller looks: the two
+ * crowns, the two bells, the two drops, and then the pair together. The words at the left
+ * are lit in step with the figure's holds, and the consultation is the door beneath them.
+ *
+ * On desktop the chapter pins and drives the figure from its own scrub; on a phone the figure
+ * reads as it travels through the viewport, exactly as it does on a product page.
  */
-export function Ch09Bespoke() {
+export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
   const { ref, ready } = useChapter({ id: 'bespoke', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const openConsultation = useSiteStore((s) => s.openConsultation);
+  const desktop = useMediaQuery(DESKTOP);
+  const figure = useRef<SemanticFigureHandle>(null);
+  const [lit, setLit] = useState<string | null>(null);
+  const descriptor = pair ? semanticFor(pair.s) : undefined;
+  const regions = descriptor?.regions ?? [];
+  const words = [COPY.bespoke.opening, ...regions.map((r) => r.label), COPY.bespoke.closing];
 
   useGSAP(
     () => {
       const root = ref.current;
       if (!root) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+      mm.add({ desktop: DESKTOP, mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
         const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
         // the media query is the source of truth: gsap reverts the other branch when it flips
         const still = reduce || reduced;
-        const stage = root.querySelector<HTMLElement>('.bespoke-stage');
-        const cards = (mobile ? root : stage ?? root).querySelectorAll<HTMLElement>('.bespoke-card');
-        const words = root.querySelectorAll<HTMLElement>('.bespoke-word');
-        const outline = root.querySelector<SVGPathElement>('.bespoke-outline .stone-outline');
-        const facets = root.querySelectorAll<SVGPathElement>('.bespoke-outline .stone-facet');
-        const photo = root.querySelector<HTMLElement>('.bespoke-photo');
-        const cta = root.querySelector<HTMLElement>('.bespoke-cta');
+        const stageWords = root.querySelectorAll<HTMLElement>('.bespoke-stage .bespoke-word');
+        const wordsWrap = root.querySelector<HTMLElement>('.bespoke-words');
+        const cta = root.querySelector<HTMLElement>('.bespoke-stage .bespoke-cta');
 
         if (mobile || still) {
-          gsap.set([cards, words, cta], { autoAlpha: 1, clearProps: 'transform' });
-          if (photo) gsap.set(photo, { opacity: 1 });
-          if (!still) {
-            cards.forEach((c) => gsap.fromTo(c, { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 1, ease: 'wj.out', scrollTrigger: { trigger: c, start: 'top 85%', once: true } }));
-          }
+          // the still form of the figure carries its own captions; the lit words would say them twice
+          if (wordsWrap) gsap.set(wordsWrap, { autoAlpha: still ? 0 : 1 });
+          gsap.set(cta, { autoAlpha: 1, clearProps: 'transform' });
           ready();
           return;
         }
 
-        // stroke lengths for the drawing card
-        const strokes = [outline, ...facets].filter(Boolean) as SVGPathElement[];
-        strokes.forEach((p) => {
-          const len = p.getTotalLength();
-          p.style.strokeDasharray = `${len}`;
-          p.style.strokeDashoffset = `${len}`;
-        });
-
+        const beats = beatsFor(regions);
         const tl = gsap.timeline({
-          scrollTrigger: { trigger: root, start: 'top top', end: '+=150%', pin: true, scrub: 0.5, anticipatePin: 1, invalidateOnRefresh: true },
+          scrollTrigger: {
+            trigger: root,
+            start: 'top top',
+            end: `+=${Math.min(190, 100 + 25 * regions.length)}%`,
+            pin: true,
+            scrub: 0.5,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            onUpdate: (st) => figure.current?.apply(st.progress),
+          },
         });
-        const step = 0.19;
-        cards.forEach((card, k) => {
-          const at = k * step;
-          tl.fromTo(card, { y: '-16svh', rotationX: 10, z: -180, autoAlpha: 0 }, { y: 0, rotationX: 0, z: 0, autoAlpha: 1, ease: 'power2.out', duration: step * 0.7 }, at);
-          if (k > 0) {
-            const prev = cards[k - 1]!;
-            tl.to(prev, { y: '6svh', autoAlpha: 0.3, ease: 'power1.inOut', duration: step * 0.6 }, at + step * 0.1);
-            const label = prev.querySelectorAll('.card-label');
-            if (label.length) tl.to(label, { opacity: 0, ease: 'none', duration: step * 0.3 }, at);
-          }
-          const word = words[k];
-          if (word) {
-            tl.fromTo(word, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, ease: 'none', duration: step * 0.35 }, at + step * 0.1);
-            if (k < cards.length - 1) tl.to(word, { autoAlpha: 0, y: -10, ease: 'none', duration: step * 0.25 }, at + step * 0.95);
-          }
+        // the words follow the figure's beats: one for the opening, one per hold, one for the pull-back
+        beats.forEach((b, i) => {
+          const w = stageWords[i];
+          if (!w) return;
+          tl.fromTo(w, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: Math.min(0.05, (b.until - b.at) * 0.4) }, b.at);
+          if (i < beats.length - 1) tl.to(w, { autoAlpha: 0, y: -10, ease: 'none', duration: 0.035 }, b.until - 0.035);
         });
-        // the idea draws itself during step one
-        strokes.forEach((p, i) => tl.to(p, { strokeDashoffset: 0, ease: 'none', duration: step * 0.9 }, 0.02 + i * 0.002));
-        // form: the outline fills with the photograph
-        if (photo) tl.fromTo(photo, { opacity: 0 }, { opacity: 1, ease: 'none', duration: step * 0.5 }, 2 * step + step * 0.3);
-        if (cta) tl.fromTo(cta, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.06 }, 0.9);
+        if (cta) tl.fromTo(cta, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.06 }, 0.86);
+        // the timeline spans exactly the pin, so the beats' fractions are scroll fractions
+        tl.set({}, {}, 1);
         ready();
       });
     },
-    { scope: ref, dependencies: [reduced] },
+    { scope: ref, dependencies: [reduced, regions.length] },
   );
+
+  const sizes = '(min-width: 768px) 44vw, 92vw';
+  const door = pair ? pieceRefOf(pair) : null;
+
+  const figureFor = (driven: boolean) =>
+    pair && descriptor && door ? (
+      <PieceLink product={door} sizes={sizes} aspect="1 / 1" cursor="view" className="block w-full">
+        <div className="absolute inset-0">
+          <SemanticFigure
+            ref={driven ? figure : undefined}
+            descriptor={descriptor}
+            sizes={sizes}
+            driven={driven}
+            flipSource={pair.s}
+            onLit={driven ? setLit : undefined}
+            fallback={
+              <div className="absolute inset-0 bg-pearl">
+                <Img image={door.media.hero} sizes={sizes} plain data={{ 'flip-source': pair.s }} />
+              </div>
+            }
+          />
+        </div>
+        <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
+          <div className="flex flex-col gap-1">
+            <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+              {pair.t}
+            </p>
+            <p className="micro text-ivory/55">{specLineOf(pair) || priceLabelOf(pair)}</p>
+          </div>
+          <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.bespoke.view}</span>
+        </div>
+      </PieceLink>
+    ) : null;
 
   return (
     <section ref={ref} id="ch09" className="relative bg-ink text-ivory md:h-svh md:overflow-hidden" aria-labelledby="bespoke-title">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[46svh] md:block" style={{ background: 'linear-gradient(180deg, transparent 0%, #100d0b 60%, #0B0A09 100%)' }} />
-      <div className="pointer-events-none absolute left-1/2 top-[62%] hidden h-[26svh] w-[54vw] -translate-x-1/2 rounded-[100%] md:block" style={{ background: 'radial-gradient(ellipse, rgba(216,195,165,0.14) 0%, rgba(216,195,165,0.03) 50%, transparent 72%)' }} />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[40svh] md:block" style={{ background: 'linear-gradient(180deg, transparent 0%, #100d0b 70%, #0B0A09 100%)' }} />
 
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-[7svh] md:absolute md:inset-x-0 md:top-0">
+      {/* the eyebrow sits beneath the nav band, never inside it */}
+      <div className="relative z-10 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
         <p className="micro text-champagne">{COPY.bespoke.eyebrow}</p>
-        <h2 id="bespoke-title" className="sr-only">
-          Bespoke
-        </h2>
+        {pair && <p className="micro hidden text-ivory/50 md:block">{pair.t}</p>}
       </div>
 
-      {/* desktop: the tray */}
-      <div className="bespoke-stage relative hidden h-full md:block" style={{ perspective: '1400px' }}>
-        <div className="pointer-events-none absolute left-[8vw] top-1/2 flex -translate-y-1/2 flex-col gap-2">
-          {COPY.bespoke.words.map((w, i) => (
-            <p key={w} className="bespoke-word absolute left-0 top-0 flex items-baseline gap-5 whitespace-nowrap opacity-0">
-              <span className="font-display text-[0.8125rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span className="display text-[clamp(2.5rem,5.5vw,6rem)] leading-none text-ivory">{w}</span>
-            </p>
-          ))}
+      {/* desktop: the words at the left, the pair at the right, one pin */}
+      <div className="bespoke-stage relative hidden h-full grid-cols-12 items-center gap-x-[4vw] px-gutter md:grid">
+        <div className="col-span-5 flex flex-col gap-8">
+          <h2 id="bespoke-title" className="display max-w-[8em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ivory">
+            {COPY.bespoke.title}
+          </h2>
+          <p className="max-w-[28em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.bespoke.line}</p>
+          <div className="bespoke-words relative h-[5.5rem]">
+            {words.map((w, i) => (
+              <p key={w} className="bespoke-word absolute left-0 top-0 flex items-baseline gap-5 whitespace-nowrap opacity-0" data-lit={lit === regions[i - 1]?.key ? '1' : '0'}>
+                <span className="font-display text-[0.8125rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="display text-[clamp(2rem,4vw,4.25rem)] leading-none text-ivory">{w}</span>
+              </p>
+            ))}
+          </div>
+          <div className="bespoke-cta opacity-0">
+            <Button variant="bracket" onClick={() => openConsultation({ topic: 'bespoke', source: 'cta' })} cursor="open">
+              {COPY.bespoke.cta}
+            </Button>
+          </div>
         </div>
-
-        <Card className="bg-pearl">
-          <div className="bespoke-outline absolute inset-[14%]">
-            <LoaderStone id="bespoke-idea" outlineOnly className="[&_.stone-lines]:stroke-ink/70" />
-          </div>
-          <span className="card-label micro absolute bottom-6 left-6 text-ink/55">The idea</span>
-        </Card>
-        <Card>
-          <Img id="bespoke-stone" sizes="34vw" className="object-cover" />
-        </Card>
-        <Card className="bg-pearl">
-          <div className="absolute inset-[14%]">
-            <LoaderStone id="bespoke-form" outlineOnly className="[&_.stone-lines]:stroke-ink/60" />
-            <div className="bespoke-photo absolute inset-0 opacity-0" style={{ WebkitMaskImage: GEM_MASK, maskImage: GEM_MASK, WebkitMaskSize: '100% 100%', maskSize: '100% 100%', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }}>
-              <Img id="p09-hero" sizes="34vw" alt="" className="object-cover" />
-            </div>
-          </div>
-          <span className="card-label micro absolute bottom-6 left-6 text-ink/55">Form</span>
-        </Card>
-        <Card>
-          <Img id="bespoke-form" sizes="34vw" className="object-cover" />
-        </Card>
-        <Card>
-          <Img id="bespoke-bride" sizes="34vw" className="object-cover" />
-        </Card>
-
-        <div className="bespoke-cta absolute bottom-[9svh] left-1/2 -translate-x-1/2 opacity-0">
-          <Button variant="bracket" onClick={() => openConsultation({ topic: 'bespoke', source: 'cta' })} cursor="discover">
-            {COPY.bespoke.cta}
-          </Button>
+        <div className="col-span-6 col-start-7">
+          <div className="mx-auto w-[min(44vw,66svh)]">{desktop ? figureFor(true) : null}</div>
         </div>
       </div>
 
-      {/* mobile: stacked */}
-      <div className="bespoke-stack flex flex-col gap-12 px-gutter pb-20 pt-10 md:hidden">
-        {COPY.bespoke.words.map((w, i) => (
-          <div key={w} className="bespoke-card flex flex-col gap-4">
-            <p className="flex items-baseline gap-4">
-              <span className="font-display text-[0.8125rem] text-champagne">{String(i + 1).padStart(2, '0')}</span>
-              <span className="display text-[2.4rem] leading-none text-ivory">{w}</span>
-            </p>
-            <div className={cn('relative w-full overflow-hidden', i === 0 || i === 2 ? 'bg-pearl' : 'bg-charcoal')} style={{ aspectRatio: '4 / 5' }}>
-              {i === 0 && (
-                <div className="absolute inset-[14%]">
-                  <LoaderStone id="bespoke-idea-m" outlineOnly className="[&_.stone-lines]:stroke-ink/70" />
-                </div>
-              )}
-              {i === 1 && <Img id="bespoke-stone" sizes="92vw" className="object-cover" />}
-              {i === 2 && (
-                <div className="absolute inset-[14%]" style={{ WebkitMaskImage: GEM_MASK, maskImage: GEM_MASK, WebkitMaskSize: '100% 100%', maskSize: '100% 100%', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }}>
-                  <Img id="p09-hero" sizes="92vw" alt="" className="object-cover" />
-                </div>
-              )}
-              {i === 3 && <Img id="bespoke-form" sizes="92vw" className="object-cover" />}
-              {i === 4 && <Img id="bespoke-bride" sizes="92vw" className="object-cover" />}
-            </div>
-          </div>
-        ))}
+      {/* mobile: stacked; the figure reads as it travels through the viewport */}
+      <div className="bespoke-stack flex flex-col gap-10 px-gutter pb-20 pt-10 md:hidden">
+        <div className="flex flex-col gap-5">
+          <p className="display text-[2.4rem] leading-[1.02] text-ivory">{COPY.bespoke.title}</p>
+          <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.bespoke.line}</p>
+        </div>
+        {figureFor(false)}
         <div className="pt-2">
           <Button variant="bracket" onClick={() => openConsultation({ topic: 'bespoke', source: 'cta' })}>
             {COPY.bespoke.cta}
@@ -177,13 +176,5 @@ export function Ch09Bespoke() {
         </div>
       </div>
     </section>
-  );
-}
-
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn('bespoke-card absolute left-1/2 top-1/2 w-[34vw] max-w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-charcoal opacity-0 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)]', className)} style={{ aspectRatio: '4 / 5', transformStyle: 'preserve-3d' }}>
-      {children}
-    </div>
   );
 }

@@ -9,13 +9,15 @@ import { useQualityStore } from '@/state/qualityStore';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SaveButton } from '@/components/commerce/SaveButton';
 import { Img } from '@/components/media/Img';
-import { pieceRefOf } from '@/data/clientIndex';
+import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { semanticFor } from '@/data/semantic';
+import { SemanticFigure } from '@/semantic/SemanticFigure';
 import { DEPARTMENT_LABEL } from '@/data/labels';
 import { COPY } from '@/data/copy';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
 
 import type { Department } from '@/data/types';
-import type { WallCut } from '@/lib/facets';
+import type { PieceRow, WallCut } from '@/lib/facets';
 import { cn } from '@/lib/cn';
 
 interface Slot {
@@ -62,7 +64,7 @@ const SLOTS: Slot[] = [
  * The cut switcher changes which ten, so one screen fronts 599 pieces without ever
  * growing, and the chapter closes on the departments themselves with their real counts.
  */
-export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: { department: Department; count: number }[] }) {
+export function Ch06Wall({ cuts, departments, figure }: { cuts: WallCut[]; departments: { department: Department; count: number }[]; figure?: PieceRow }) {
   const { ref } = useChapter({ id: 'wall', theme: 'ivory' });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const coarse = useQualityStore((s) => s.coarse);
@@ -70,6 +72,8 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
   const cut = cuts.find((c) => c.id === cutId) ?? cuts[0];
   const grid = useRef<HTMLDivElement>(null);
   const pieceSlots = SLOTS.filter((s) => !s.image);
+  const figureDescriptor = figure ? semanticFor(figure.s) : undefined;
+  const figureSizes = '(min-width: 768px) 50vw, 92vw';
 
   /**
    * A cut change is a crossfade, and it is written as one.
@@ -226,6 +230,49 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
         {SLOTS.map((s) => {
           // the scene keeps its slot; the pieces come from whichever cut is showing
           if (s.image) {
+            /**
+             * The scene is gold looked at closely: the world frame is cut from the same
+             * photograph Waseem publishes as this set's own hero, so the figure and the door
+             * beneath it are one piece. If the set is ever withdrawn, the slot shows the
+             * campaign photograph it always did.
+             */
+            if (figure && figureDescriptor) {
+              return (
+                <div key={s.slot} className={cn('wall-col', s.col, s.offset)} data-parallax={s.parallax}>
+                  <div className="relative" data-rise>
+                    <p className="micro mb-4 text-ink/55">{COPY.wall.figure.eyebrow}</p>
+                    <PieceLink
+                      product={pieceRefOf(figure)}
+                      sizes={figureSizes}
+                      aspect="1 / 1"
+                      cursor="view"
+                      figure={
+                        <SemanticFigure
+                          descriptor={figureDescriptor}
+                          sizes={figureSizes}
+                          flipSource={figure.s}
+                          fallback={
+                            <div className="absolute inset-0 bg-pearl">
+                              <Img image={pieceRefOf(figure).media.hero} sizes={figureSizes} plain data={{ 'flip-source': figure.s }} />
+                            </div>
+                          }
+                        />
+                      }
+                    >
+                      <div className="meta mt-4 flex items-baseline justify-between gap-4">
+                        <div className="flex flex-col gap-1">
+                          <p className="font-display text-[1.125rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 16' }}>
+                            {figure.t}
+                          </p>
+                          <p className="micro text-ink/55">{specLineOf(figure) || priceLabelOf(figure)}</p>
+                        </div>
+                        <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.wall.figure.view}</span>
+                      </div>
+                    </PieceLink>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={s.slot} className={cn('wall-col', s.col, s.offset)} data-parallax={s.parallax}>
                 <figure className="relative" data-rise>
@@ -268,7 +315,7 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
        */}
       <nav aria-label="Departments" className="mt-[10svh] flex flex-col gap-4 border-t border-ink/10 pt-10 md:mt-[12svh]">
         {departments.map(({ department, count }) => (
-          <TransitionLink key={department} href={`/${department}`} className="group/gate flex items-baseline justify-between gap-6 text-ink/60 transition-colors hover:text-ink" data-cursor="discover" data-rise>
+          <TransitionLink key={department} href={`/${department}`} className="group/gate flex items-baseline justify-between gap-6 text-ink/60 transition-colors hover:text-ink" data-cursor="explore" data-rise>
             <span className="display relative text-[clamp(1.5rem,3.4vw,2.75rem)] leading-tight">
               {DEPARTMENT_LABEL[department]}
               <span aria-hidden className="absolute inset-x-0 -bottom-1 h-px origin-left scale-x-0 bg-ink/40 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/gate:scale-x-100" />

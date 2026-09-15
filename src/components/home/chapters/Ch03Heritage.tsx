@@ -124,12 +124,12 @@ export function Ch03Heritage() {
 
       {/* the horizontal track */}
       <div className="heritage-wrap relative bg-ivory md:h-svh md:overflow-hidden">
-        <div className="pointer-events-none absolute right-[6vw] top-1/2 hidden w-[38vw] -translate-y-1/2 opacity-[0.06] md:block">
+        <div className="pointer-events-none absolute right-[5vw] top-1/2 hidden w-[24vw] -translate-y-1/2 opacity-[0.035] md:block">
           <WaseemMark variant="crest" tone="ink" className="w-full" />
         </div>
         <div className="heritage-track flex w-full flex-col items-start gap-[14svh] px-gutter py-[12svh] md:h-full md:w-max md:flex-row md:items-center md:gap-[5vw] md:px-[6vw] md:py-0">
-          <div className="heritage-travel pointer-events-none absolute left-[8vw] top-[10svh] hidden md:block">
-            <p className="display text-[clamp(4rem,9vw,9rem)] leading-none text-ink/8" aria-hidden>
+          <div className="heritage-travel pointer-events-none absolute left-[8vw] top-[calc(var(--nav-h)+2svh)] hidden md:block">
+            <p className="display text-[clamp(3rem,6.5vw,6.5rem)] leading-none text-ink/8" aria-hidden>
               1952
             </p>
           </div>

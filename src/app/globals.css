@@ -349,6 +349,42 @@ html.has-cursor,
 html.has-cursor * {
   cursor: none !important;
 }
+
+/* ── the cursor: a bead, a hairline ring over a control, a wider ring while held ── */
+.wj-cursor {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--bg);
+  transition: width 180ms var(--ease-silk), height 180ms var(--ease-silk), background-color 180ms var(--ease-silk), box-shadow 180ms var(--ease-silk);
+}
+.wj-cursor[data-on="1"] {
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--bg);
+}
+.wj-cursor[data-held="1"] {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fg), 0 0 0 1px var(--bg);
+}
+.wj-cursor-label {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  padding: 3px 7px 2px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 60%, transparent);
+}
+
+/* ── the nav's surface once the page has moved beneath the mark ─────────── */
+.wj-nav-surfaced {
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 html.is-transitioning #page-root {
   pointer-events: none;
 }

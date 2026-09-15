@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLenis } from 'lenis/react';
 import { useSiteStore } from '@/state/siteStore';
@@ -12,8 +12,13 @@ import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
 /**
- * Text only, no bar: WASEEM (→ monogram after the hero), SELECTION · 02, ASK, MENU.
- * Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens.
+ * Text only at the top of a page: WASEEM (→ the crest after the hero), SELECTION · 02, ASK,
+ * MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
+ * when it returns over content it brings a surface with it, in the chapter's own paper or
+ * ink, so the mark is never floating over a photograph.
+ *
+ * It also publishes its own height as `--nav-offset` while it is shown, so anything sticky
+ * beneath it (the department refine bar) can stand under it rather than be overprinted.
  */
 export function Nav() {
   const menuOpen = useSiteStore((s) => s.menuOpen);
@@ -30,12 +35,26 @@ export function Nav() {
   const setVideoPaused = useSiteStore((s) => s.setVideoPaused);
   const conciergeOpen = useConciergeStore((s) => OPEN_STATES.includes(s.state));
   const [hidden, setHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useLenis(({ direction, scroll }) => {
     if (menuOpen) return;
     const shouldHide = direction === 1 && scroll > 120;
     setHidden((h) => (h === shouldHide ? h : shouldHide));
+    const past = scroll > 120;
+    setScrolled((s) => (s === past ? s : past));
   });
+
+  const shown = !(hidden && !menuOpen && !conciergeOpen);
+  // the surface: only once the page has moved beneath the mark
+  const surfaced = scrolled && shown && !menuOpen;
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--nav-offset', shown ? 'var(--nav-h)' : '0px');
+    return () => {
+      document.documentElement.style.removeProperty('--nav-offset');
+    };
+  }, [shown]);
 
   const onHome = routeKind === 'home';
   const showMonogram = !onHome || (section !== null && section !== 'hero' && section !== 'loader');
@@ -43,14 +62,16 @@ export function Nav() {
 
   return (
     <motion.header
-      className="fixed inset-x-0 top-0 flex items-center justify-between px-gutter text-fg"
+      className={cn('fixed inset-x-0 top-0 flex items-center justify-between px-gutter text-fg transition-[background-color,border-color,backdrop-filter] duration-500', surfaced ? 'wj-nav-surfaced' : 'border-b border-transparent')}
       style={{ zIndex: menuOpen ? 'calc(var(--z-menu) + 1)' : 'var(--z-nav)', height: 'var(--nav-h)' }}
       initial={false}
-      animate={{ y: hidden && !menuOpen && !conciergeOpen ? '-100%' : 0, opacity: visible ? 1 : 0 }}
+      animate={{ y: shown ? 0 : '-100%', opacity: visible ? 1 : 0 }}
+      data-surfaced={surfaced ? '1' : '0'}
       transition={{ duration: 0.5, ease: EASE.silk }}
       aria-label="Primary"
     >
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[140%] bg-gradient-to-b from-ink/50 to-transparent opacity-0 transition-opacity duration-700" style={{ opacity: 'var(--header-veil, 0)' }} />
+      {/* the hero's veil: a soft ground while the film is under the mark; gone once the nav has a surface */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[140%] bg-gradient-to-b from-ink/50 to-transparent opacity-0 transition-opacity duration-700" style={{ opacity: surfaced ? 0 : 'var(--header-veil, 0)' }} />
       <TransitionLink href="/" className="relative flex h-10 items-center" aria-label="Waseem Jewellers — home">
         <AnimatePresence mode="wait" initial={false}>
           {showMonogram ? (

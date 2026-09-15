@@ -164,7 +164,7 @@ export function MenuOverlay() {
                         onFocus={() => setActive(item.id)}
                         onTouchStart={() => setActive(item.id)}
                         className={cn('group/item flex w-full items-baseline gap-6 py-3 text-left transition-opacity duration-500', !isActive && 'opacity-45 hover:opacity-100')}
-                        data-cursor="discover"
+                        data-cursor="explore"
                       >
                         <span className="font-display text-[0.9rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 12' }}>
                           {item.numeral}
@@ -200,7 +200,7 @@ export function MenuOverlay() {
                     onTouchStart={() => setActive(item.id)}
                     className={cn('group/sec relative pb-1 font-display text-[1.35rem] transition-opacity duration-500', active === item.id ? 'opacity-100' : 'opacity-55 hover:opacity-100')}
                     style={{ fontVariationSettings: '"opsz" 24' }}
-                    data-cursor="discover"
+                    data-cursor="explore"
                   >
                     {item.label}
                     <span

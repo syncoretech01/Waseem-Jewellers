@@ -15,23 +15,32 @@ import type { ImageRef } from '@/data/types';
  * *assembled*. It is composition, not process. Construction language is reserved for the day
  * genuine process imagery exists — a band before its stone, an empty setting — and none does.
  *
- * Three families survive that test:
+ * Five families survive that test, and all five are the same mechanism — attention travelling
+ * to named rectangles of one photograph and holding there — differing only in what the
+ * rectangles are and what may be said while looking:
  *
  *   goldwork      a scale ladder over one photograph: surface, then relief, then the
  *                 filigree. It claims nothing except "this is the same picture, closer",
- *                 which is why it needs no authored regions and no sign-off, and why it can
- *                 run on the ~550 images that clear 2200px.
+ *                 which is why it needs the fewest authored words, and why it can run on the
+ *                 ~550 images that clear 2200px.
  *   craft-detail  attention travelling to named regions of one frame and holding there.
  *                 Every region is a rectangle a person chose and a person reviewed.
  *   composition   the same mechanism at the scale of a suite — the parts named in place.
  *                 It says what is *in* the frame; it never claims the parts were
  *                 photographed apart.
+ *   setting       the anatomy of one setting as it was photographed: the stone, the claws
+ *                 that hold it, the halo around it, the shank beneath. It names what a
+ *                 jeweller would point at with a loupe. It never shows a loose stone or an
+ *                 empty seat, because none was ever photographed.
+ *   pair          the two of a pair, named across one frame — crowns, bells, drops — with the
+ *                 pull-back showing them side by side as they were shot. Never a mirrored
+ *                 half: the right earring in the frame is the right earring.
  *
- * Deliberately not built: ring anatomy, layering compositors, gemstone setting. All three
- * would require showing the jewellery in states it was never photographed in, which means
- * inventing physical construction.
+ * Deliberately not built: ring anatomy from teardown photography (none exists), layering
+ * compositors, loose-stone setting sequences. All three would require showing the jewellery
+ * in states it was never photographed in, which means inventing physical construction.
  */
-export type FamilyId = 'goldwork' | 'craft-detail' | 'composition';
+export type FamilyId = 'goldwork' | 'craft-detail' | 'composition' | 'setting' | 'pair';
 
 /**
  * What the figure is allowed to claim about its own source.

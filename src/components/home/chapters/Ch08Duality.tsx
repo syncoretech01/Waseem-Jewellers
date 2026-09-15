@@ -139,7 +139,7 @@ export function Ch08Duality() {
           onClick={() => choose('gold')}
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.7, duration: 0.8 })}
           className="group/side flex flex-col items-start justify-end p-gutter text-left outline-none md:justify-center md:pl-[8vw]"
-          data-cursor="discover"
+          data-cursor="explore"
           aria-label="Gold — pendants, chains, bangles and rings, mostly in 21 karat gold."
         >
           <span className="block origin-left">
@@ -154,7 +154,7 @@ export function Ch08Duality() {
           onClick={() => choose('diamond')}
           onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.3, duration: 0.8 })}
           className="group/side flex flex-col items-end justify-start p-gutter text-right outline-none md:justify-center md:pr-[8vw]"
-          data-cursor="discover"
+          data-cursor="explore"
           aria-label="Diamond — pieces set with diamonds, graded as Waseem publishes them."
         >
           <span className="block origin-right">

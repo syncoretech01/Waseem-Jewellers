@@ -71,6 +71,7 @@ export type SectionId =
   | 'heritage'
   | 'collections'
   | 'bridal'
+  | 'bridal-close'
   | 'wall'
   | 'slider'
   | 'duality'

@@ -14,6 +14,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   heritage: 'Since 1952',
   collections: 'Signature Collections',
   bridal: 'Bridal',
+  'bridal-close': 'Bridal',
   wall: 'The Pieces',
   slider: 'The Collection',
   duality: 'The Bridal Edits',

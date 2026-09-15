@@ -223,7 +223,7 @@ export function Ch07Slider({ rows }: { rows: PieceRow[] }) {
 
   return (
     <section ref={ref} id="ch07" className="relative bg-ink text-ivory md:h-svh md:overflow-hidden" aria-labelledby="slider-title">
-      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-gutter pt-[7svh]">
+      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)]">
         <p className="micro text-champagne">{COPY.slider.eyebrow}</p>
         <h2 id="slider-title" className="sr-only">
           The Collection

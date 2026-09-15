@@ -58,7 +58,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
   const set = (key: FacetKey, value: string | undefined) => onChange({ ...facets, [key]: facets[key] === value ? undefined : value });
 
   return (
-    <div className="sticky top-0 z-[5] border-b border-line bg-bg/95 text-fg backdrop-blur-[2px]" data-theme="ivory">
+    <div className="sticky z-[5] border-b border-line bg-bg/95 text-fg backdrop-blur-[2px] transition-[top] duration-500 ease-[var(--ease-silk)]" style={{ top: 'var(--nav-offset, 0px)' }} data-theme="ivory">
       <div className="flex flex-wrap items-baseline justify-between gap-x-10 gap-y-3 px-gutter py-4">
         <h2 className="flex flex-wrap items-baseline gap-x-2 font-display text-[1.0625rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
           <span>{leading}</span>

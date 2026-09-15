@@ -23,7 +23,7 @@ import type { PieceRow, WallCut } from '@/lib/facets';
  * The homepage: ten chapters in one continuous scroll. The loading ritual (CH00) lives in
  * Providers and the footer (CH10) sits fixed beneath the page root.
  */
-export function Home({ wallCuts, departments, vitrine, total, slider }: { wallCuts: WallCut[]; departments: { department: Department; count: number }[]; vitrine: PieceRow[]; total: number; slider: PieceRow[] }) {
+export function Home({ wallCuts, departments, vitrine, total, slider, doors }: { wallCuts: WallCut[]; departments: { department: Department; count: number }[]; vitrine: PieceRow[]; total: number; slider: PieceRow[]; doors: Record<string, PieceRow> }) {
   const setPendingSection = useSiteStore((s) => s.setPendingSection);
 
   // arriving from the menu or the concierge with a chapter in mind
@@ -47,16 +47,16 @@ export function Home({ wallCuts, departments, vitrine, total, slider }: { wallCu
   return (
     <main id="home">
       <Arrive />
-      <Ch01Hero />
+      <Ch01Hero credit={doors['royal-wedding-polki-raani-haar']} />
       <Ch02Vitrine pieces={vitrine} total={total} />
-      <Ch02Craft />
+      <Ch02Craft coda={doors['lavender-halo-ring-r11912']} />
       <Ch03Heritage />
-      <Ch04Worlds />
-      <Ch05Bridal />
-      <Ch06Wall cuts={wallCuts} departments={departments} />
+      <Ch04Worlds doors={doors} />
+      <Ch05Bridal suite={doors['rang-e-jamal-emerald-suite']} credit={doors['naqsh-e-gul-pearl-blossom-choker']} />
+      <Ch06Wall cuts={wallCuts} departments={departments} figure={doors['gold-bridal-set-2']} />
       <Ch07Slider rows={slider} />
       <Ch08Duality />
-      <Ch09Bespoke />
+      <Ch09Bespoke pair={doors['emerald-tassel-earrings-t06768']} />
     </main>
   );
 }

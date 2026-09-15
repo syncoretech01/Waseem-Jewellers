@@ -8,7 +8,9 @@ import { useFocusScroll } from '@/motion/hooks/useFocusScroll';
 import { useQualityStore } from '@/state/qualityStore';
 import { useSiteStore } from '@/state/siteStore';
 import { Img } from '@/components/media/Img';
+import { TransitionLink } from '@/components/motion/TransitionLink';
 import { UrduAccent } from '@/components/ui/primitives';
+import type { PieceRow } from '@/lib/facets';
 import { WORLDS } from '@/data/worlds';
 import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
@@ -20,7 +22,7 @@ const SPEEDS = [1.0, -0.55, 0.8, -0.65, 1.1];
  * speeds; at rest only the eyebrow and numerals speak. Hover or focus raises the world's
  * name behind the columns; choosing one flies its middle tile into the Bridal House.
  */
-export function Ch04Worlds() {
+export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> }) {
   const { ref, ready } = useChapter({ id: 'collections', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const coarse = useQualityStore((s) => s.coarse);
@@ -139,7 +141,7 @@ export function Ch04Worlds() {
         ))}
       </div>
 
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-[7svh] md:absolute md:inset-x-0 md:top-0">
+      <div className="relative z-10 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
         <p className="micro text-champagne">{COPY.collections.eyebrow}</p>
         <h2 id="worlds-title" className="sr-only">
           Signature Collections
@@ -192,14 +194,28 @@ export function Ch04Worlds() {
                   );
                 })}
               </div>
-              <p className="pointer-events-none absolute bottom-[6svh] left-0 font-display text-[0.9375rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 14' }}>
-                {w.numeral}
-              </p>
+              {/* the world is named at rest, and the listed piece from it is a door — no hover required */}
+              <div className="absolute bottom-[5svh] left-0 right-0 z-10 flex flex-col gap-1.5">
+                <p className="flex items-baseline gap-3">
+                  <span className="font-display text-[0.875rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 14' }}>
+                    {w.numeral}
+                  </span>
+                  <span className="display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory">{w.name}</span>
+                </p>
+                <p className={cn('font-display italic text-[0.875rem] text-ivory/60 transition-opacity duration-500', active === i ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 14' }}>
+                  {w.mood}
+                </p>
+                {doors[w.pieces[0] ?? ''] && (
+                  <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="micro w-fit text-champagne/70 transition-colors hover:text-ivory" data-cursor="view">
+                    {doors[w.pieces[0] ?? '']!.t}
+                  </TransitionLink>
+                )}
+              </div>
             </div>
           ))}
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18svh] bg-gradient-to-t from-ink to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[14svh] bg-gradient-to-b from-ink to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[22svh] bg-gradient-to-b from-ink via-ink/70 to-transparent" />
       </div>
 
       {/* mobile: rows headed by names */}
@@ -230,6 +246,11 @@ export function Ch04Worlds() {
             <p className="mt-3 font-display italic text-[0.9375rem] text-ivory/60" style={{ fontVariationSettings: '"opsz" 14' }}>
               {w.mood}
             </p>
+            {doors[w.pieces[0] ?? ''] && (
+              <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="micro mt-2 inline-block text-champagne/80" data-cursor="view">
+                {doors[w.pieces[0] ?? '']!.t} · {COPY.hero.view}
+              </TransitionLink>
+            )}
           </div>
         ))}
       </div>

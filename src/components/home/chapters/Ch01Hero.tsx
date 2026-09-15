@@ -8,6 +8,8 @@ import { useQualityStore } from '@/state/qualityStore';
 import { Video, type VideoHandle } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
+import { TransitionLink } from '@/components/motion/TransitionLink';
+import type { PieceRow } from '@/lib/facets';
 import { ConciergeInvitation } from '@/concierge/ui/ConciergeInvitation';
 import { markHeroReady } from '@/components/loader/readiness';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
@@ -18,7 +20,7 @@ import { COPY } from '@/data/copy';
  * spacing so the craft chapter rises over its end state. The type stack ends with the
  * typographic concierge invitation; as it fades on scroll, the jewel takes over.
  */
-export function Ch01Hero() {
+export function Ch01Hero({ credit }: { credit?: PieceRow }) {
   const { ref, ready } = useChapter({ id: 'hero', theme: 'dark', pinned: true });
   const video = useRef<VideoHandle>(null);
   const loaderDone = useSiteStore((s) => s.loaderDone);
@@ -170,7 +172,13 @@ export function Ch01Hero() {
     };
   }, [ref, coarse, reduced]);
 
-  useEffect(() => () => setInvitation(false), [setInvitation]);
+  useEffect(
+    () => () => {
+      setInvitation(false);
+      document.documentElement.style.removeProperty('--header-veil');
+    },
+    [setInvitation],
+  );
 
   return (
     <section ref={ref} id="ch01" className="relative h-svh overflow-hidden bg-ink text-ivory" aria-labelledby="hero-title">
@@ -202,8 +210,18 @@ export function Ch01Hero() {
           </p>
         </div>
         <div className="hero-tail mt-8">
-          <div className="intro-tail opacity-0">
-            <Button variant="hairline" href="/collections/bridal" cursor="discover">
+          <div className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-3 opacity-0">
+            {/* the film's credit: the listed piece worn in it, and the door to it */}
+            {credit && (
+              <TransitionLink href={`/jewellery/${credit.s}`} className="group/credit flex flex-wrap items-baseline gap-x-4 gap-y-1" data-cursor="view">
+                <span className="micro text-champagne">{COPY.hero.credit}</span>
+                <span className="font-display italic text-[1.0625rem] text-ivory/90 transition-colors group-hover/credit:text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
+                  {credit.t}
+                </span>
+                <span className="micro text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
+              </TransitionLink>
+            )}
+            <Button variant="hairline" href="/collections/bridal" cursor="explore" size="sm">
               {COPY.hero.cta}
             </Button>
           </div>

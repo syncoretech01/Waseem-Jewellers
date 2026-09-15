@@ -1,24 +1,45 @@
 import type { Fidelity, Region, SemanticDescriptor } from './types';
 
 /**
- * Whether a figure can be supported, and at what fidelity.
+ * Whether a figure can be supported, and at what fidelity — and how close the camera may go.
  *
- * The resolution floor is the important rule. A region is only worth travelling to if the
- * negative can carry it: holding on a 480-pixel crop of a 1080-pixel frame shows the visitor
- * the JPEG, not the jewellery, and a teaching moment that resolves to mush teaches the wrong
- * thing. So the smallest held region decides, measured in real pixels of the source.
+ * The resolution rule is the important one, and it is display-relative rather than a fixed
+ * number. A region is worth travelling to when the negative can carry it *at the size it
+ * will be shown*: magnifying until one source pixel is stretched across two screen pixels
+ * shows the visitor the JPEG, not the jewellery, and a teaching moment that resolves to mush
+ * teaches the wrong thing. So the camera's scale for every region is capped by
+ * `honestScale` — the point at which the region's source pixels equal the pixels it is
+ * displayed across — and a region that could not be magnified at all is dropped rather
+ * than held on.
  *
  * A family that cannot be supported does not render as a degraded family — the caller shows
  * its ordinary image instead. There is no broken lesson.
  */
 
-/** Below this, a held region is not worth holding. */
-export const REGION_FLOOR_PX = 640;
-/** Below this the camera moves but does not magnify. */
-export const REDUCED_CEILING_PX = 1100;
+/** Below this many source pixels on its shorter side, a region is a caption, not a hold. */
+export const REGION_FLOOR_PX = 420;
+/** The camera never goes closer than this, whatever the negative could carry. */
+export const MAX_SCALE = 3.2;
+/** Assumed until the host has measured its own box. */
+export const DEFAULT_DISPLAY_PX = 720;
 
 export const regionPixels = (region: Region, sourceWidth: number, sourceHeight: number) =>
   Math.min(region.rect[2] * sourceWidth, region.rect[3] * sourceHeight);
+
+/**
+ * The scale at which a region fills the box — or, if the negative runs out first, the scale
+ * at which its source pixels equal the screen pixels they are shown across. Never more than
+ * `MAX_SCALE`, never less than 1.
+ *
+ * `displayPx` is the box's rendered width in CSS pixels. The source has `sourceWidth` pixels
+ * across the same box at scale 1, so the honest ceiling is simply their ratio.
+ */
+export function honestScale(region: Region, sourceWidth: number, displayPx: number): number {
+  const [, , rw, rh] = region.rect;
+  const fill = 1 / Math.max(rw, rh);
+  const negative = sourceWidth / Math.max(1, displayPx);
+  return Math.max(1, Math.min(MAX_SCALE, fill, negative));
+}
 
 export interface ResolveInput {
   descriptor: SemanticDescriptor;
@@ -46,9 +67,12 @@ export function resolveFigure({ descriptor, sourceWidth, sourceHeight, reducedMo
   if (regions.length < minimum) return { fidelity: 'static', regions: descriptor.regions, supported: false };
 
   if (reducedMotion) return { fidelity: 'static', regions, supported: true };
-
-  const smallest = Math.min(...regions.map((r) => regionPixels(r, sourceWidth, sourceHeight)));
-  if (modest || smallest < REDUCED_CEILING_PX) return { fidelity: 'reduced', regions, supported: true };
+  /**
+   * `reduced` is the camera moving without magnifying far: the tier or the pointer says the
+   * device would rather not composite a 3× photograph every frame. The honest ceiling still
+   * applies on top of it, so neither fidelity ever shows a source pixel twice.
+   */
+  if (modest) return { fidelity: 'reduced', regions, supported: true };
   return { fidelity: 'full', regions, supported: true };
 }
 
@@ -85,8 +109,8 @@ export function beatsFor(regions: Region[]): Beat[] {
 }
 
 /**
- * Kept for the day a figure earns a pin of its own. Nothing calls it: the figures read as
- * they travel through the viewport instead, which costs the page no height and cannot
- * collide with a product page's sticky column.
+ * The scroll a figure deserves when a chapter drives it from its own pin: enough for every
+ * hold to be read, in viewport-heights. Chapters use it to size their pins rather than
+ * fitting the figure to whatever was left.
  */
 export const pinLengthFor = (regionCount: number) => Math.min(260, Math.max(150, 60 + 45 * regionCount));

@@ -49,7 +49,7 @@ export function SaveButton({ slug, variant = 'compact', className, onSaved }: Sa
           onSaved?.(!isSaved);
         }}
         className={cn('inline-flex h-10 w-10 items-center justify-center text-fg-2 transition-colors duration-300 hover:text-accent', className)}
-        data-cursor="save"
+        data-cursor={isSaved ? 'saved' : 'save'}
       >
         {mark}
       </button>

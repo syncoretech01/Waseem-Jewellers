@@ -28,7 +28,7 @@ export const DEPARTMENTS: DepartmentInfo[] = [
   {
     slug: 'gold',
     name: 'Gold',
-    eyebrow: 'WASEEM JEWELLERS · LAHORE',
+    eyebrow: 'LAHORE · SINCE 1952',
     tagline: 'Twenty-one karat, mostly. As it has always been here.',
     intro: [
       'The largest part of what Waseem makes: pendants and chains, bracelets and bangles, rings, earrings and necklaces, in 21, 22 and 18 karat gold.',
@@ -39,7 +39,7 @@ export const DEPARTMENTS: DepartmentInfo[] = [
   {
     slug: 'diamond',
     name: 'Diamond',
-    eyebrow: 'WASEEM JEWELLERS · LAHORE',
+    eyebrow: 'LAHORE · SINCE 1952',
     tagline: 'Set in gold, graded as published.',
     intro: [
       'Bracelets, pendants, earrings, rings, nose pins and chains set with diamonds, in gold of 18, 21 and 22 karat.',
@@ -61,7 +61,7 @@ export const DEPARTMENTS: DepartmentInfo[] = [
   {
     slug: 'men',
     name: 'Men',
-    eyebrow: 'WASEEM JEWELLERS · LAHORE',
+    eyebrow: 'LAHORE · SINCE 1952',
     tagline: 'Weight, in the hand.',
     intro: [
       'Rings, bracelets and cufflinks made for men, in 21 and 18 karat gold, some set with diamonds.',
@@ -72,7 +72,7 @@ export const DEPARTMENTS: DepartmentInfo[] = [
   {
     slug: 'kids',
     name: 'Kids',
-    eyebrow: 'WASEEM JEWELLERS · LAHORE',
+    eyebrow: 'LAHORE · SINCE 1952',
     tagline: 'Small, and made properly.',
     intro: [
       'Rings and bracelets scaled for children, in the same gold and to the same standard as everything else here.',

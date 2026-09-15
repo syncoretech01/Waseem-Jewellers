@@ -170,7 +170,7 @@ function Masthead({ info, fixedCategory, total }: { info: DepartmentInfo; fixedC
   return (
     <section ref={ref} data-theme="ivory" className="bg-bg pt-[calc(var(--spacing-section)*0.9)] pb-16 text-fg">
       <div ref={scope} className="flex flex-col gap-8 px-gutter">
-        <Eyebrow data-rise>{fixedCategory ? `${info.name.toUpperCase()} · WASEEM JEWELLERS` : info.eyebrow}</Eyebrow>
+        <Eyebrow data-rise>{fixedCategory ? `${info.name.toUpperCase()} · LAHORE` : info.eyebrow}</Eyebrow>
         <h1 className="display max-w-[8em] text-display-l leading-[0.9]">{name}</h1>
         <p data-split className="max-w-[24em] font-display text-lead italic opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
           {info.tagline}

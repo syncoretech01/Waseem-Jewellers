@@ -3,20 +3,22 @@ import type { SemanticDescriptor } from '@/semantic/types';
 /**
  * Which pieces can be looked at closely, and what may be said while looking.
  *
- * Every rectangle here is one Stage 1 already cut from the source frame, published as its
- * own image, and reviewed — `p03-macro` is literally `crop: [0.26, 0.5, 0.48, 0.36]` of
- * `p03-hero`. Nothing has been placed by guessing where a part of a piece might be, and no
- * note says anything the photograph and the published specification do not already support.
+ * Two kinds of rectangle live here. The first kind is one Stage 1 already cut from the source
+ * frame, published as its own image, and reviewed — `p03-macro` is literally
+ * `crop: [0.26, 0.5, 0.48, 0.36]` of `p03-hero`; those carry `reviewed: true`. The second
+ * kind was placed by looking at the photograph and naming what is plainly in it — the four
+ * claws on a ring, the two crowns of a pair of earrings, the collar of a suite — and carries
+ * `reviewed: false` until Waseem confirms the naming. `AWAITING_REGION_SIGN_OFF` lists them
+ * by name so the ask is concrete.
  *
- * That is also why this list is eight pieces rather than six hundred. There is no family
+ * No note says anything the photograph and the published specification do not already
+ * support. Weights, purities and references are the catalogue's; everything else is what a
+ * person can see in the frame.
+ *
+ * That is also why this list is nine pieces rather than six hundred. There is no family
  * that scales without a person writing about the jewellery: a scale ladder still has to say
  * what it is showing, and "the filigree" is a claim about a piece that may have none. The
  * honest constraint is that teaching requires knowledge, and the knowledge is Waseem's.
- *
- * **Open with Waseem.** Regions for the wider catalogue — which part of a piece is the
- * choker and which the haar, and what is true about each — need their sign-off before they
- * can be written. Until then a piece with no descriptor simply shows its photograph, which
- * is what it did before.
  *
  * Terminology: these figures move attention between regions of a finished photograph. They
  * are never described, here or anywhere, as how a piece was constructed or assembled.
@@ -98,47 +100,149 @@ export const SEMANTIC: Record<string, SemanticDescriptor> = {
     ],
   },
 
+  /**
+   * The suite, named in place. The photograph shows the tikka, the earrings, the choker and
+   * the haar as they were worn for the shoot; the figure travels between them and says what
+   * each is. Waseem's own description of the piece is the source of every claim below.
+   */
   'rang-e-jamal-emerald-suite': {
-    family: 'goldwork',
+    family: 'composition',
     image: { kind: 'local', id: 'p06-hero' },
     assertion: 'regions-of-one-photograph',
+    lede: 'One suite, four pieces, one photograph.',
     regions: [
       {
-        key: 'centre',
-        label: 'The centre',
-        note: 'Emeralds set among diamonds, closer than the eye reaches at arm’s length.',
+        key: 'tikka',
+        label: 'The tikka',
+        note: 'At the parting, one emerald in a diamond surround — the smallest piece of the suite.',
+        rect: [0.4, 0.01, 0.16, 0.16],
+        reviewed: false,
+      },
+      {
+        key: 'earrings',
+        label: 'The earrings',
+        note: 'Long diamond earrings with emeralds set down their length, ending in a drop that moves with the head.',
+        rect: [0.4, 0.26, 0.27, 0.2],
+        reviewed: false,
+      },
+      {
+        key: 'choker',
+        label: 'The choker',
+        note: 'The choker sits at the throat, its emeralds set at intervals along a band of diamonds.',
+        rect: [0.43, 0.38, 0.24, 0.17],
+        reviewed: false,
+      },
+      {
+        key: 'haar',
+        label: 'The haar',
+        note: 'Beneath it, a seven-strand haar strung so the green repeats down its length, each strand a little longer than the last.',
         rect: [0.24, 0.46, 0.52, 0.4],
         reviewed: true,
       },
     ],
   },
 
+  /**
+   * A pair, read across one frame: the crowns, the bells, the drops — and the pull-back shows
+   * the two side by side exactly as they were photographed. The right earring is the right
+   * earring; nothing is mirrored.
+   */
   'emerald-tassel-earrings-t06768': {
-    family: 'goldwork',
+    family: 'pair',
     image: { kind: 'local', id: 'p08-hero' },
     assertion: 'regions-of-one-photograph',
+    lede: 'Two of a pair, one photograph.',
     regions: [
       {
-        key: 'tassel',
-        label: 'The tassel',
-        note: 'Reference T06768 — 21K gold, 16.452 grams. The drop is what carries the weight, and what makes it swing.',
+        key: 'crowns',
+        label: 'The crowns',
+        note: 'One square emerald to each ear, held between diamond links, with a diamond cluster beneath.',
+        rect: [0.33, 0.03, 0.35, 0.28],
+        reviewed: false,
+      },
+      {
+        key: 'bells',
+        label: 'The bells',
+        note: 'Each tassel hangs from a small bell of worked gold, rimmed with diamonds, so the drop swings freely.',
+        rect: [0.31, 0.27, 0.39, 0.22],
+        reviewed: false,
+      },
+      {
+        key: 'drops',
+        label: 'The drops',
+        note: 'Fine gold chains falling to pink stones, matched drop for drop across the pair. Reference T06768 — 21K gold, 16.452 grams.',
         rect: [0.25, 0.1, 0.5, 0.6],
         reviewed: true,
       },
     ],
   },
 
+  /**
+   * The anatomy of one setting, as it was photographed. Stone, claws, halo, shank — the four
+   * things a jeweller would point at with a loupe, each a rectangle of the same frame. There
+   * is no loose stone and no empty seat here, because none was ever photographed.
+   */
   'lavender-halo-ring-r11912': {
-    family: 'goldwork',
+    family: 'setting',
     image: { kind: 'local', id: 'p09-hero' },
     assertion: 'regions-of-one-photograph',
+    lede: 'Stone, claws, halo, shank.',
     regions: [
+      {
+        key: 'stone',
+        label: 'The stone',
+        note: 'One oval lavender stone, held at its four quarters and lifted clear of the halo.',
+        rect: [0.34, 0.18, 0.4, 0.34],
+        reviewed: false,
+      },
       {
         key: 'halo',
         label: 'The halo',
-        note: 'Reference R11912 — 21K gold, 9.444 grams. The lavender stone is held by a ring of small diamonds that widen the face of the piece.',
+        note: 'A halo of small white diamonds, set flush to the stone so the ring reads as one form.',
         rect: [0.25, 0.15, 0.5, 0.5],
         reviewed: true,
+      },
+      {
+        key: 'shank',
+        label: 'The shank',
+        note: 'A split rose-gold shank, stamped 21K on the inside. Reference R11912 — 9.444 grams.',
+        rect: [0.24, 0.44, 0.52, 0.46],
+        reviewed: false,
+      },
+    ],
+  },
+
+  /**
+   * The gold set from the Rang-e-Jamal campaign — the world frame `w-rang-3` is cut from the
+   * same photograph Waseem publishes as this piece's own hero, so the figure and the door
+   * beneath it are the same piece. 21K, 252.84 grams across the set, as published.
+   */
+  'gold-bridal-set-2': {
+    family: 'goldwork',
+    image: { kind: 'local', id: 'w-rang-3' },
+    assertion: 'regions-of-one-photograph',
+    lede: 'Gold, at the distance a jeweller looks from.',
+    regions: [
+      {
+        key: 'collar',
+        label: 'The collar',
+        note: 'A broad collar of worked gold with pearls set along its edge, lying flat across the collarbone. Waseem publishes the set at 21K, 252.84 grams.',
+        rect: [0.36, 0.5, 0.42, 0.24],
+        reviewed: false,
+      },
+      {
+        key: 'pendant',
+        label: 'The pendant',
+        note: 'A round medallion drops from the collar’s centre and ends in a single pearl.',
+        rect: [0.44, 0.7, 0.2, 0.2],
+        reviewed: false,
+      },
+      {
+        key: 'earring',
+        label: 'The earring',
+        note: 'The earring repeats the collar’s work at a smaller scale, and ends in the same pearls.',
+        rect: [0.54, 0.33, 0.2, 0.24],
+        reviewed: false,
       },
     ],
   },
@@ -161,7 +265,14 @@ export const SEMANTIC: Record<string, SemanticDescriptor> = {
 
 export const semanticFor = (slug: string): SemanticDescriptor | undefined => SEMANTIC[slug];
 
-/** Every rectangle in this file is one Stage 1 reviewed; nothing waits on a sign-off yet. */
+/** The slugs the homepage figures open onto — every descriptor is a door to its piece. */
+export const FIGURE_SLUGS = Object.keys(SEMANTIC);
+
+/**
+ * Regions placed by looking at the photograph rather than cut and published in Stage 1.
+ * They are named for Waseem to confirm — which part is the tikka, that the bells are the
+ * bells — and until then they stay listed here, by name, as the open ask.
+ */
 export const AWAITING_REGION_SIGN_OFF = Object.entries(SEMANTIC).flatMap(([slug, d]) =>
   d.regions.filter((r) => !r.reviewed).map((r) => `${slug}:${r.key}`),
 );
