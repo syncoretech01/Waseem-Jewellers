@@ -2,6 +2,13 @@
 
 import { capabilities } from '../capabilities';
 import { ScriptedExampleAdapter, WebSpeechAdapter, recognitionSupported, type VoiceAdapter } from './adapters';
+import { ServerTranscriptionAdapter, serverVoiceSupported } from './serverTranscription';
+
+/** Whether this device can hear at all, by any tier the deployment offers. */
+export function hearingAvailable(): boolean {
+  if (capabilities().voice === 'server' && serverVoiceSupported()) return true;
+  return recognitionSupported() && !/Firefox/i.test(navigator.userAgent);
+}
 
 /**
  * Which engine listens — decided in one place, by the same probe that selects the text model.
@@ -56,10 +63,18 @@ export interface EngineChoice {
   kind: VoiceAdapter['kind'];
 }
 
-export function chooseVoiceEngine(opts: { forceScripted?: boolean; exampleLine: () => string }): EngineChoice {
+export function chooseVoiceEngine(opts: { forceScripted?: boolean; preferBrowser?: boolean; language?: string | null; exampleLine: () => string }): EngineChoice {
   if (!opts.forceScripted && capabilities().voice === 'native' && nativeEngine) {
     const adapter = nativeEngine();
     if (adapter.isSupported()) return { adapter, kind: adapter.kind };
+  }
+  /**
+   * The server tier hears every language the concierge answers in, in any browser with a
+   * microphone — Firefox included. `preferBrowser` is the controller falling back for one
+   * utterance after the server could not hear it.
+   */
+  if (!opts.forceScripted && !opts.preferBrowser && capabilities().voice === 'server' && serverVoiceSupported()) {
+    return { adapter: new ServerTranscriptionAdapter(opts.language ?? null), kind: 'server' };
   }
   /**
    * Firefox reports `SpeechRecognition` and then never returns a result — a supported API that

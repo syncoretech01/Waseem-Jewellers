@@ -17,8 +17,8 @@ import type { Language } from './nlu/script';
 
 export interface ConciergeCapabilities {
   intelligence: 'model' | 'keyless';
-  /** `none` no voice at all · `browser` the fallback tier · `native` a realtime voice model. */
-  voice: 'none' | 'browser' | 'native';
+  /** `none` no voice at all · `browser` the fallback tier · `server` hearing and speaking through a model · `native` a realtime voice model. */
+  voice: 'none' | 'browser' | 'server' | 'native';
   languages: Language[];
   /** `local` — the consultation form stays on the device, as it does today. */
   enquiry: 'local' | 'server';
@@ -45,7 +45,7 @@ const TTL_MS = 5 * 60 * 1000;
 let cache: ConciergeCapabilities | null = null;
 let inflight: Promise<ConciergeCapabilities> | null = null;
 
-const VOICES = new Set(['none', 'browser', 'native']);
+const VOICES = new Set(['none', 'browser', 'server', 'native']);
 
 const isPrivacy = (v: unknown): v is { url: string; contact: string } =>
   !!v && typeof v === 'object' && typeof (v as { url?: unknown }).url === 'string' && typeof (v as { contact?: unknown }).contact === 'string';

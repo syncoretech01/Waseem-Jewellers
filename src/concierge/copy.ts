@@ -35,6 +35,8 @@ export const CONCIERGE = {
     stop: 'Stop listening',
     start: 'Speak to the concierge',
     tapToInterrupt: 'Tap to interrupt',
+    hearing: 'A moment — hearing you.',
+    hearingUnavailable: 'Hearing is not available just now. You can write to me instead, or let me show you.',
     interrupted: 'Go on — I am listening.',
     write: 'Write instead',
     heardHeading: 'Heard',

@@ -8,13 +8,16 @@ export interface VoiceHandlers {
   lang: string;
   onStart(): void;
   onInterim(text: string): void;
-  onFinal(text: string): void;
+  /** `language` arrives from the server tier, which can tell which script it heard. */
+  onFinal(text: string, meta?: { language?: string | null }): void;
+  /** The microphone has closed and the words are on their way — the server tier's pause. */
+  onTranscribing?(): void;
   onEnd(): void;
   onError(e: { code: VoiceErrorCode; message: string }): void;
 }
 
 export interface VoiceAdapter {
-  readonly kind: 'webspeech' | 'scripted' | 'realtime';
+  readonly kind: 'webspeech' | 'scripted' | 'server' | 'realtime';
   isSupported(): boolean;
   start(handlers: VoiceHandlers): Promise<void>;
   stop(): void;

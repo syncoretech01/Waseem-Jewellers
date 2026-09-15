@@ -6,15 +6,16 @@ import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
 import { loadIndex } from '@/data/clientIndex';
 import { recognitionLang } from './voice/languages';
-import { chooseVoiceEngine } from './voice/engine';
+import { chooseVoiceEngine, hearingAvailable } from './voice/engine';
 import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
 import { TOOL_DEFS } from './tools/toolDefs';
 import { CONCIERGE } from './copy';
 import { recognitionSupported, type VoiceAdapter } from './voice/adapters';
-import { cancelSpeech, planSpeech, speak, synthesisSupported } from './voice/speech';
-import { voiceMeter } from './voice/meter';
+import { cancelSpeech, planSpeech, speak, speechAvailable, speechEngine } from './voice/speech';
+import { primeAudio, registerServerSpeech } from './voice/serverSpeech';
+import { startMeter, stopMeter, voiceMeter } from './voice/meter';
 import { EXAMPLE_SCRIPTS } from './voice/scripts';
 import type { ConciergeProvider, ProviderEvent, ProviderRuntime } from './types';
 
@@ -42,6 +43,12 @@ export class ConciergeController {
   private activeTurn: string | null = null;
   private pendingResult = false;
   private speaking = false;
+  /** What has already been voiced of the current reply, so text.done speaks only the rest. */
+  private spokenText = '';
+  private speechQueue: Promise<void> = Promise.resolve();
+  /** Runs when the voice finishes, if a turn ended while the reply was still being said. */
+  private afterSpeech: (() => void) | null = null;
+  private bargeTimer: number | null = null;
   /** The element that had focus when the salon opened. See . */
   private opener: HTMLElement | null = null;
   /** The browser has no voice for a language the visitor used. Said once a session. */
@@ -58,7 +65,13 @@ export class ConciergeController {
       toolDefs: TOOL_DEFS,
     };
     this.provider.attach(runtime);
-    useConciergeStore.getState().setVoice({ recognition: recognitionSupported(), synthesis: synthesisSupported() });
+    registerServerSpeech();
+    this.refreshVoiceSupport();
+  }
+
+  /** What this device can hear and speak with, by whichever tier the deployment offers. */
+  private refreshVoiceSupport() {
+    this.store.setVoice({ recognition: hearingAvailable(), synthesis: speechAvailable() });
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -114,7 +127,7 @@ export class ConciergeController {
      */
     void loadIndex();
     // what this deployment is allowed to be: model or keyless, and which engine hears
-    void probeCapabilities();
+    void probeCapabilities().then(() => this.refreshVoiceSupport());
     const mode = opts.mode ?? s.mode;
     s.setMode(mode);
     if (s.state === 'IDLE' || s.state === 'HOVER') {
@@ -156,6 +169,8 @@ export class ConciergeController {
     this.cancelTurn();
     this.adapter?.abort();
     cancelSpeech();
+    this.disarmBargeIn();
+    this.afterSpeech = null;
     this.clearTimers();
     s.setTrayOpen(false);
     s.setPanel('closed');
@@ -171,7 +186,13 @@ export class ConciergeController {
   setMode(mode: ConciergeMode) {
     const s = this.store;
     if (s.mode === mode) return;
-    if (s.state === 'LISTENING') this.stopListening();
+    // "Write" mid-sentence discards the half sentence rather than sending it
+    if (s.state === 'LISTENING' || s.voice.preparing) {
+      this.adapter?.abort();
+      s.setVoice({ preparing: false, transcribing: false, sessionLive: false });
+      s.setTranscript({ interim: '', final: '', active: false });
+      if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'mode');
+    }
     s.setMode(mode);
     const cur = this.store.state;
     if (cur === 'CHAT' || cur === 'VOICE_READY' || cur === 'RESULT' || cur === 'ERROR') s.transition(mode === 'voice' ? 'VOICE_READY' : 'CHAT', 'mode');
@@ -188,6 +209,7 @@ export class ConciergeController {
 
   forget() {
     this.cancelTurn();
+    this.saidNoVoice = false;
     this.store.forget();
   }
 
@@ -198,7 +220,9 @@ export class ConciergeController {
     const s = this.store;
     if (s.state === 'LISTENING' || s.voice.preparing) {
       this.adapter?.abort();
-      s.setVoice({ preparing: false, sessionLive: false });
+      // a spoken turn keeps the session live so the microphone reopens after the reply; a
+      // written or scripted one ends it — the visitor has moved to the keyboard
+      s.setVoice({ preparing: false, transcribing: false, sessionLive: source === 'voice' && s.voice.sessionLive });
     }
     this.cancelTurn();
     this.clearTimers(); // a previous result's hold must not settle this turn
@@ -262,6 +286,7 @@ export class ConciergeController {
     const callId = uid('c');
     this.activeTurn = turnId;
     this.pendingResult = false;
+    this.spokenText = '';
     this.store.setError(null);
     this.onEvent({ type: 'turn.start', turnId });
     this.onEvent({ type: 'tool.call', turnId, callId, name: 'openProduct', args: { slug } });
@@ -282,6 +307,7 @@ export class ConciergeController {
     const callId = uid('c');
     this.activeTurn = turnId;
     this.pendingResult = false;
+    this.spokenText = '';
     this.store.setError(null);
     this.onEvent({ type: 'turn.start', turnId });
     this.onEvent({ type: 'tool.call', turnId, callId, name: 'comparePieces', args: { slugs } });
@@ -298,6 +324,7 @@ export class ConciergeController {
   }
 
   cancelTurn() {
+    this.spokenText = '';
     if (this.activeTurn) this.provider.cancelTurn(this.activeTurn);
     const s = this.store;
     if (s.activeTurnId) {
@@ -353,7 +380,7 @@ export class ConciergeController {
         break;
       }
       case 'text.ready': {
-        if (s.mode === 'voice' && s.voice.spokenReplies && synthesisSupported()) {
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable()) {
           /**
            * "No voice for this language" is a modifier on SPEAKING, not a tenth state — the
            * nine states are unchanged. The concierge still answers; it simply says once that
@@ -364,8 +391,8 @@ export class ConciergeController {
             this.saidNoVoice = true;
             s.appendTurn({ id: uid('c'), role: 'concierge', text: CONCIERGE.noVoiceForLanguage, source: 'system', createdAt: Date.now() });
           }
-          this.speaking = true;
-          void speak(e.text, { onEnd: () => (this.speaking = false) });
+          this.spokenText = e.text;
+          this.say(e.text);
         }
         break;
       }
@@ -383,6 +410,18 @@ export class ConciergeController {
          * authority; deltas are the preview of it.
          */
         s.patchTurn(e.turnId, e.text ? { text: e.text, streaming: false } : { streaming: false });
+        /**
+         * The rest of the reply, once it is known. The model path voices its first sentence
+         * from text.ready and used to stop there — a two-sentence answer, the register's whole
+         * allowance, was written in full and voiced in half. The remainder is said from here.
+         */
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && e.text) {
+          const rest = this.spokenText && e.text.startsWith(this.spokenText) ? e.text.slice(this.spokenText.length).trim() : this.spokenText ? '' : e.text;
+          if (rest) {
+            this.spokenText = e.text;
+            this.say(rest);
+          }
+        }
         break;
       }
       case 'turn.done': {
@@ -396,8 +435,13 @@ export class ConciergeController {
           if (cur === 'RESULT' || cur === 'SPEAKING' || cur === 'EXECUTING_ACTION' || cur === 'THINKING') this.store.transition(rest, 'turn.done');
           this.maybeResumeListening();
         };
-        if (this.pendingResult && s.transition('RESULT', 'turn.done')) this.later(hold, finish);
-        else finish();
+        // nothing settles to rest while the reply is still being said
+        const settle = () => {
+          if (this.speaking) this.afterSpeech = finish;
+          else finish();
+        };
+        if (this.pendingResult && s.transition('RESULT', 'turn.done')) this.later(hold, settle);
+        else settle();
         if (s.turns.length && s.turns[s.turns.length - 1]?.text === CONCIERGE.close) this.later(900, () => this.close());
         break;
       }
@@ -432,7 +476,7 @@ export class ConciergeController {
   private maybeResumeListening() {
     const s = this.store;
     // only after the visitor actually spoke through the microphone — never after a scripted example
-    if (s.mode !== 'voice' || !s.voice.sessionLive || s.voice.adapter !== 'webspeech') return;
+    if (s.mode !== 'voice' || !s.voice.sessionLive || (s.voice.adapter !== 'webspeech' && s.voice.adapter !== 'server')) return;
     const check = () => {
       if (this.store.state !== 'VOICE_READY') return;
       if (this.speaking || voiceMeter.speech > 0.05) {
@@ -444,15 +488,73 @@ export class ConciergeController {
     this.later(400, check);
   }
 
+  /** One reply through the speaking seam; the state follows the audio, not the text stream. */
+  private say(text: string) {
+    this.speaking = true;
+    this.speechQueue = this.speechQueue
+      .then(() =>
+        speak(text, {
+          onStart: () => {
+            const st = this.store.state;
+            if (st === 'THINKING' || st === 'EXECUTING_ACTION') this.store.transition('SPEAKING', 'audio');
+            this.armBargeIn();
+          },
+          onEnd: () => {
+            this.speaking = false;
+            this.disarmBargeIn();
+            const after = this.afterSpeech;
+            this.afterSpeech = null;
+            after?.();
+          },
+        }),
+      )
+      .catch(() => {
+        this.speaking = false;
+      });
+  }
+
+  /**
+   * Barge-in. While the server voice is speaking the microphone stays lightly open, and a
+   * visitor who starts talking is heard rather than made to wait. The browser's own
+   * synthesis cannot share the microphone with recognition, so there the tap on the ring
+   * remains the interruption — and the stage says so.
+   */
+  private armBargeIn() {
+    if (this.bargeTimer || speechEngine().kind !== 'server' || this.store.voice.adapter !== 'server' || this.store.voice.denied) return;
+    void startMeter().then((ok) => {
+      if (!ok || !this.speaking || this.bargeTimer) {
+        if (!this.speaking) stopMeter();
+        return;
+      }
+      let hot = 0;
+      this.bargeTimer = window.setInterval(() => {
+        if (!this.speaking) return this.disarmBargeIn();
+        hot = voiceMeter.level > 0.35 ? hot + 100 : 0;
+        if (hot >= 300) {
+          this.disarmBargeIn();
+          this.startListening();
+        }
+      }, 100);
+    });
+  }
+
+  private disarmBargeIn() {
+    if (this.bargeTimer) window.clearInterval(this.bargeTimer);
+    this.bargeTimer = null;
+    stopMeter();
+  }
+
   // ── voice ─────────────────────────────────────────────────────────────────
   /**
    * Which engine listens is not this class's decision any more — it belongs with the
    * capabilities probe that also chooses the text model, so that adding a realtime voice
    * to a deployment changes one server variable and nothing in the UI.
    */
-  private chooseAdapter(forceScripted = false): VoiceAdapter {
+  private chooseAdapter(forceScripted = false, preferBrowser = false): VoiceAdapter {
     const { adapter, kind } = chooseVoiceEngine({
       forceScripted,
+      preferBrowser,
+      language: this.store.memory.language,
       exampleLine: () => {
         const routeKind = useSiteStore.getState().routeKind;
         const lines = EXAMPLE_SCRIPTS[routeKind];
@@ -465,23 +567,25 @@ export class ConciergeController {
     return adapter;
   }
 
-  startListening(forceScripted = false) {
+  startListening(forceScripted = false, preferBrowser = false) {
     const s = this.store;
     // a mic opened over the concierge's own sentence is an interruption, and the stage says so
     const interrupted = s.state === 'SPEAKING' || this.speaking;
     if (s.mode !== 'voice') s.setMode('voice');
     if (s.state === 'CHAT' || s.state === 'RESULT' || s.state === 'ERROR' || s.state === 'SPEAKING') s.transition('VOICE_READY', 'listen');
     if (this.store.state !== 'VOICE_READY' || this.store.voice.preparing) return;
+    // a tap is the moment a phone will let a later reply play aloud
+    primeAudio();
     cancelSpeech();
     this.cancelTurn();
     this.adapter?.abort();
-    const adapter = this.chooseAdapter(forceScripted);
+    const adapter = this.chooseAdapter(forceScripted, preferBrowser);
     this.adapter = adapter;
     s.setError(null);
     s.setTranscript({ interim: '', final: '', active: false, interrupted });
     // the machine holds at VOICE_READY until the microphone is truly open: "Listening."
     // must never be shown while the browser is still asking the visitor for permission
-    s.setVoice({ sessionLive: true, preparing: true });
+    s.setVoice({ sessionLive: true, preparing: true, transcribing: false });
     this.later(7000, () => {
       if (!this.store.voice.preparing || this.adapter !== adapter) return;
       adapter.abort();
@@ -506,28 +610,37 @@ export class ConciergeController {
         this.store.transition('LISTENING', 'mic');
       },
       onInterim: (text) => this.store.setTranscript({ interim: text, active: true }),
-      onFinal: (text) => {
+      onTranscribing: () => this.store.setVoice({ transcribing: true }),
+      onFinal: (text, meta) => {
+        this.store.setVoice({ transcribing: false });
+        // the server tier can tell which script it heard; the browser tier listens in it next time
+        if (meta?.language === 'ur' || meta?.language === 'pa-Guru') this.store.rememberLanguage(meta.language);
         this.store.setTranscript({ interim: '', final: text, active: false });
         this.submitText(text, adapter.kind === 'scripted' ? 'example' : 'voice');
       },
       onEnd: () => {
         this.store.setTranscript({ active: false });
-        this.store.setVoice({ preparing: false });
+        this.store.setVoice({ preparing: false, transcribing: false });
         if (this.store.state === 'LISTENING') this.store.transition('VOICE_READY', 'end');
       },
       onError: ({ code }) => {
         const st = this.store;
         st.setTranscript({ active: false });
-        st.setVoice({ preparing: false });
+        st.setVoice({ preparing: false, transcribing: false });
         if (code === 'NO_SPEECH') {
           st.setError({ code: 'NO_SPEECH', message: CONCIERGE.noSpeech });
           st.transition('VOICE_READY', 'no-speech');
           return;
         }
         if (code === 'NETWORK' || code === 'UNSUPPORTED') {
-          // first network failure → the scripted example for the rest of the session
           st.transition('VOICE_READY', 'network');
-          this.later(200, () => this.startListening(true));
+          // the server tier could not hear this utterance: the browser's own hearing takes it
+          if (adapter.kind === 'server' && !preferBrowser && recognitionSupported()) {
+            this.later(150, () => this.startListening(false, true));
+            return;
+          }
+          // never a silent example in the visitor's name: say so, and leave the offer standing
+          st.setError({ code: 'NETWORK', message: CONCIERGE.voice.hearingUnavailable });
           return;
         }
         st.setError({ code: 'MIC_DENIED', message: CONCIERGE.micDenied });
@@ -540,9 +653,16 @@ export class ConciergeController {
     });
   }
 
+  /**
+   * "Send now." A tap on the ring while it listens finalises what was heard; the conversation
+   * stays live, so the microphone reopens after the reply exactly as it does when a pause
+   * ended the sentence. Only the scripted example ends its session here — it was never a
+   * conversation.
+   */
   stopListening() {
+    const scripted = this.adapter?.kind === 'scripted';
     this.adapter?.stop();
-    this.store.setVoice({ sessionLive: false, preparing: false });
+    this.store.setVoice({ sessionLive: scripted ? false : this.store.voice.sessionLive, preparing: false });
   }
 
   runExample() {

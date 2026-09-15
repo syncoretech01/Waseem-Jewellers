@@ -22,9 +22,10 @@ const STATUS: Partial<Record<string, string>> = {
 };
 
 /** One sentence for every voice condition, in the order the visitor most needs to hear it. */
-function statusLine(v: { state: string; preparing: boolean; denied: boolean; recognition: boolean; voiced: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean }) {
+function statusLine(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; voiced: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean }) {
   const atRest = v.state === 'VOICE_READY' || v.state === 'CHAT' || v.state === 'ERROR';
   if (v.preparing) return CONCIERGE.voice.preparing;
+  if (v.transcribing) return CONCIERGE.voice.hearing;
   if (v.denied && atRest) return CONCIERGE.micDenied;
   if (v.error && v.state !== 'LISTENING') return v.error;
   if (!v.recognition && atRest) return CONCIERGE.voice.unavailable;
@@ -94,6 +95,7 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const recognition = useConciergeStore((s) => s.voice.recognition);
   const adapter = useConciergeStore((s) => s.voice.adapter);
   const preparing = useConciergeStore((s) => s.voice.preparing);
+  const transcribing = useConciergeStore((s) => s.voice.transcribing);
   const denied = useConciergeStore((s) => s.voice.denied);
   const voiced = useConciergeStore((s) => s.voice.spokenReplies && s.voice.synthesis);
   const toolLabel = useConciergeStore((s) => s.activeTool?.label ?? '');
@@ -104,7 +106,7 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const working = state === 'THINKING' || state === 'EXECUTING_ACTION';
   const heard = working && Boolean(transcript.final);
 
-  const status = statusLine({ state, preparing, denied, recognition, voiced, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted });
+  const status = statusLine({ state, preparing, transcribing, denied, recognition, voiced, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted });
   const micLabel = denied ? CONCIERGE.voice.deniedLabel : preparing ? CONCIERGE.voice.preparingLabel : listening ? CONCIERGE.voice.stop : speaking ? CONCIERGE.voice.tapToInterrupt : CONCIERGE.voice.start;
   const size = compact ? 104 : 128;
   const text = heard ? transcript.final : transcript.interim;
@@ -114,7 +116,7 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
       <VoiceRing state={state} size={size} active={listening || preparing} />
 
       <p className={cn('flex items-center justify-center gap-3 text-center font-display italic text-[0.9375rem]', denied ? 'text-fg-2' : 'text-fg-muted')} style={{ fontVariationSettings: '"opsz" 14' }} aria-live="polite">
-        {(preparing || working) && <TravellingLight active className="w-8" />}
+        {(preparing || transcribing || working) && <TravellingLight active className="w-8" />}
         <span>{status}</span>
       </p>
 

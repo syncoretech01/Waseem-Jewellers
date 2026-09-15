@@ -1,4 +1,4 @@
-import { modelIsConfigured } from '@/server/env';
+import { modelIsConfigured, voiceIsConfigured } from '@/server/env';
 import { enquiryReadiness } from '@/server/enquiry/sink';
 
 /**
@@ -22,7 +22,12 @@ export function GET() {
       intelligence: modelIsConfigured() ? 'model' : 'keyless',
       /** The languages the keyless engine owns outright; the model widens the phrasing, not the list. */
       languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
-      voice: 'browser',
+      /**
+       * 'server' — hearing and speaking through a model, with the browser's own speech as
+       * the fallback for any single utterance that fails. 'browser' is the shipped state.
+       * 'native' is reserved for a realtime engine and never advertised by this build.
+       */
+      voice: voiceIsConfigured() ? 'server' : 'browser',
       /**
        * 'local' means a consultation request never leaves the visitor's device: the form
        * hands them a reference and their own WhatsApp message, which is all it has ever

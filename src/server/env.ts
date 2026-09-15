@@ -35,3 +35,32 @@ export function conciergeEnv(): ConciergeEnv {
 }
 
 export const modelIsConfigured = () => Boolean(conciergeEnv().apiKey);
+
+/**
+ * The model-backed voice tier: hearing through a transcription model, speaking through a
+ * speech model. Its key is `OPENAI_API_KEY` (reserved for voice since Stage 2), falling back
+ * to the concierge key when the concierge base is OpenAI's, so one credential can switch
+ * both on. Absent is the shipped state; the browser's own speech is the fallback tier.
+ */
+export interface VoiceEnv {
+  apiKey: string | null;
+  baseUrl: string;
+  sttModel: string;
+  ttsModel: string;
+  ttsVoice: string;
+}
+
+export function voiceEnv(): VoiceEnv {
+  const concierge = conciergeEnv();
+  const openAiBase = /api\.openai\.com/.test(concierge.baseUrl);
+  const baseUrl = (process.env.CONCIERGE_VOICE_BASE_URL?.trim() || (openAiBase ? concierge.baseUrl : 'https://api.openai.com/v1')).replace(/\/$/, '');
+  return {
+    apiKey: process.env.OPENAI_API_KEY?.trim() || (openAiBase ? concierge.apiKey : null),
+    baseUrl,
+    sttModel: process.env.CONCIERGE_STT_MODEL?.trim() || 'gpt-4o-transcribe',
+    ttsModel: process.env.CONCIERGE_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
+    ttsVoice: process.env.CONCIERGE_TTS_VOICE?.trim() || process.env.OPENAI_REALTIME_VOICE?.trim() || 'marin',
+  };
+}
+
+export const voiceIsConfigured = () => Boolean(voiceEnv().apiKey);
