@@ -20,16 +20,16 @@ import { useController } from '../useConcierge';
  *
  * Deliberately not chips in the ecommerce sense. No pills, no counts, no close icons — a line
  * of prose in the display face, each term underlined and removable, which is how the applied
- * facets read on a department page. The salon rules hold here as everywhere: the only accent
- * is the gold hairline, and nothing pulses for attention.
+ * facets read on a department page. The only accent is the gold hairline, and nothing pulses
+ * for attention.
  */
 
-type TermKey = 'department' | 'category' | 'material' | 'purity' | 'occasion' | 'weight';
+export type TermKey = 'department' | 'category' | 'material' | 'purity' | 'occasion' | 'weight';
 
-type Term = { key: TermKey; label: string };
+export type Term = { key: TermKey; label: string };
 
 /** Only what a visitor would recognise as a condition they set. Ordinals and deixis are not. */
-function termsOf(slots: Slots): Term[] {
+export function termsOf(slots: Slots): Term[] {
   const terms: Term[] = [];
   if (slots.department) terms.push({ key: 'department', label: DEPARTMENT_LABEL[slots.department as Department] ?? slots.department });
   if (slots.category) terms.push({ key: 'category', label: CATEGORY_LABEL[slots.category as Category] ?? slots.category });
@@ -42,6 +42,8 @@ function termsOf(slots: Slots): Term[] {
   return terms;
 }
 
+const termClass = 'font-display text-[0.9375rem] leading-snug text-fg-2 underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-gold-hi focus-visible:decoration-gold-hi';
+
 export function ContextRibbon() {
   const memory = useConciergeStore((s) => s.memory);
   const turnCount = useConciergeStore((s) => s.turnCount);
@@ -49,9 +51,8 @@ export function ContextRibbon() {
 
   /**
    * The standing topic decays after eight minutes as well as after six turns, so liveness is
-   * a question about the clock — and reading the clock during render is impure: two renders a
-   * minute apart would disagree for no reason React can see. The clock is held in state and
-   * ticked while the ribbon is mounted, which is only while the panel is open.
+   * a question about the clock — and reading the clock during render is impure. The clock is
+   * held in state and ticked while the ribbon is mounted, which is only while the panel is open.
    */
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -59,8 +60,6 @@ export function ContextRibbon() {
     return () => window.clearInterval(id);
   }, []);
 
-  // the same liveness rules the engines apply, so the ribbon can never claim a topic that has
-  // already decayed out of the answer
   const topicLive = topicIsLive(memory, turnCount, now);
   const anchorLive = anchorIsLive(memory, turnCount);
   const terms = topicLive ? termsOf(memory.standingSlots) : [];
@@ -69,26 +68,20 @@ export function ContextRibbon() {
   if (!terms.length && !piece) return null;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-6 pb-3 md:px-7" data-context-ribbon>
+    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-8 pb-4" data-context-ribbon>
       <span className="micro shrink-0 text-fg-muted">About —</span>
       {piece && (
-        <span dir="auto" className="font-display italic text-[0.8125rem] leading-snug text-fg-2" style={{ fontVariationSettings: '"opsz" 12' }}>
+        <button type="button" dir="auto" onClick={() => controller?.dropTerm('piece')} className={`${termClass} italic`} style={{ fontVariationSettings: '"opsz" 14' }} aria-label={`Stop talking about the ${piece.t}`}>
           the {piece.t}
-        </span>
+        </button>
       )}
-      {piece && terms.length > 0 && <span aria-hidden className="text-[0.8125rem] text-fg-muted">·</span>}
+      {piece && terms.length > 0 && <span aria-hidden className="text-[0.9375rem] text-fg-muted">·</span>}
       {terms.map((t, i) => (
-        <span key={t.key} className="flex items-baseline gap-2">
-          <button
-            type="button"
-            onClick={() => controller?.dropTerm(t.key)}
-            className="font-display text-[0.8125rem] leading-snug text-fg-2 underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-gold-hi focus-visible:decoration-gold-hi"
-            style={{ fontVariationSettings: '"opsz" 12' }}
-            aria-label={`Stop looking at ${t.label}`}
-          >
+        <span key={t.key} className="flex items-baseline gap-2.5">
+          <button type="button" onClick={() => controller?.dropTerm(t.key)} className={termClass} style={{ fontVariationSettings: '"opsz" 14' }} aria-label={`Stop looking at ${t.label}`}>
             {t.label}
           </button>
-          {i < terms.length - 1 && <span aria-hidden className="text-[0.8125rem] text-fg-muted">·</span>}
+          {i < terms.length - 1 && <span aria-hidden className="text-[0.9375rem] text-fg-muted">·</span>}
         </span>
       ))}
     </div>

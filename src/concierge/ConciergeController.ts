@@ -276,6 +276,27 @@ export class ConciergeController {
       });
   }
 
+  /** Two or three pieces side by side — dispatched directly, exactly as a tap on a card is. */
+  comparePieces(slugs: string[]) {
+    const turnId = uid('t');
+    const callId = uid('c');
+    this.activeTurn = turnId;
+    this.pendingResult = false;
+    this.store.setError(null);
+    this.onEvent({ type: 'turn.start', turnId });
+    this.onEvent({ type: 'tool.call', turnId, callId, name: 'comparePieces', args: { slugs } });
+    void executeTool('comparePieces', { slugs })
+      .then((outcome) => {
+        this.onEvent({ type: 'tool.result', turnId, callId, outcome });
+        const ui = outcome.ui;
+        this.onEvent({ type: 'text.done', turnId, text: ui?.kind === 'compare' ? CONCIERGE.compared(ui.pieces.map((p) => p.name)) : CONCIERGE.whichToCompare });
+        this.onEvent({ type: 'turn.done', turnId });
+      })
+      .catch(() => {
+        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+      });
+  }
+
   cancelTurn() {
     if (this.activeTurn) this.provider.cancelTurn(this.activeTurn);
     const s = this.store;
@@ -320,7 +341,7 @@ export class ConciergeController {
            * *stage* — opening a piece, navigating, the consultation — collapses the rail, and
            * each of those says so with `compact` on its own outcome.
            */
-          if (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist' || o.ui.kind === 'collections') {
+          if (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist' || o.ui.kind === 'collections' || o.ui.kind === 'compare') {
             s.setTrayOpen(o.ui.kind !== 'wishlist' || o.ui.pieces.length > 0);
           }
         }
@@ -446,6 +467,8 @@ export class ConciergeController {
 
   startListening(forceScripted = false) {
     const s = this.store;
+    // a mic opened over the concierge's own sentence is an interruption, and the stage says so
+    const interrupted = s.state === 'SPEAKING' || this.speaking;
     if (s.mode !== 'voice') s.setMode('voice');
     if (s.state === 'CHAT' || s.state === 'RESULT' || s.state === 'ERROR' || s.state === 'SPEAKING') s.transition('VOICE_READY', 'listen');
     if (this.store.state !== 'VOICE_READY' || this.store.voice.preparing) return;
@@ -455,7 +478,7 @@ export class ConciergeController {
     const adapter = this.chooseAdapter(forceScripted);
     this.adapter = adapter;
     s.setError(null);
-    s.setTranscript({ interim: '', final: '', active: false });
+    s.setTranscript({ interim: '', final: '', active: false, interrupted });
     // the machine holds at VOICE_READY until the microphone is truly open: "Listening."
     // must never be shown while the browser is still asking the visitor for permission
     s.setVoice({ sessionLive: true, preparing: true });
@@ -543,7 +566,7 @@ export class ConciergeController {
       panel: state === 'IDLE' || state === 'HOVER' ? 'closed' : 'full',
       mode: voice ? 'voice' : s.mode,
       error: state === 'ERROR' ? { code: 'PROVIDER', message: 'Forgive me — shall we try that once more?' } : null,
-      transcript: state === 'LISTENING' ? { interim: 'Show me bridal necklaces', final: '', active: true } : s.transcript,
+      transcript: state === 'LISTENING' ? { interim: 'Show me bridal necklaces', final: '', active: true, interrupted: false } : s.transcript,
     });
   }
 }

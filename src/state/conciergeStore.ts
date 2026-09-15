@@ -89,9 +89,16 @@ export interface CollectionCard {
   ordinal: number;
 }
 
+/** One published axis across two or three pieces; `null` is "not published", never a guess. */
+export interface CompareRow {
+  axis: string;
+  values: (string | null)[];
+}
+
 export type TurnResult =
   | { kind: 'pieces'; title: string; pieces: PieceCard[] }
   | { kind: 'wishlist'; pieces: PieceCard[] }
+  | { kind: 'compare'; title: string; pieces: PieceCard[]; rows: CompareRow[] }
   | { kind: 'piece'; piece: PieceCard; verb: 'opened' | 'focused' | 'saved' | 'removed' }
   | { kind: 'collection'; collection: CollectionCard }
   | { kind: 'collections'; collections: CollectionCard[] }
@@ -136,7 +143,8 @@ interface ConciergeStoreState {
   turns: ConciergeTurn[];
   activeTurnId: string | null;
   activeTool: ToolActivity | null;
-  transcript: { interim: string; final: string; active: boolean };
+  /** `interrupted`: the visitor spoke over the concierge — said so, once, on the stage. */
+  transcript: { interim: string; final: string; active: boolean; interrupted: boolean };
   recentResults: PieceCard[];
   recentCollections: CollectionCard[];
   lastVisitorText: string | null;
@@ -186,7 +194,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   turns: [],
   activeTurnId: null,
   activeTool: null,
-  transcript: { interim: '', final: '', active: false },
+  transcript: { interim: '', final: '', active: false, interrupted: false },
   recentResults: [],
   recentCollections: [],
   lastVisitorText: null,
@@ -298,7 +306,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
       error: null,
       greeted: false,
       trayOpen: false,
-      transcript: { interim: '', final: '', active: false },
+      transcript: { interim: '', final: '', active: false, interrupted: false },
     }),
 }));
 

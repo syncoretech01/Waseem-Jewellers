@@ -19,6 +19,7 @@ export type ToolName =
   | 'scrollToSection'
   | 'openPrivateConsultation'
   | 'compareProducts'
+  | 'comparePieces'
   | 'explainSpecification'
   | 'deepSearch'
   | 'showDepartment'

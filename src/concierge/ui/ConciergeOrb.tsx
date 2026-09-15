@@ -3,12 +3,12 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
-import { useQualityStore } from '@/state/qualityStore';
 import { requestConcierge } from '../bridge';
 import { OrbStatic } from '../orb/OrbStatic';
 import { preloadOrbCanvas } from '../orb/Orb';
 import { CONCIERGE } from '../copy';
 import { EASE } from '@/lib/motion/easings';
+import { useMediaQuery, RAIL_QUERY } from '@/lib/useMediaQuery';
 
 /** The same two transitions the controller makes on hover, without the controller. */
 function hover(on: boolean) {
@@ -17,7 +17,7 @@ function hover(on: boolean) {
   else if (!on && s.state === 'HOVER') s.transition('IDLE', 'pointer');
 }
 
-/** The persistent jewel: 56px CSS gem, bottom-right; the panel unfolds above it. */
+/** The persistent jewel: 56px CSS gem, bottom-right; the rail opens beside it, and covers it. */
 export function ConciergeOrb() {
   /**
    * No controller here. The orb is the one piece of the concierge that is eager — it has to
@@ -33,10 +33,12 @@ export function ConciergeOrb() {
   const modalOpen = useSiteStore((s) => s.consultation.open);
   const routeKind = useSiteStore((s) => s.routeKind);
   const loaderDone = useSiteStore((s) => s.loaderDone);
+  const isXl = useMediaQuery(RAIL_QUERY);
   const open = OPEN_STATES.includes(state);
-  const visible = !menuOpen && !ledgerOpen && !modalOpen && !invitationVisible && (routeKind !== 'home' || loaderDone);
+  // the desktop rail runs the full height of the page and sits where the jewel sits; it takes over
+  const railOpen = open && panel === 'full' && isXl;
+  const visible = !menuOpen && !ledgerOpen && !modalOpen && !invitationVisible && !railOpen && (routeKind !== 'home' || loaderDone);
   const hovered = state === 'HOVER';
-  const coarse = useQualityStore((s) => s.coarse);
   const lastLine = useConciergeStore((s) => {
     for (let i = s.turns.length - 1; i >= 0; i--) {
       const t = s.turns[i];
@@ -44,7 +46,8 @@ export function ConciergeOrb() {
     }
     return '';
   });
-  const compactCaption = coarse && open && panel === 'compact' && lastLine;
+  // "the associate steps aside": the jewel carries the last line for a moment, on every device
+  const compactCaption = open && panel === 'compact' && lastLine;
 
   return (
     <AnimatePresence>
@@ -74,12 +77,13 @@ export function ConciergeOrb() {
                 key={`ticket-${lastLine.slice(0, 24)}`}
                 type="button"
                 onClick={() => requestConcierge({ action: 'expand' })}
-                className="line-clamp-2 max-w-[62vw] text-left font-display text-[0.9375rem] leading-snug text-fg"
-                style={{ fontVariationSettings: '"opsz" 14' }}
+                className="line-clamp-2 max-w-[62vw] text-left font-display text-[1rem] leading-snug text-fg md:max-w-[26rem]"
+                style={{ fontVariationSettings: '"opsz" 16' }}
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: [0, 1, 1, 0.55], x: 0, transition: { duration: 6, times: [0, 0.08, 0.7, 1], ease: 'linear' } }}
                 exit={{ opacity: 0, transition: { duration: 0.2 } }}
                 aria-label="Return to the concierge"
+                data-cursor="ask"
               >
                 {lastLine}
               </motion.button>

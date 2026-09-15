@@ -2,17 +2,17 @@
 
 import { WORLDS, WORLD_BY_SLUG } from '@/data/worlds';
 import { COLLECTION_BY_SLUG } from '@/data/collections';
-import { getRow, getRows, isKnownSlug, lighterRows, matchingRows, searchRows, similarRows } from '@/data/clientIndex';
+import { getRow, getRows, isKnownSlug, lighterRows, matchingRows, priceLabelOf, searchRows, similarRows } from '@/data/clientIndex';
 import { validateToolCall } from './validate';
 import { asDepartment, asKarat, asMaterial, canonicalCategory } from '@/data/vocabulary';
-import { DEPARTMENT_LABEL, CATEGORY_PLURAL, campaignSlugOf } from '@/data/labels';
+import { DEPARTMENT_LABEL, CATEGORY_LABEL, CATEGORY_PLURAL, campaignSlugOf } from '@/data/labels';
 import { EMPTY_FACETS, facetPhrases, parseFacets, serialiseFacets, type FacetState, type SortKey } from '@/lib/facets';
 import type { Category, Department } from '@/data/types';
 import { SECTION_LABELS, sectionElement } from '@/state/sections';
 import { productElement } from '@/state/visibility';
 import { runtime, scrollTo } from '@/state/runtime';
 import { useSiteStore, type SectionId } from '@/state/siteStore';
-import { useConciergeStore, type CollectionCard } from '@/state/conciergeStore';
+import { useConciergeStore, type CollectionCard, type CompareRow } from '@/state/conciergeStore';
 import { countInWords, capitalise } from '@/lib/format';
 import { buildSiteContext, cardsOf } from '../context';
 import { CONCIERGE } from '../copy';
@@ -305,6 +305,31 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
 
 
     /**
+     * Side by side, from what is published and nothing else. A missing figure is a dash the
+     * visitor can ask about — never a number borrowed from a similar piece.
+     */
+    case 'comparePieces': {
+      const slugs = Array.isArray(args.slugs) ? (args.slugs as unknown[]).filter((s): s is string => typeof s === 'string') : [];
+      const rows = getRows([...new Set(slugs)]).slice(0, 3);
+      if (rows.length < 2) return { result: { needsPieces: true }, label: '' };
+      const axis = (label: string, read: (r: PieceRow) => string | undefined): CompareRow => ({ axis: label, values: rows.map((r) => read(r) ?? null) });
+      const table = [
+        axis('Kind', (r) => (r.c ? CATEGORY_LABEL[r.c as Category] : undefined)),
+        axis('Purity', (r) => r.k),
+        axis('Gross weight', (r) => (r.w !== undefined ? `${r.w.toFixed(3)} g` : undefined)),
+        axis('Diamonds', (r) => (r.ct !== undefined ? `${r.ct} ct` : undefined)),
+        axis('Price', (r) => (r.p > 0 ? priceLabelOf(r) : undefined)),
+        axis('Reference', (r) => r.rf),
+      ].filter((row) => row.values.some((v) => v !== null));
+      return {
+        result: { pieces: rows.map((r) => ({ slug: r.s, name: r.t })), rows: table },
+        runningLabel: CONCIERGE.labels.compare,
+        label: CONCIERGE.labels.compareDone,
+        ui: { kind: 'compare', title: rows.map((r) => r.t).join(' · '), pieces: cardsOf(rows), rows: table },
+      };
+    }
+
+    /**
      * What would be worn *with* the piece — the question `showSimilarPieces` does not answer.
      * A visitor looking at a necklace and asking "what goes with this" wants earrings, and
      * being handed four more necklaces is the moment a concierge stops sounding like a person.
@@ -312,7 +337,12 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
     case 'showMatchingPieces': {
       const anchor = resolveAnchor(args, ctx);
       if (!anchor) return { result: { needsPiece: true }, label: '' };
-      const results = matchingRows(anchor.s, Math.min(Number(args.limit ?? 4), 6));
+      const limit = Math.min(Number(args.limit ?? 4), 6);
+      const want = canonicalCategory(args.category);
+      // "matching earrings": the companions of that one kind, when any exist; else every companion
+      const all = matchingRows(anchor.s, want ? 24 : limit);
+      const ofKind = want ? all.filter((r) => r.c === want) : [];
+      const results = (ofKind.length ? ofKind : all).slice(0, limit);
       if (!results.length) {
         return {
           result: { anchor: anchor.s, count: 0, items: [], note: 'No complementary piece in the listable collection. Say so; do not offer a piece of the same kind instead.' },

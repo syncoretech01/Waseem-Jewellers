@@ -143,6 +143,32 @@ export const COMMANDS: Command[] = [
     plan: () => ({ id: 'showrooms', tools: [{ name: 'scrollToSection', args: { section: 'footer' } }], reply: () => CONCIERGE.showrooms }),
   },
   {
+    id: 'compare',
+    // copy-guard-allow: what a visitor might say
+    test: (t) => /\b(compare|comparison|side by side|versus|vs\.?|muqabla|farq)\b/.test(t),
+    plan: (t, _e, ctx) => {
+      // "the first two" / "the second and the third" / "it with the second" / "these two":
+      // the ordinals named, then the piece in view, then what was just shown
+      const named = [...t.matchAll(/\b(first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|6th|last)\b/g)].map((m) => (m[1] === 'last' ? -1 : (ordinalFromWord(m[1]!) ?? 1)));
+      let slugs = named.map((n) => resolveOrdinal(n, ctx)).flatMap((x) => (x && x.kind === 'product' ? [x.slug] : []));
+      const firstFew = t.match(/\b(?:first|top) (two|three|2|3)\b/);
+      if (firstFew) slugs = ctx.recentResults.slice(0, /three|3/.test(firstFew[1]!) ? 3 : 2).map((r) => r.slug);
+      if (slugs.length < 2) {
+        const pool = [ctx.currentProduct?.slug, ctx.focusedProduct?.slug, ...ctx.recentResults.map((r) => r.slug)].filter((s): s is string => Boolean(s));
+        slugs = [...new Set([...slugs, ...pool])].slice(0, 2);
+      }
+      const unique = [...new Set(slugs)].slice(0, 3);
+      return {
+        id: 'compare',
+        tools: unique.length >= 2 ? [{ name: 'comparePieces', args: { slugs: unique } }] : [],
+        reply: (o) => {
+          const ui = o[0]?.ui;
+          return ui && ui.kind === 'compare' ? CONCIERGE.compared(ui.pieces.map((p) => p.name)) : CONCIERGE.whichToCompare;
+        },
+      };
+    },
+  },
+  {
     id: 'consultation',
     test: (t) => /\b(book|arrange|schedule|reserve|appointment|consultation|consult|private viewing|viewing|meet (a|the) designer|visit .*designer)\b/.test(t),
     plan: (t, e, ctx) => ({
@@ -303,11 +329,18 @@ export function planFor(text: string, ctx: SiteContext): Plan {
    * falls through to the table below, which is ordered and where first match wins — the
    * shape that once let the bare word "watch" pre-empt every command after it.
    */
+  const t = normalise(text);
+  const e = extract(t);
+  /**
+   * A comparison is not one of the twelve, and its sentence carries ordinals — "the first
+   * two" — that the core parser would otherwise read as "open the first". It is asked first.
+   */
+  const compare = COMMANDS.find((c) => c.id === 'compare');
+  if (compare && compare.test(t, e, ctx)) return compare.plan(t, e, ctx);
+
   const core = corePlan(text, ctx);
   if (core) return core;
 
-  const t = normalise(text);
-  const e = extract(t);
   for (const c of COMMANDS) {
     try {
       if (c.test(t, e, ctx)) return c.plan(t, e, ctx);

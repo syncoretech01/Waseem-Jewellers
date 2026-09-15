@@ -80,8 +80,8 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   { name: 'showDiamond', description: 'Deprecated. Prefer showDepartment with department "diamond".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   {
     name: 'showMatchingPieces',
-    description: 'Pieces that would be worn WITH a piece — earrings for a necklace, a ring for a bangle. Not the same as showSimilarPieces, which finds more of the same kind.',
-    parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 } } },
+    description: 'Pieces that would be worn WITH a piece — earrings for a necklace, a ring for a bangle. Not the same as showSimilarPieces, which finds more of the same kind. Name a category to ask for one kind of companion.',
+    parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, category: { type: 'string', enum: CATEGORIES }, limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 } } },
     runtime: 'browser',
   },
   {
@@ -143,6 +143,19 @@ export const TOOL_DEFS: readonly ToolDef[] = [
       required: ['slugs'],
     },
     runtime: 'server',
+  },
+  {
+    name: 'comparePieces',
+    description:
+      'Set two or three pieces side by side for the visitor — kind, purity, gross weight, carats, price and reference exactly as published; an unpublished figure is shown as a dash. Use this to SHOW a comparison; compareProducts only returns the figures to you.',
+    parameters: {
+      type: 'object',
+      properties: {
+        slugs: { type: 'array', items: { type: 'string', format: 'piece-slug', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' }, minItems: 2, maxItems: 3 },
+      },
+      required: ['slugs'],
+    },
+    runtime: 'browser',
   },
   {
     name: 'explainSpecification',

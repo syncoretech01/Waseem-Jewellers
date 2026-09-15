@@ -148,8 +148,17 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
         },
       };
 
+    /**
+     * "What goes with this" is the complement, not more of the same: earrings for a choker,
+     * a ring for a bangle. This once called the similar-pieces tool and answered "worn with
+     * it" over four more necklaces. A named kind narrows the companions to that kind.
+     */
     case 'matching':
-      return { id: 'core_matching', tools: [tool('showSimilarPieces', {})], reply: (o) => (pieces(o).length ? CONCIERGE.matchingResult(pieces(o).length) : CONCIERGE.nothing) };
+      return {
+        id: 'core_matching',
+        tools: [tool('showMatchingPieces', s.category ? { category: s.category } : {})],
+        reply: (o) => (pieces(o).length ? CONCIERGE.matchingResult(pieces(o).length) : o[0]?.label || CONCIERGE.nothing),
+      };
 
     case 'save':
       return { id: 'core_save', tools: [tool('saveToWishlist', {})], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };

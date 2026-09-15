@@ -77,8 +77,8 @@
 
   /* the concierge rail's lane: the panel's own width, its inset from the edge, and 24px of air.
      A page marked [data-rail-inset] reserves it while the panel is open so nothing is covered. */
-  --rail-w: 496px;
-  --rail-inset: calc(var(--rail-w) + 52px - var(--spacing-gutter));
+  --rail-w: 560px;
+  --rail-inset: calc(var(--rail-w) + 40px - var(--spacing-gutter));
 
   /* gold as material / light */
   --gold-metal: linear-gradient(105deg, #6e5527 0%, #a8894f 22%, #e4cfa3 48%, #b8975a 62%, #f1e2bf 78%, #8a6d3a 100%);
@@ -120,25 +120,34 @@
   color-scheme: light;
 }
 
-/* ── the salon ────────────────────────────────────────────────────────────
-   The concierge keeps the house's ink register on every chapter, so a
-   conversation never changes material when the page beneath it does. Its
-   surface sits clearly above --bg (#14110e on #0b0a09), its lines are quieter
-   than the page's, and only its shadow answers the page theme.
-   Used together with data-theme="dark" on the same element; declared after the
-   theme blocks so it wins at equal specificity. ── */
+/* ── the concierge ─────────────────────────────────────────────────────────
+   The rail, the vitrine and the ticket take the register of the chapter beneath
+   them: ink on a dark chapter, paper on an ivory one. Their surface sits one step
+   above the page, their lines are quieter than the page's, and the shadow is the
+   only thing that says they float. The dark set is the default; the ivory set
+   follows <html data-theme>, which the section registry keeps current. ── */
 [data-salon] {
   --surface: #14110e;
   --salon-well: #100e0c;
+  --plate: #1a1612;
   --line: color-mix(in oklab, var(--color-champagne) 16%, transparent);
   --line-strong: color-mix(in oklab, var(--color-champagne) 34%, transparent);
-  --salon-shadow: 0 32px 90px -36px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(228 207 163 / 0.09);
+  --salon-shadow: -28px 0 96px -40px rgb(0 0 0 / 0.85), 0 0 0 1px rgb(228 207 163 / 0.09);
   --salon-lift: 0 -32px 90px -36px rgb(0 0 0 / 0.9), 0 -1px 0 0 rgb(228 207 163 / 0.09);
+  --tile-frame: 0 0 0 1px rgb(228 207 163 / 0.14), 0 26px 44px -30px rgb(0 0 0 / 0.9);
 }
-[data-theme="ivory"] [data-salon] {
-  --salon-shadow: 0 32px 90px -40px rgb(11 10 9 / 0.42), 0 0 0 1px rgb(11 10 9 / 0.10);
-  --salon-lift: 0 -32px 90px -40px rgb(11 10 9 / 0.42), 0 -1px 0 0 rgb(11 10 9 / 0.10);
+html[data-theme="ivory"] [data-salon] {
+  --surface: #faf6ee;
+  --salon-well: var(--color-pearl);
+  --plate: #e6dfd1;
+  --line: color-mix(in oklab, var(--color-ink) 12%, transparent);
+  --line-strong: color-mix(in oklab, var(--color-ink) 30%, transparent);
+  --salon-shadow: -28px 0 96px -48px rgb(11 10 9 / 0.4), 0 0 0 1px rgb(11 10 9 / 0.08);
+  --salon-lift: 0 -32px 90px -40px rgb(11 10 9 / 0.35), 0 -1px 0 0 rgb(11 10 9 / 0.08);
+  --tile-frame: 0 0 0 1px rgb(11 10 9 / 0.08), 0 26px 44px -34px rgb(11 10 9 / 0.35);
 }
+/* a piece on the tray is mounted, not pasted: a hairline frame and a lift beneath it */
+.salon-tile { box-shadow: var(--tile-frame); }
 
 @theme inline {
   --color-bg: var(--bg);
