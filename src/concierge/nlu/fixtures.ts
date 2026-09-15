@@ -86,7 +86,7 @@ export const FIXTURES: Fixture[] = [
   { text: 'ਕੀਮਤ ਕੀ ਹੈ', intent: 'price', as: 'pa-Guru' },
 
   // ── consultation and restart ─────────────────────────────────────────────
-  { text: 'Book a private consultation', intent: 'consultation', as: 'en' },
+  { text: 'Book an appointment', intent: 'consultation', as: 'en' },
   { text: 'mulaqat karni hai', intent: 'consultation', as: 'ur-Latn' },
   { text: 'ملاقات کا وقت', intent: 'consultation', as: 'ur' },
   { text: 'start again', intent: 'restart', as: 'en' },

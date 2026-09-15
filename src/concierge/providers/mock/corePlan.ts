@@ -196,7 +196,7 @@ function readable(intent: string): string {
     remove: 'to remove one',
     selection: 'your selection',
     price: 'the price',
-    consultation: 'a private consultation',
+    consultation: 'to book an appointment',
     restart: 'to begin again',
   };
   return WORDS[intent] ?? 'something else';

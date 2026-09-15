@@ -176,7 +176,7 @@ function Result({ result }: { result: TurnResult }) {
     );
   }
   if (result.kind === 'consultation') {
-    return <p className="micro text-fg-muted">The consultation form is open beside you.</p>;
+    return <p className="micro text-fg-muted">The appointment form is open beside you.</p>;
   }
   if (result.kind === 'piece') {
     const verb = result.verb === 'saved' ? 'Kept' : result.verb === 'removed' ? 'Set aside' : result.verb === 'opened' ? 'Now viewing' : 'In view';

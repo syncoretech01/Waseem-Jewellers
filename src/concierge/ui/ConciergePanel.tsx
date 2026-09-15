@@ -50,7 +50,7 @@ function PieceInView() {
             onClick={() => openConsultation({ topic: 'viewing', productSlug: piece.slug, source: 'cta' })}
             className="micro text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
           >
-            Private viewing
+            Book a viewing
           </button>
           <SaveButton slug={piece.slug} variant="compact" />
         </div>
@@ -182,12 +182,7 @@ export function ConciergePanel() {
             <div className="flex items-center justify-between px-6 pb-5 pt-6 md:px-7">
               <div className="flex items-center gap-4">
                 <OrbStatic state={mode === 'voice' ? 'CHAT' : state} size={24} />
-                <div>
-                  <p className="micro text-fg-2">{CONCIERGE.name}</p>
-                  <p className="font-display italic text-[0.8125rem] leading-tight text-fg-muted" style={{ fontVariationSettings: '"opsz" 12' }}>
-                    {CONCIERGE.sub}
-                  </p>
-                </div>
+                <p className="micro text-fg-2">{CONCIERGE.name}</p>
               </div>
               <div className="flex items-center gap-6">
                 {mode === 'voice' && (

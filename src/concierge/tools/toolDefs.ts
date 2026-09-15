@@ -64,7 +64,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   { name: 'scrollToSection', description: 'Glide to a chapter of the current page.', parameters: { type: 'object', properties: { section: { type: 'string', enum: SECTIONS } }, required: ['section'] }, runtime: 'browser' },
   {
     name: 'openPrivateConsultation',
-    description: 'Open the private consultation form.',
+    description: 'Open the appointment form — a visit to a Lahore showroom, optionally about a piece.',
     parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string', format: 'piece-slug' } } },
     runtime: 'browser',
   },
@@ -123,7 +123,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'showPriceGuidance',
     description:
-      'What Waseem publishes about the price of a piece. All but seventeen pieces are priced on request, so this usually opens a private consultation rather than stating a figure. Never quote a price this does not return.',
+      'What Waseem publishes about the price of a piece. All but seventeen pieces are priced on request, so this usually opens the appointment form rather than stating a figure. Never quote a price this does not return.',
     parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, budgetPkr: { type: 'number', minimum: 0, maximum: 100000000 } } },
     runtime: 'browser',
   },

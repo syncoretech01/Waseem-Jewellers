@@ -45,7 +45,7 @@ export const DEPARTMENTS: DepartmentInfo[] = [
       'Bracelets, pendants, earrings, rings, nose pins and chains set with diamonds, in gold of 18, 21 and 22 karat.',
       'Where Waseem publishes a colour, a clarity and a carat weight, they are shown exactly as written — G&H, VVS1 — and where they are not published, the piece says so rather than borrowing a grade from elsewhere.',
     ],
-    closing: 'Stones are examined, and their grading confirmed, at a private viewing.',
+    closing: 'Stones are examined, and their grading confirmed, when you see them in Lahore.',
   },
   {
     slug: 'bridal',

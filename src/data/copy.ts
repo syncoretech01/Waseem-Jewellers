@@ -10,11 +10,6 @@ export const COPY = {
     line: 'A celebration of heritage, devotion and eternal beauty.',
     cta: 'Discover the collection',
   },
-  invitation: {
-    name: 'Waseem Concierge',
-    sub: 'Private jewellery assistance',
-    prompt: 'Ask about a piece, a collection or a private appointment.',
-  },
   craft: {
     eyebrow: 'The Craft',
     title: 'The anatomy of a piece',
@@ -41,11 +36,11 @@ export const COPY = {
     closing: ['FOR THE DAY', 'THAT BECOMES', 'FOREVER.'],
     house: 'CRAFTED ACROSS GENERATIONS',
     ctaDiscover: 'Discover Bridal',
-    ctaConsult: 'Private consultation',
+    ctaConsult: 'Book a bridal appointment',
   },
   wall: {
     eyebrow: 'Selected Pieces',
-    title: 'Chosen from the salons at MM Alam Road.',
+    title: 'Chosen at MM Alam Road.',
     cursor: 'View piece',
   },
   slider: {
@@ -59,8 +54,8 @@ export const COPY = {
     diamond: { word: 'Diamond', title: 'Diamond', line: 'Set in gold, graded as published' },
   },
   product: {
-    specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed at a private viewing.',
-    priceNote: 'Priced on request · Private viewing available in Lahore',
+    specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed when you see it in Lahore.',
+    priceNote: 'Priced on request · Viewings in Lahore by appointment',
   },
   bespoke: {
     eyebrow: 'Bespoke',
@@ -69,7 +64,7 @@ export const COPY = {
   },
   footer: {
     invitation: 'We receive by appointment.',
-    cta: 'Private consultation',
+    cta: 'Book an appointment',
     mark: 'Waseem Jewellers',
     since: 'Since 1952',
     correspondence: 'Occasional letters from Waseem.',
@@ -82,7 +77,7 @@ export const COPY = {
     legal: '© 2026 Waseem Jewellers · Lahore',
   },
   consultation: {
-    eyebrow: 'Private consultation',
+    eyebrow: 'Book an appointment',
     title: 'Meet us in Lahore.',
     sub: 'Lahore · By appointment',
     /**
@@ -95,14 +90,14 @@ export const COPY = {
      * delivered may say Waseem has it.
      */
     ready: {
-      title: 'Your consultation details are ready.',
+      title: 'Your appointment details are ready.',
       line: 'Continue on WhatsApp to send them to Waseem.',
       whatsapp: 'Continue on WhatsApp',
       close: 'Close',
     },
     delivered: {
       title: 'Your request has been received.',
-      line: 'A Waseem consultant will be in touch to confirm your private consultation.',
+      line: 'Our team will be in touch to confirm your appointment.',
       whatsapp: 'Also send on WhatsApp',
       close: 'Close',
     },
@@ -112,7 +107,7 @@ export const COPY = {
   ledger: {
     title: 'Your Selection',
     empty: ['Nothing kept yet.', 'Pieces you save will wait for you here.'],
-    viewing: 'Arrange a private viewing for these pieces',
+    viewing: 'Book a viewing of these pieces',
     concierge: 'Ask the concierge about these',
     remove: 'Remove',
     discover: 'Discover Bridal',

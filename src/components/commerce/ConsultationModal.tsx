@@ -24,7 +24,7 @@ type Stage = 'idle' | 'submitting' | 'ready' | 'delivered';
 const OCCASIONS = [
   { value: 'bridal', label: 'Bridal' },
   { value: 'bespoke', label: 'Bespoke' },
-  { value: 'viewing', label: 'Private viewing' },
+  { value: 'viewing', label: 'A viewing' },
   { value: 'gift', label: 'Gift' },
 ];
 const WINDOWS = [
@@ -196,7 +196,7 @@ export function ConsultationModal() {
   };
 
   const showroomName = SITE.showrooms.find((s) => s.id === showroom)?.name ?? '';
-  const waText = `Private consultation request ${ref}: ${name}, ${showroomName}${pieces.length ? `, regarding ${pieces.map((p) => p.t).join(', ')}` : ''}.`;
+  const waText = `Appointment request ${ref}: ${name}, ${showroomName}${pieces.length ? `, regarding ${pieces.map((p) => p.t).join(', ')}` : ''}.`;
 
   return (
     <Dialog open={consultation.open} onClose={close} label={COPY.consultation.eyebrow} variant="center" theme="ivory" className="px-8 py-10 md:px-12 md:py-12">
@@ -287,7 +287,7 @@ export function ConsultationModal() {
                 </p>
               )}
               <Button variant="bracket" type="submit" disabled={stage === 'submitting'}>
-                {stage === 'submitting' ? 'A moment' : 'Request a consultation'}
+                {stage === 'submitting' ? 'A moment' : 'Request an appointment'}
               </Button>
               {stage === 'submitting' && <span className="hairline w-10 animate-pulse" aria-hidden />}
             </div>

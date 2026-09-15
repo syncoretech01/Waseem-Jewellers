@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { siteUrl } from '@/lib/siteUrl';
 import { assertCatalogue } from '@/data/catalogue';
 import { Bodoni_Moda, Instrument_Sans, Noto_Nastaliq_Urdu } from 'next/font/google';
 import 'lenis/dist/lenis.css';
@@ -31,13 +32,13 @@ const urdu = Noto_Nastaliq_Urdu({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3300'),
+  metadataBase: new URL(siteUrl()),
   title: {
     default: 'Waseem Jewellers — Jewellery, Crafted Across Generations',
     template: '%s — Waseem Jewellers',
   },
   description:
-    'Waseem Jewellers, Lahore. Bridal jewellery in gold, polki and diamonds, from a house founded in 1952.',
+    'Waseem Jewellers, Lahore. Bridal jewellery in gold, polki and diamonds, from a Lahore jeweller founded in 1952.',
   openGraph: {
     title: 'Waseem Jewellers — A Legacy in Jewellery Since 1952',
     description: 'Bridal jewellery in gold, polki and diamonds. Lahore, since 1952.',

@@ -130,7 +130,7 @@ export const COMMANDS: Command[] = [
   { id: 'thanks', test: (t, e) => /\b(thank\w*|thanks|lovely|perfect|wonderful)\b/.test(t) && !e.category && !e.material, plan: () => ({ id: 'thanks', tools: [], reply: () => CONCIERGE.thanks }) },
   { id: 'close', test: (t) => /\b(close|bye|goodbye|khuda hafiz|allah hafiz|that'?s all|nothing else|that is all)\b/.test(t), plan: () => ({ id: 'close', tools: [], reply: () => CONCIERGE.close }) },
   { id: 'help', test: (t) => /\b(what can you do|help|options|how does this work|what do you do)\b/.test(t), plan: () => ({ id: 'help', tools: [], reply: () => CONCIERGE.help }) },
-  { id: 'watches', test: (t) => /\b(watches|wrist ?watch|tag heuer|rado|tissot)\b/.test(t) || /\bwatch\b(?=\s*(salon|department|brands?|collection))/.test(t), plan: () => ({ id: 'watches', tools: [], reply: () => CONCIERGE.watches }) },
+  { id: 'watches', test: (t) => /\b(watches|wrist ?watch|tag heuer|rado|tissot)\b/.test(t) || /\bwatch\b(?=\s*(department|brands?|collection))/.test(t), plan: () => ({ id: 'watches', tools: [], reply: () => CONCIERGE.watches }) },
   {
     id: 'about_house',
     // copy-guard-allow: matches what a visitor might say, not what we say

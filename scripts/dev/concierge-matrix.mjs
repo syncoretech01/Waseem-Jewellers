@@ -21,7 +21,7 @@ const SCENARIOS = [
   { id: 'C', route: '/', commands: ['Take me to bridal'] },
   { id: 'D', route: '/collections/bridal', commands: ['Show me gold pieces', 'Show me bridal necklaces', 'Save the second one', 'Open the second one'] },
   { id: 'E', route: '/collections/bridal', commands: ['Show me the Satlada Haar', 'Tell me about the Naqsh-e-Gul choker', 'Open it'] },
-  { id: 'F', route: '/jewellery/diamond-bridal-sapphire-suite', commands: ['How much is this?', 'Save this piece', 'Show me similar', 'Book a private consultation', 'Where are you?', 'thank you'] },
+  { id: 'F', route: '/jewellery/diamond-bridal-sapphire-suite', commands: ['How much is this?', 'Save this piece', 'Show me similar', 'Book an appointment', 'Where are you?', 'thank you'] },
   { id: 'G', route: '/jewellery/emerald-tassel-earrings-t06768', commands: ['Do you sell watches?', 'What is the weather', 'Show me my selection', 'Remove it'] },
   { id: 'H', route: '/', commands: ['mujhe haar dikhao', 'doosra kholo'] },
 ];

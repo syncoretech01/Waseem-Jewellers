@@ -26,6 +26,15 @@ const BANNED = [
   { re: /\bOur House\b/i, why: 'Waseem is not "the House"' },
   { re: /\bthe house\b/, why: 'Waseem is not "the house"' },
   /**
+   * Stage 2.2: a showroom, not a salon; an appointment or a viewing, never a "private
+   * consultation". The lookarounds leave `data-salon` and `--salon-well` alone — internal
+   * names are not customer copy.
+   */
+  { re: /(?<![\w-])salons?(?![\w-])/i, why: 'a showroom, not a salon' },
+  { re: /private consultations?/i, why: 'say "book an appointment" or "book a viewing"' },
+  { re: /\b(?:request|arrange|arranging|book) an? (?:private )?consultation\b/i, why: 'say "request an appointment"' },
+  { re: /\bconsultation (?:details|form|request)s?\b/i, why: 'say "appointment …"' },
+  /**
    * The semantic figures move attention between regions of a finished photograph. Nothing
    * anywhere may describe that as how a piece was *made*: no process imagery exists — no
    * band before its stone, no empty setting — so the words would be describing something
@@ -41,7 +50,7 @@ const EXEMPT = [
   /copy-guard/,
   /BRAND\.md/,
   // the register filter's own strip patterns — `[/…House…/g, 'Waseem']` — exist to remove the word, not to say it
-  /^\s*\[\/.*\/g?, '/,
+  /^\s*\[\/.*\/g?i?, '/,
 ];
 
 async function* walk(dir) {
@@ -84,10 +93,10 @@ for (const root of ROOTS) {
 }
 
 if (hits.length) {
-  console.error(`copy-guard: ${hits.length} customer-facing use${hits.length === 1 ? '' : 's'} of "House" as Waseem's name\n`);
+  console.error(`copy-guard: ${hits.length} customer-facing use${hits.length === 1 ? '' : 's'} of a banned phrase\n`);
   for (const h of hits) console.error(`  ${h.file}:${h.line}  (${h.why})\n    ${h.text}`);
-  console.error('\nSay Waseem, Waseem Jewellers, our jewellers, our team, a Waseem consultant,');
-  console.error('private consultation, our Lahore showroom. See BRAND.md.');
+  console.error('\nSay Waseem, Waseem Jewellers, our jewellers, our team; book an appointment, book a viewing,');
+  console.error('visit a showroom, request details, enquire, speak with our team, ask Waseem Concierge. See BRAND.md.');
   process.exit(1);
 }
-console.log('copy-guard: clean — "House" is not used as Waseem’s name.');
+console.log('copy-guard: clean — no banned phrase reaches a visitor.');

@@ -232,7 +232,7 @@ export function Ch06Wall({ cuts, departments }: { cuts: WallCut[]; departments: 
                   <div className="relative w-full overflow-hidden bg-pearl" style={{ aspectRatio: s.aspect }}>
                     <Img id={s.image} sizes="(min-width: 768px) 50vw, 92vw" className="object-cover" />
                   </div>
-                  <figcaption className="micro mt-4 text-ink/55">From the salons · MM Alam Road</figcaption>
+                  <figcaption className="micro mt-4 text-ink/55">From the showroom · MM Alam Road</figcaption>
                 </figure>
               </div>
             );

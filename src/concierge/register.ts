@@ -42,6 +42,9 @@ const STRIP: [RegExp, string][] = [
    */
   [/\b(?:the|our|this) House\b/g, 'Waseem'],
   [/\bHouse of Waseem\b/g, 'Waseem Jewellers'],
+  // the appointment vocabulary is a guarantee on the model path too, for the same reason
+  [/\bprivate consultations?\b/gi, 'appointment'],
+  [/(?<![\w-])salons?(?![\w-])/gi, 'showroom'],
 ];
 
 /**

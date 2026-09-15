@@ -67,7 +67,7 @@ export function InfoColumn({ product }: { product: Product }) {
         <p className="eyebrow text-fg">{formatPrice(product.price)}</p>
         <p className="text-[0.75rem] text-fg-muted">
           {product.price.kind === 'fixed'
-            ? [asOfLabel(product.price.asOf), 'subject to the gold rate', 'Prices in Pakistani rupees', 'Private viewing available in Lahore'].filter(Boolean).join(' · ')
+            ? [asOfLabel(product.price.asOf), 'subject to the gold rate', 'Prices in Pakistani rupees', 'Viewings in Lahore by appointment'].filter(Boolean).join(' · ')
             : COPY.product.priceNote}
         </p>
       </div>
@@ -77,7 +77,7 @@ export function InfoColumn({ product }: { product: Product }) {
           Enquire
         </Button>
         <Button variant="hairline" onClick={() => openConsultation({ topic: 'viewing', productSlug: product.slug, source: 'cta' })}>
-          Private viewing
+          Book a viewing
         </Button>
         <SaveButton slug={product.slug} variant="full" />
       </div>
@@ -137,7 +137,7 @@ export function InfoColumn({ product }: { product: Product }) {
             // the technique, and repeating them behind a disclosure is furniture
             ...(product.story?.care ? [{ title: 'Care', body: <p>{product.story.care}</p> }] : []),
             {
-              title: 'Private viewing',
+              title: 'Visit a showroom',
               body: (
                 <div className="flex flex-col gap-3">
                   <ul className="flex flex-col gap-1">
@@ -149,7 +149,7 @@ export function InfoColumn({ product }: { product: Product }) {
                     {SITE.hours} · {SITE.phone}
                   </p>
                   <button type="button" className="eyebrow self-start text-fg underline-offset-4 hover:underline" onClick={() => openConsultation({ topic: 'viewing', productSlug: product.slug, source: 'cta' })}>
-                    Arrange a viewing
+                    Book a viewing
                   </button>
                 </div>
               ),

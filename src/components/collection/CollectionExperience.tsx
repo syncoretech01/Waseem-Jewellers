@@ -170,7 +170,7 @@ function Closing({ collection, onConsult }: { collection: Collection; onConsult:
         <h2 className="display max-w-[12em] text-display-m">{COPY.footer.invitation}</h2>
         <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
           <Button variant="bracket" onClick={onConsult}>
-            Private consultation
+            Book a bridal appointment
           </Button>
           {/* the story ends; the index begins */}
           <TransitionLink href={`/${collection.slug}`} className="group/index eyebrow relative pb-1 text-fg-muted transition-colors hover:text-fg" data-cursor="discover">

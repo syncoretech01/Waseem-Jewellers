@@ -307,10 +307,10 @@ function Closing({ info, onConsult }: { info: DepartmentInfo; onConsult: () => v
   return (
     <section ref={ref} data-theme="ivory" className="bg-bg py-section text-fg">
       <div ref={scope} className="flex flex-col items-start gap-8 px-gutter" data-rise>
-        <Eyebrow>PRIVATE CONSULTATION</Eyebrow>
+        <Eyebrow>VISIT US IN LAHORE</Eyebrow>
         <h2 className="display max-w-[12em] text-display-m">{info.closing}</h2>
         <Button variant="bracket" onClick={onConsult}>
-          Private consultation
+          Book a viewing
         </Button>
       </div>
     </section>
