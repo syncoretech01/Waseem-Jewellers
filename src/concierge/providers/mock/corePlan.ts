@@ -5,6 +5,7 @@ import { CONCIERGE } from '../../copy';
 import { countInWords, capitalise } from '@/lib/format';
 import type { SiteContext, ToolName, ToolOutcome } from '../../types';
 import type { Plan } from './commands';
+import { resolveOrdinal } from '../../ordinals';
 
 /**
  * The twelve actions the keyless engine owns, and owns reliably.
@@ -130,9 +131,19 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
     }
 
     case 'open': {
-      // `||`, not `??`: a tool that could not act returns an *empty* label, and answering a
-      // visitor with an empty string is worse than answering them with a question
-      const args = s.ordinal !== undefined ? { ordinal: s.ordinal } : {};
+      /**
+       * An ordinal is resolved here, against what was just shown, and the tool is given the
+       * slug — `openProduct` takes a slug and nothing else, and the validator rejects any
+       * other argument. Passing the ordinal through once meant every "doosra kholo" after a
+       * set of results was refused and answered with a question.
+       *
+       * `||`, not `??`: a tool that could not act returns an *empty* label, and answering a
+       * visitor with an empty string is worse than answering them with a question.
+       */
+      const target = s.ordinal !== undefined ? resolveOrdinal(s.ordinal, ctx) : null;
+      if (s.ordinal !== undefined && !target) return { id: 'core_open', tools: [], reply: () => CONCIERGE.whichPiece };
+      if (target?.kind === 'collection') return { id: 'core_open', tools: [tool('showCollection', { slug: target.slug })], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
+      const args = target ? { slug: target.slug } : {};
       return { id: 'core_open', tools: [tool('openProduct', args)], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
     }
 
@@ -160,11 +171,18 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
         reply: (o) => (pieces(o).length ? CONCIERGE.matchingResult(pieces(o).length) : o[0]?.label || CONCIERGE.nothing),
       };
 
-    case 'save':
-      return { id: 'core_save', tools: [tool('saveToWishlist', {})], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
+    case 'save': {
+      // "doosra save karo": the ordinal names which of the shown pieces; otherwise the piece in view
+      const target = s.ordinal !== undefined ? resolveOrdinal(s.ordinal, ctx) : null;
+      const args = target?.kind === 'product' ? { slug: target.slug } : {};
+      return { id: 'core_save', tools: [tool('saveToWishlist', args)], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
+    }
 
-    case 'remove':
-      return { id: 'core_remove', tools: [tool('removeFromWishlist', {})], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
+    case 'remove': {
+      const target = s.ordinal !== undefined ? resolveOrdinal(s.ordinal, ctx) : null;
+      const args = target?.kind === 'product' ? { slug: target.slug } : {};
+      return { id: 'core_remove', tools: [tool('removeFromWishlist', args)], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
+    }
 
     case 'selection':
       return { id: 'core_selection', tools: [tool('openWishlist', {})], reply: (o) => (pieces(o).length ? CONCIERGE.selectionIntro(pieces(o).map((p) => p.name)) : CONCIERGE.wishlistEmpty) };

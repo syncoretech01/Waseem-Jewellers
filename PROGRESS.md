@@ -56,6 +56,50 @@ Seven further findings were refuted on review and left alone.
 - Chapters that are only traversable by scroll (the 1952 track, the vitrine slider, the bespoke tray) cannot simply "hold still" under reduced motion — their content would be unreachable. They fall back to their stacked reading order through CSS keyed on the pre-hydration `data-rm` attribute, which needs no JavaScript and cannot mismatch on hydration.
 - Measured after M8: 24 client chunks, 639 kB gzipped in total, of which the three.js chunk is 232 kB and loads only when a WebGL scene mounts. Media: 20 MB images, 32 MB video, all committed.
 
+## Stage 2.2 — the client-facing pass (September 2026)
+
+Stage 2 built the machine; this pass made the current build presentable to Waseem without
+opening the backend. In order of client-facing priority:
+
+1. **Live media.** `Img plain` hot-linked full Shopify originals through the long-tail
+   `PieceLink`s and campaign refs; the optimiser now writes every `srcset` (`getImageProps`),
+   remote refs are asked for at 2048px, a failed image hides instead of showing a broken glyph on a
+   plate, the bridal-set campaign role is inferred for square originals, and `npm run
+   warm:images` primes the optimiser after a deploy. `Video` checks a source is allowed before
+   loading it.
+2. **Terminology.** Every customer-facing "Salon" became a showroom or an appointment; every
+   "Private consultation" became Book an appointment / Book a viewing / Visit a showroom /
+   Request details / Enquire / Speak with our team, by context; "Private viewing" stays as the
+   distinct action it is. The copy guard fails the build on any of the three banned phrases, and
+   the concierge's register filter rewrites them if a model ever says one.
+3. **Concierge UI.** A theme-following rail (560px at ≥1280, a modal sheet below) with a crest
+   masthead, the piece in view on a plate, an exchange set in the display face with the facts
+   beside each reply, a result tray of tiles with verified facts and View / Save / Compare, a real
+   comparison table (unknown cells say so and offer "Ask"), the standing topic as removable terms,
+   and suggestions as italic lines. No bubbles, no chips, no avatars.
+4. **Voice.** A server tier through the existing seam: model transcription and speech behind
+   `/api/concierge/transcribe` and `/api/concierge/speak`, chosen by the capabilities probe when
+   a key is configured, falling back to the browser per utterance; barge-in, cancel, retry, live
+   "Heard" line, timeouts; the voice stage is a hairline ring with the crest, breathing with the
+   voice, and every state is also a sentence. `npm run voice:check` covers it headlessly.
+5. **Homepage.** Five chapters evolved around five semantic figures on real pieces, each a door
+   (see MOTION_SYSTEM.md, "Semantic figures"): the Close Look, the craft coda, the bridal suite,
+   the wall's gold, Bespoke rebuilt around one pair. The hero and the film carry credits to the
+   listed piece worn in them; the worlds name themselves and their piece at rest.
+6. **The mark and the cursor.** The nav's surface, `--nav-offset`, the veil cleared on route
+   change, mastheads that name the place; a bead / ring / word cursor from the theme tokens.
+
+### Decisions
+- The drawn ring in CH02 stays a drawing and is followed by the photograph — the object teaches
+  the vocabulary, the coda proves it on a piece that opens.
+- Fresh region rectangles are authored from the photograph and marked `reviewed: false`; Waseem
+  confirms the naming (`AWAITING_REGION_SIGN_OFF`), and until then the notes say only what the
+  frame and the published specification support.
+- The camera's magnification is capped by the negative at the size the figure is actually
+  rendered (`honestScale`), rather than by a fixed pixel threshold.
+- "Salon" survives only as the register's internal token name (`[data-salon]`); it is never
+  rendered.
+
 ## Known upstream notices
 - `THREE.Clock: This module has been deprecated` is logged once by @react-three/fiber 9.7 with three 0.185; harmless, upstream.
 - In development, the router's fetch on back/forward can take up to a second before the destination mounts; the arrival veil covers it (the wait is bounded at 1 s). Production builds are faster.

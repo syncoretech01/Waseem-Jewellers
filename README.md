@@ -79,6 +79,8 @@ It also answers `hello`, `what can you do`, `how much is this`, `show me my sele
 | `npm run check` | The gate: typecheck, lint, `copy:check`, `nlu:check`, `enquiry:check`, build, `secret:scan`, in sequence. On a memory-constrained machine build with `NEXT_BUILD_CPUS=1`. |
 | `npm run leak:check [base]` | **Browser acceptance / regression, run by hand — not part of `check`.** Against a running production build (`npx next start -p 3399`): five route loops and twenty concierge cycles in a real Chromium, DOM nodes, listeners and heap sampled after forced GC. Fails on more than 15% growth. |
 | `npm run bundle:report [base] ['?tier=HIGH']` | Measures what each route actually downloads, gzipped, against the budget. Also by hand, against a running build. |
+| `npm run voice:check [base]` | Drives the concierge's voice through every state in a headless browser — the browser tier with the speech APIs faked, and the server tier with the transcribe and speak routes mocked. 19 assertions. |
+| `npm run warm:images <base>` | After a deploy: requests the hero variants and the local assets at the widths the pages ask for, so the first visitor after a deploy does not pay the optimiser's cache-miss cost. |
 | `npm run assets` | Re-encodes the videos and re-localises the images from the manifest. Needs ffmpeg and network access. |
 | `npm run assets:images` / `assets:videos` | Either half of the above. |
 
@@ -101,7 +103,10 @@ Untouched originals live in `media-originals/`, which is git-ignored. Everything
 No environment file is required. `.env.example` documents every variable and what it enables.
 The concierge ships keyless; setting `CONCIERGE_API_KEY` on the server and redeploying the same
 build activates the model path — the bundle does not change, the browser asks
-`/api/concierge/capabilities` what it is allowed to be. Consultation delivery stays on the
+`/api/concierge/capabilities` what it is allowed to be. Setting `OPENAI_API_KEY` (or the
+concierge key on the OpenAI base) additionally turns on the server voice tier — model
+transcription and speech through `/api/concierge/transcribe` and `/api/concierge/speak`; without
+it the browser's own speech APIs are the fallback. Consultation delivery stays on the
 visitor's device until all four of `ENQUIRY_WEBHOOK_URL`, `NEXT_PUBLIC_SITE_URL`,
 `ENQUIRY_PRIVACY_URL` and `ENQUIRY_PRIVACY_CONTACT` are set and valid (`npm run enquiry:check`
 proves a webhook alone is not enough). Every secret is read only under `src/server/`, which is

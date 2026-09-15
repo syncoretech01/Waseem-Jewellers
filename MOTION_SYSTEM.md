@@ -187,13 +187,13 @@ Destinations size their hero box with the same rules, so the predicted frame is 
 
 Nothing in this module touches the DOM. Consumers read it inside their own `gsap.ticker` callback and write through `quickTo` / `quickSetter`: the hero drifts its type ±10 px and counter-drifts its media ±1.2 %, the wall tilts the hovered piece ±3° and moves its sheen origin, the duality mask follows the pointer's x. `pointerIn(el)` gives the same normalised reading relative to a single element.
 
-The custom cursor (`CursorLayer`) is the one consumer with its own listener, because it needs the raw event to hit-test `[data-cursor]` targets. It is fine-pointer only, absent under coarse pointers and the reduced tier, and never a dependency — every target it labels is a real control.
+The custom cursor (`CursorLayer`) is the one consumer with its own listener, because it needs the raw event to hit-test `[data-cursor]` targets. It is fine-pointer only, absent under coarse pointers and the reduced tier, steps aside for a pen or a finger on a hybrid device, and is never a dependency — every target it labels is a real control. Its states and words are in DESIGN_SYSTEM.md, "The cursor".
 
 ## Pins
 
 **The fixed-pin ancestor rule.** A pinned ScrollTrigger positions the pinned element `fixed`. Any ancestor carrying `transform`, `filter`, `perspective`, `will-change`, `contain`, `backdrop-filter` or `container-type` becomes its containing block, and the pin silently detaches. So none of those properties appear on `body`, `#page-root`, a chapter `<section>`, or anything between them. When the menu overlay recedes the page it does not scale `#page-root`; it selects the at most two in-view `#page-root .recede` leaves and scales those.
 
-Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=450%` for the craft object, `+=400%` for the slider, `+=320%` for bespoke — or, for CH03's horizontal track, as a function of the measured track width. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
+Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=100%` for the hero (no spacing), `+=200%` for the craft stage (160% on a phone), `+=150%` for the worlds, `+=155%` for the bridal stage, `N × 22%` for the slider, and `100 + 25 × holds` % for bespoke (175% for its three) — or, for CH03's horizontal track, as a function of the measured track width. The craft and bridal chapters pin an inner stage rather than their section, so the coda and the suite beneath them scroll in when the pin releases. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
 
 Every chapter's scroll animation lives inside its own `useGSAP` scope — and, where it branches by viewport, its own `gsap.matchMedia` context — and reverts itself. Tickers that live outside a GSAP context (CH01, CH06, CH08) are removed in their effect cleanup. Nothing kills triggers globally.
 
@@ -245,39 +245,53 @@ not process. No process imagery exists (no band before its stone, no empty setti
 vocabulary would be describing something nobody has photographed. `scripts/dev/copy-guard.mjs`
 enforces it alongside the "House" rules.
 
-| Family | What it does | What it claims |
-|---|---|---|
-| `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph |
-| `composition` | the same mechanism at the scale of a suite | the same, one scale up |
-| `goldwork` | one region, held close — the scale ladder | this is the same picture, nearer |
+| Family | What it does | What it claims | Where |
+|---|---|---|---|
+| `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph | the Close Look (CH02, Pearl Blossom Choker); PDPs |
+| `composition` | the same mechanism at the scale of a suite — tikka, earrings, choker, haar named in place | the same, one scale up | the bridal suite after the film (CH05, Rang-e-Jamal emerald suite) |
+| `goldwork` | the scale ladder — collar, pendant, earring, nearer each time | this is the same picture, nearer | the wall's scene slot (CH06, the gold Rang-e-Jamal set); PDPs |
+| `setting` | the anatomy of one setting as photographed — stone, halo, shank | these are the parts of this setting, where they sit | the craft coda (CH02, Lavender Halo Ring) |
+| `pair` | the two of a pair across one frame — crowns, bells, drops — and the pull-back side by side | the right earring is the right earring; nothing is mirrored | Bespoke (CH09, Emerald Tassel Earrings) |
 
-Three families and no more. Ring anatomy, layering compositors and gemstone setting were all
-considered and all rejected for the same reason: each needs the jewellery shown in a state it
-was never photographed in.
+Five families, one mechanism. Ring anatomy from teardown photography, layering compositors and
+loose-stone setting sequences were all considered and all rejected for the same reason: each
+needs the jewellery shown in a state it was never photographed in. The drawn ring in CH02 stays
+what it is — a drawing — and the coda beneath it answers with the photograph.
 
-**Every rectangle in `src/data/semantic.ts` is one Stage 1 already cut, published and
-reviewed.** Nothing is placed by guessing where a part of a piece might be. That is why the
-file covers eight pieces rather than six hundred: there is no family that scales without a
-person writing about the jewellery — a scale ladder still has to say what it is showing, and
-"the filigree" is a claim about a piece that may have none. Regions for the wider catalogue
-wait on Waseem's sign-off; a piece with no descriptor shows its photograph, as before.
+**Two kinds of rectangle live in `src/data/semantic.ts`.** The first kind is one Stage 1 already
+cut, published and reviewed (`reviewed: true`). The second was placed by looking at the
+photograph and naming what is plainly in it — the four claws on a ring, the two crowns of a pair
+— and carries `reviewed: false` until Waseem confirms the naming; `AWAITING_REGION_SIGN_OFF`
+lists them by name. No note says anything the photograph and the published specification do
+not already support. There is still no family that scales without a person writing about the
+jewellery, which is why the file covers nine pieces rather than six hundred; a piece with no
+descriptor shows its photograph, as before.
+
+**A figure is a door.** On the homepage every figure sits inside a `PieceLink` (its `figure`
+slot), so looking closely and opening the piece are one gesture, and the FLIP flies from the
+figure's own image (`flipSource`). The piece's name and published facts stand beneath it.
 
 **One writer, structurally.** The camera element's `transform` is composed as a single string
 by one callback in `SemanticFigure`; there is no second setter and no Tailwind `translate` or
 `scale` utility anywhere near it. Labels are lit with `data-lit` and faded by CSS transitions,
 and GSAP never touches them.
 
-**Fidelity is resolved, not guessed.** `resolveFigure` reads `gsap.matchMedia`'s `reduce`
-condition — the media query, not the quality store — and measures the smallest held region in
-real source pixels. Under 640px the figure is not offered at all; under 1100px the camera
-moves but magnifies only to 1.35×; above it the region fills the frame. A family that cannot
-be supported does not render as a degraded family: the caller shows its ordinary image, and
-there is no broken lesson.
+**Fidelity is resolved, not guessed — and the camera is capped by the negative.** `resolveFigure`
+reads `gsap.matchMedia`'s `reduce` condition — the media query, not the quality store — and
+drops any region under 420 source pixels on its shorter side. How close the camera goes is then
+decided per region against the box's real rendered width: `honestScale` is the smaller of the
+scale that fills the box and the scale at which the region's source pixels equal the screen
+pixels they are shown across (never more than 3.2×). So no region is ever magnified past its own
+pixels, whatever the display. LOW tiers and coarse pointers (`reduced`) move the camera but cap
+it at 1.35×. A family that cannot be supported does not render as a degraded family: the caller
+shows its ordinary image, and there is no broken lesson.
 
 **The static form is the acceptance test.** With motion removed, `StaticSequence` shows each
 region as its own frame with the same words. If the lesson does not survive that, the lesson
 was the camera move — which is spectacle wearing a caption.
 
-**No pin.** The figures read as they travel through the viewport. A pinned figure inside a
-product page would fight the sticky information column, and it would cost the page height it
-has not got.
+**No pin of its own.** Left alone, a figure reads as it travels through the viewport — a pinned
+figure inside a product page would fight the sticky information column. A chapter that owns a
+pin passes `driven` and calls `apply(progress)` on the figure's handle from its own scrub, so
+the holds sit inside the chapter's choreography (Bespoke does this; its words are lit in step
+through `onLit`).

@@ -240,7 +240,7 @@ One button, three variants. Always uppercase sans at `0.22em` tracking; `sm` is 
 | `hairline` | Tracked label over a `bg-line-strong` rule, with a gold `hairline` drawing left-to-right beneath it on hover or focus. |
 | `text` | The label alone, 80% → 100% opacity. |
 
-Props: `variant`, `size` (`'sm' | 'md'`), `className`, `cursor`, plus either button attributes or `href` (with optional `kind: 'curtain' | 'veil'`, `onNavigate`, `target`). A `tone` prop is declared on the props type but is not read by the component and is not passed anywhere. With `href` it renders a `TransitionLink` and runs the route transition; without, a `type="button"` element. `cursor` writes `data-cursor`, which the custom cursor reads to swap its label — the vocabulary is `view`, `view-piece`, `explore`, `drag`, `play`, `pause`, `discover`, `inspect`, `ask`, `save`, `close` (`src/components/motion/CursorLayer.tsx`). Hover and focus-visible are always styled together.
+Props: `variant`, `size` (`'sm' | 'md'`), `className`, `cursor`, plus either button attributes or `href` (with optional `kind: 'curtain' | 'veil'`, `onNavigate`, `target`). A `tone` prop is declared on the props type but is not read by the component and is not passed anywhere. With `href` it renders a `TransitionLink` and runs the route transition; without, a `type="button"` element. `cursor` writes `data-cursor`, which the custom cursor reads for its state and its word — the vocabulary is `COPY.cursor` (`view`, `explore`, `open`, `ask`, `listen`, `save`, `saved`, `close`, `drag`, `inspect`, `compare`, `play`, `pause`; see "The cursor"). Hover and focus-visible are always styled together.
 
 ### `Field` and `ChoiceRow` — `src/components/ui/Field.tsx`
 
@@ -346,17 +346,26 @@ The register is held in `src/data/copy.ts`, `src/concierge/copy.ts` and the conc
 
 ## Not in Stage 1
 
-There is no visitor-facing theme switch (the register is chosen by the chapter), no localised UI beyond the two Urdu accents, and no checkout or pricing surface beyond "on request" and the private-consultation request.
+There is no visitor-facing theme switch (the register is chosen by the chapter), no localised UI beyond the two Urdu accents, and no checkout or pricing surface beyond "on request" and the appointment request.
 
-## The salon
+## The concierge
 
-The concierge is a private salon, not a chat window. Three zones, always in the same place:
+**A word about the word.** "Salon" is the internal name of the concierge's *register* — the
+`[data-salon]` token set that gives the rail its own paper or ink, and the `.salon-tile` frame.
+It is never shown to a visitor: the copy says showroom, appointment, viewing, and
+`scripts/dev/copy-guard.mjs` fails the build on a customer-facing "salon" (or "Private
+consultation", or "House of Waseem"). The concierge is a private room, not a chat window. Three
+zones, always in the same place:
 
 | Zone | What it is | What belongs in it |
 |---|---|---|
-| **The rail** (right, `--rail-w`) | the associate | words and state — the exchange, the named results, the context ribbon, the composer |
-| **The vitrine** (bottom band) | the jewellery | `ResultTray`: the pieces themselves, at a size worth looking at |
+| **The rail** (right, `--rail-w`, 560px at ≥1280; a full sheet below) | the associate | words and state — the crest masthead, the piece in view on a plate, the exchange with its facts, the context ribbon, the composer, the voice stage |
+| **The vitrine** (bottom band) | the jewellery | `ResultTray`: the pieces as tiles with verified facts and View / Save / Compare, the comparison table, the "brought for" terms |
 | **The stage** | the page | the department, the piece, the campaign — it steps aside via `html[data-rail="1"]` |
+
+The rail follows the chapter's theme through `[data-salon]` tokens: paper on the ivory chapters,
+ink on the dark ones. On a phone the sheet is modal, the tray sits inside it (`TrayBody compact`,
+at most 47dvh), and the exchange scrolls to the newest turn.
 
 **The rail never shows an image larger than a 44px thumbnail.** It once rendered the same four
 pieces as a grid of 4:5 photographs directly above the tray already showing them, larger and
@@ -377,4 +386,28 @@ were tuned for a 468px rail and silently became too narrow the moment it widened
 No avatars. No bubbles. No timestamps. No "typing…". No emoji. No icons beyond `→` and the mic
 ring. No unread badges. No suggestion *chips* — suggestions are underlined italic serif lines.
 No scroll-to-bottom button. No delivery ticks. One accent (`--gold-hi`), used only for the
-listening ring and focus.
+listening ring and focus. The voice stage is a hairline ring with the crest at its centre and a
+second ring that breathes with the voice — no waveform, no sphere. Every voice condition is also
+a sentence beneath the ring, so the ring is never the only signal.
+
+## The nav's surface
+
+The nav is text and the crest, with no ground of its own at the top of a page. Once the page
+has moved beneath it (past 120px) and it returns on scroll-up, it brings a surface with it —
+`.wj-nav-surfaced`: the chapter's own `--bg` at 86% with a blur and a `--line` rule — so the
+mark is never floating over a photograph. While shown it publishes `--nav-offset` (its height,
+else `0px`) and the department refine bar sticks to that, standing beneath the nav rather than
+under it. Nothing else may sit in the nav band: chapter eyebrows begin at
+`calc(var(--nav-h) + 1.25rem)`, and a department masthead names the place ("LAHORE · SINCE
+1952"), not the brand the crest already says.
+
+## The cursor
+
+Fine pointers only. A 6px bead in `--accent` (gold-hi on ink, gold on paper) with a 1px `--bg`
+keyline; over a control it becomes a 14px hairline ring and a word appears beside it in a quiet
+`--bg` tag; while dragging it is a 22px ring in `--fg` and the word withdraws. Nothing grows,
+nothing springs, nothing is magnetic. The word for each state lives in `COPY.cursor` — view,
+explore, open, ask, listen, save, saved ("Kept"), close, drag, inspect, compare, play, pause —
+and a target chooses one with `data-cursor`. Touch, pen, coarse pointers and reduced motion keep
+the native cursor; on a hybrid device the bead steps aside the moment a finger or pen moves and
+returns with the mouse.

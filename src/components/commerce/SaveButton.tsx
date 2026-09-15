@@ -27,12 +27,14 @@ export function SaveButton({ slug, variant = 'compact', className, onSaved }: Sa
       width={variant === 'full' ? 16 : 18}
       height={variant === 'full' ? 16 : 18}
       aria-hidden
-      animate={isSaved && !reduced ? { scale: [1, 1.28, 1] } : { scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      // the mark fills; it does not jump — a kept piece is a quiet fact, not a reward
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: reduced ? 0 : 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="shrink-0"
+      style={{ transition: 'color 400ms var(--ease-silk)' }}
     >
-      <path d="M12 2.5 19 9.5 12 21.5 5 9.5Z" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1} strokeLinejoin="round" />
-      <path d="M5 9.5h14M8.5 9.5 12 2.5l3.5 7" fill="none" stroke="currentColor" strokeWidth={1} strokeLinejoin="round" opacity={isSaved ? 0.35 : 0.7} />
+      <path d="M12 2.5 19 9.5 12 21.5 5 9.5Z" fill={isSaved ? 'currentColor' : 'none'} fillOpacity={isSaved ? 1 : 0} stroke="currentColor" strokeWidth={1} strokeLinejoin="round" style={{ transition: 'fill-opacity 400ms var(--ease-silk)' }} />
+      <path d="M5 9.5h14M8.5 9.5 12 2.5l3.5 7" fill="none" stroke="currentColor" strokeWidth={1} strokeLinejoin="round" opacity={isSaved ? 0.35 : 0.7} style={{ transition: 'opacity 400ms var(--ease-silk)' }} />
     </motion.svg>
   );
 

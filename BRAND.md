@@ -162,7 +162,7 @@ never called.
 
 | Place | Variant | Why |
 |---|---|---|
-| Nav | `crest`, 24px, `current` | The crest alone is legible at nav scale and follows the chapter theme; the ligature turns to mush below ~20px. |
+| Nav | `crest`, 24px, `current` | The crest alone is legible at nav scale and follows the chapter theme; the ligature turns to mush below ~20px. Three rules of behaviour: it never floats over a photograph — once the page has moved beneath it the nav brings a surface in the chapter's own paper or ink; nothing sits in the nav band beneath it — chapter eyebrows begin below `--nav-h`, and a department masthead names the place, not the brand; and it is the crest alone — the wordmark is set in type beside it only on the hero, before the page has moved. |
 | Footer | `crest`, 32px, gold | The name is already set in type beside it — the crest completes the pair without saying it twice. |
 | Heritage watermark | `crest`, `ink`, 5% | A crest reads at 5% opacity; a full lockup does not. |
 | Heritage seal | `lockup`, `ink` | A seal should be the true lockup. |
