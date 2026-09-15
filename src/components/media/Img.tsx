@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
-import type { CSSProperties } from 'react';
+import Image, { getImageProps } from 'next/image';
+import type { CSSProperties, SyntheticEvent } from 'react';
 import { resolveImage } from '@/data';
 import type { ImageRef, ProductImage } from '@/data/types';
 import { cn } from '@/lib/cn';
@@ -33,6 +33,15 @@ interface ImgProps {
   data?: Record<string, string>;
   /** Load immediately without a preload hint (tiles inside pinned stages). */
   eager?: boolean;
+}
+
+/**
+ * A frame that could not be fetched keeps its plate and its name rather than a broken
+ * glyph: the ground stays, the visitor is not shown a fault, and the network audit still
+ * sees the failed request.
+ */
+function markFailed(e: SyntheticEvent<HTMLImageElement>) {
+  e.currentTarget.dataset.failed = '1';
 }
 
 /** next/image bound to the generated asset map: exact dimensions, blur placeholder, focal object-position. */
@@ -77,12 +86,26 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
   }
 
   if (plain) {
-    // the blur stands in until the file decodes — a plain <img> gets no placeholder of its own
-    const holding = !packshot && asset.blurDataURL ? { backgroundImage: `url("${asset.blurDataURL}")`, backgroundSize: 'cover', backgroundPosition: focal } : undefined;
+    /**
+     * A plain <img> — kept for the FLIP sources, which need a bare element with a stable
+     * `currentSrc` — but never a bare file. The optimiser writes the srcset, exactly as it
+     * does for next/image, so a 400 px tile fetches a 640 px webp rather than the 4 MB
+     * original the shop keeps on its CDN. Until it arrives the frame shows the blur it has,
+     * or the plate it does not: a long-tail scene has no placeholder, and an empty ink box
+     * in a row of jewellery reads as a fault, so it sits on a warm plate instead.
+     */
+    const { props: optimised } = getImageProps({ src: asset.src, alt: alt ?? asset.alt, width: asset.width, height: asset.height, sizes, quality, loading: priority || eager ? 'eager' : 'lazy' });
+    const holding = !packshot
+      ? asset.blurDataURL
+        ? { backgroundImage: `url("${asset.blurDataURL}")`, backgroundSize: 'cover', backgroundPosition: focal }
+        : { backgroundColor: 'var(--plate)' }
+      : undefined;
     const img = (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={asset.src}
+        src={optimised.src}
+        srcSet={optimised.srcSet}
+        sizes={optimised.sizes ?? sizes}
         alt={alt ?? asset.alt}
         width={asset.width}
         height={asset.height}
@@ -96,6 +119,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
           e.currentTarget.style.backgroundImage = '';
           onLoad?.();
         }}
+        onError={markFailed}
         {...dataAttrs}
       />
     );

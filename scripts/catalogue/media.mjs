@@ -39,14 +39,25 @@ const CURATED = new Set([
  * collection was shot as a studio cut-out. That is a treatment decision, not a claim about
  * the jewellery.
  */
+const widthOf = (p) => Math.max(0, ...p.images.map((i) => i.width ?? 0));
+
+/**
+ * One exception, found by looking rather than by rule: the bridal sets filed under category
+ * collections were photographed worn — a bride in the whole suite, at 4000 px, one frame.
+ * Mounted on a pearl plate with packshot margins those portraits read as a mistake (the
+ * face is cropped by the plate, the multiply blend dulls the skin). A single frame of a
+ * bridal set at 2800 px or more is a portrait and is filed as a scene. Every other product
+ * keeps the shop's own filing.
+ */
 function roleOf(product) {
-  return product.campaign ? 'campaign' : 'packshot';
+  if (product.campaign) return 'campaign';
+  if (product.category === 'bridal-set' && product.images.length === 1 && widthOf(product) >= 2800) return 'campaign';
+  return 'packshot';
 }
 
 const { products, stats: classifyStats, ...rest } = await readJson(path.join(CACHE, 'classified.json'));
 
 // ── measure before deciding ─────────────────────────────────────────────────
-const widthOf = (p) => Math.max(0, ...p.images.map((i) => i.width ?? 0));
 const histogram = { '>=4000': 0, '2800-3999': 0, '2200-2799': 0, '1700-2199': 0, '1000-1699': 0, '<1000': 0, none: 0 };
 for (const p of products) {
   const w = widthOf(p);

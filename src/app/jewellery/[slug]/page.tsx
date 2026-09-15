@@ -4,9 +4,10 @@ import { resolveImage, describe, nameOf } from '@/data';
 import type { Product } from '@/data/types';
 import { getRepository, toRow } from '@/data/repository';
 import { ProductExperience } from '@/components/product/ProductExperience';
+import { siteUrl } from '@/lib/siteUrl';
 
 /** The same base `metadataBase` uses, so a canonical and a JSON-LD url can never disagree. */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3300';
+const SITE_URL = siteUrl();
 
 export const dynamicParams = false;
 

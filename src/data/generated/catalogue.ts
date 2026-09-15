@@ -7,7 +7,8 @@ import data from './catalogue.json';
  *
  * Authored copy is layered on top in src/data/products.ts; nothing in this file survives a
  * re-sync. Server and build only — the eslint rule in eslint.config.mjs keeps it out of
- * the client, where it would cost about a megabyte. Client code takes the slim index.
+ * the client, where it would cost about a megabyte. The browser is sent rows, by the
+ * repository, one department at a time.
  */
 export const GENERATED_PRODUCTS = data.products as unknown as Product[];
 export const CATALOGUE_SYNCED_AT = data.syncedAt;

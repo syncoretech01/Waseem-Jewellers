@@ -31,6 +31,20 @@ export function getCollection(slug: string): Collection | undefined {
  * blur placeholder. A long-tail image is a source the optimiser resizes for us, so it has
  * no placeholder and no focal point, and the caller must not pretend otherwise.
  */
+/**
+ * The shop's CDN resizes on request. Asking it for a 2048 px source instead of the
+ * 4000–4500 px original means the optimiser fetches a fifth of the bytes on every cache
+ * miss and transforms a frame a quarter the size — the difference between a tile that
+ * arrives and one that is still empty when the visitor scrolls on. Nothing displayed here
+ * is wider than 2048 px, so no quality is given up.
+ */
+export const REMOTE_SOURCE_WIDTH = 2048;
+export function sizedRemoteSource(src: string, width = REMOTE_SOURCE_WIDTH): string {
+  if (!src.startsWith('https://cdn.shopify.com/')) return src;
+  if (/[?&]width=/.test(src)) return src;
+  return `${src}${src.includes('?') ? '&' : '?'}width=${width}`;
+}
+
 export function resolveImage(ref: ImageRef, alt?: string, role?: AssetRole): ImageAsset {
   if (ref.kind === 'local') {
     const asset = getImage(ref.id);
@@ -38,7 +52,7 @@ export function resolveImage(ref: ImageRef, alt?: string, role?: AssetRole): Ima
   }
   return {
     id: ref.src,
-    src: ref.src,
+    src: sizedRemoteSource(ref.src),
     width: ref.width,
     height: ref.height,
     alt: alt ?? '',

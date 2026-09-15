@@ -138,13 +138,14 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
     const video = el.current;
     if (!video || !asset) return;
     if (tier === 'unresolved') return;
-    // the <source> list only mounts once the tier is known — start resource selection if it is still empty
-    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY) video.load();
     const allowed = tier !== 'REDUCED' && !paused;
     if (!allowed) {
+      // a film that will never play is never fetched: the poster stands, the bytes stay on the server
       video.pause();
       return;
     }
+    // the <source> list only mounts once the tier is known — start resource selection if it is still empty
+    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY) video.load();
     if (!autoPlayInView) return;
     const io = new IntersectionObserver(
       (entries) => {

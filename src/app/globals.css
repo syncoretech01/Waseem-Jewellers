@@ -100,6 +100,8 @@
   --accent-text: var(--color-champagne);
   --veil: rgb(11 10 9 / 0.62);
   --surface: #0f0e0c;
+  /* the ground a photograph waits on — warm, never black, never a fault */
+  --plate: #1a1612;
   color-scheme: dark;
 }
 [data-theme="ivory"] {
@@ -114,6 +116,7 @@
   --accent-text: var(--color-burgundy);
   --veil: rgb(244 239 230 / 0.7);
   --surface: var(--color-pearl);
+  --plate: #e6dfd1;
   color-scheme: light;
 }
 
@@ -559,5 +562,10 @@ html[data-rm="1"] #loader [data-mark$="-fill"] {
 
 html[data-rm="1"] #loader [data-mark$="-draw"],
 html[data-rm="1"] #loader [data-mark$="-specular"] {
+  opacity: 0;
+}
+
+/* a frame that failed to arrive keeps its plate; the glyph never shows */
+img[data-failed] {
   opacity: 0;
 }
