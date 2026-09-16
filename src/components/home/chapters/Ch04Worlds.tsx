@@ -148,7 +148,8 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
 
       {/* desktop columns */}
       <div className="worlds-columns absolute inset-0 z-[5] hidden md:block">
-        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+2.5rem)] flex h-full gap-[2vw]">
+        {/* the row is capped by the viewport's height, so two tiles, the labels and the travel fit a wide, short screen */}
+        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+2.5rem)] mx-auto flex h-full max-w-[calc(250svh-750px+8vw)] gap-[2vw]">
           {WORLDS.map((w, i) => (
             <div key={w.slug} className="relative flex-1">
               <span className="world-toplight hairline absolute inset-x-0 top-0 z-10" />

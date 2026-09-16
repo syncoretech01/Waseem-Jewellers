@@ -90,6 +90,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         const labels = root.querySelectorAll<HTMLElement>('.craft-label');
         const notes = root.querySelectorAll<HTMLElement>('.craft-note');
         const index = root.querySelector<HTMLElement>('.craft-index');
+        const posterImg = root.querySelector<HTMLElement>('.craft-poster img');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
         const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
         if (!stone || !wrap) return;
@@ -153,7 +154,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           .to(stone, { rotate: 12, filter: 'brightness(1.18)', ease: 'none', duration: 0.18 }, 0.64)
           .to(halo, { opacity: 0.85, ease: 'none', duration: 0.18 }, 0.64)
           // .82 – 1 hold + pull back + closing line
-          .to([stone, ring, band, halo], { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
+          .to([stone, ring, band, halo, posterImg].filter(Boolean), { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
           .to([ring, band], { opacity: 0.12, ease: 'none', duration: 0.12 }, 0.86)
           .to(halo, { opacity: 0.35, ease: 'none', duration: 0.12 }, 0.86)
           // the closing line takes the index's place rather than printing over it — the index

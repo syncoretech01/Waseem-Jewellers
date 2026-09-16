@@ -98,7 +98,7 @@ export function Nav() {
       </TransitionLink>
 
       {/* the departments, with the one the visitor is standing in underlined */}
-      <nav aria-label="Departments" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 min-[1360px]:flex">
+      <nav aria-label="Departments" className="hidden flex-1 items-center justify-center gap-7 min-[1360px]:flex">
         {MENU.map((item) => {
           const here = pathname === item.target || pathname.startsWith(`${item.target}/`);
           return (
