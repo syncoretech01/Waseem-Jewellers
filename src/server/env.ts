@@ -69,8 +69,12 @@ export function voiceEnv(): VoiceEnv {
   return {
     apiKey: process.env.OPENAI_API_KEY?.trim() || (openAiBase ? concierge.apiKey : null),
     baseUrl,
-    /** The recommended file model; gpt-4o-transcribe and whisper-1 are on notice for February 2027. */
-    sttModel: process.env.CONCIERGE_STT_MODEL?.trim() || 'gpt-transcribe',
+    /**
+     * The model that writes Roman Urdu when asked to (gpt-transcribe wrote English loanwords in
+     * Devanagari on the review build). It is on notice for February 2027; set the newer one
+     * here when it honours the prompt.
+     */
+    sttModel: process.env.CONCIERGE_STT_MODEL?.trim() || 'gpt-4o-transcribe',
     ttsModel: process.env.CONCIERGE_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
     ttsVoice: process.env.CONCIERGE_TTS_VOICE?.trim() || process.env.OPENAI_REALTIME_VOICE?.trim() || 'marin',
   };

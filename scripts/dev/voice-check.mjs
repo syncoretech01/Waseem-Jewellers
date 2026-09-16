@@ -206,6 +206,47 @@ try {
     ok(errors.length === 0, `no page errors (${errors.length})`);
     await ctx.close();
   }
+
+  // ── native tier, unreachable: the ladder steps down one rung and says so ──
+  {
+    console.log('\nnative tier advertised, session refused (falls to the server tier)');
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'] });
+    await ctx.addInitScript(FAKES);
+    await ctx.addInitScript(() => { try { sessionStorage.removeItem('wj:concierge:capabilities:v1'); } catch {} });
+    let tokenCalls = 0;
+    let transcribeCalls = 0;
+    await ctx.route('**/api/concierge/capabilities', (route) => route.fulfill({ json: { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'native', enquiry: 'local', privacy: null } }));
+    await ctx.route('**/api/concierge/realtime-token', (route) => {
+      tokenCalls += 1;
+      return route.fulfill({ status: 503, json: { error: { code: 'CONCIERGE_VOICE_OFFLINE', message: 'refused for the test' } } });
+    });
+    await ctx.route('**/api/concierge/transcribe', (route) => {
+      transcribeCalls += 1;
+      return route.fulfill({ json: { text: 'ab bracelets dikhao', language: null } });
+    });
+    await ctx.route('**/api/concierge/speak', (route) => route.fulfill({ status: 200, contentType: 'audio/mpeg', body: fs.readFileSync(TONE) }));
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto(`${BASE}/gold`, { waitUntil: 'load', timeout: 120000 });
+    await settle(page, 3500);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } })));
+    let r = await waitFor(page, ['VOICE_READY']);
+    await settle(page, 600);
+    await page.evaluate(() => window.__wjConcierge.startListening());
+    r = await waitFor(page, ['LISTENING'], 9000);
+    const voice = await page.evaluate(() => ({ adapter: window.__wjConcierge.store.voice.adapter, fallback: window.__wjConcierge.store.voice.fallback, error: window.__wjConcierge.store.error?.message ?? null }));
+    ok(tokenCalls === 1, `one session was asked for and refused (${tokenCalls})`);
+    ok(r.hit === 'LISTENING' && voice.adapter === 'server' && voice.fallback === 'server', `the server tier listens instead, marked as the rung below (${voice.adapter}/${voice.fallback})`);
+    const status = await page.evaluate(() => document.querySelector('[aria-live="polite"]')?.textContent ?? '');
+    ok(/correct me or write to me/i.test(status) && !/WebSpeech|API|provider|model error/i.test(status), `the stage says so in the visitor's words ("${status.trim()}")`);
+    await settle(page, 1200);
+    await page.evaluate(() => window.__wjConcierge.stopListening());
+    r = await waitFor(page, ['SPEAKING', 'RESULT', 'VOICE_READY'], 12000);
+    ok(transcribeCalls === 1, `the recording went to the transcription route (${transcribeCalls})`);
+    ok(errors.length === 0, `no page errors (${errors.length})`);
+    await ctx.close();
+  }
 } finally {
   await browser.close();
 }

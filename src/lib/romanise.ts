@@ -22,6 +22,66 @@ const CANDRABINDU = 'ँ';
 const VISARGA = 'ः';
 const DEVANAGARI = /[ऀ-ॿ]/;
 
+/** Gurmukhi, the same way: a Punjabi transcript in the Indian script becomes the Roman a Lahori reads. */
+const G_VOWELS: Record<string, string> = { ਅ: 'a', ਆ: 'aa', ਇ: 'i', ਈ: 'i', ਉ: 'u', ਊ: 'u', ਏ: 'e', ਐ: 'ai', ਓ: 'o', ਔ: 'au' };
+const G_SIGNS: Record<string, string> = { 'ਾ': 'a', 'ਿ': 'i', 'ੀ': 'i', 'ੁ': 'u', 'ੂ': 'u', 'ੇ': 'e', 'ੈ': 'ai', 'ੋ': 'o', 'ੌ': 'au' };
+const G_CONSONANTS: Record<string, string> = {
+  ਕ: 'k', ਖ: 'kh', ਗ: 'g', ਘ: 'gh', ਙ: 'n', ਚ: 'ch', ਛ: 'chh', ਜ: 'j', ਝ: 'jh', ਞ: 'n', ਟ: 't', ਠ: 'th', ਡ: 'd', ਢ: 'dh', ਣ: 'n',
+  ਤ: 't', ਥ: 'th', ਦ: 'd', ਧ: 'dh', ਨ: 'n', ਪ: 'p', ਫ: 'ph', ਬ: 'b', ਭ: 'bh', ਮ: 'm', ਯ: 'y', ਰ: 'r', ਲ: 'l', ਵ: 'w', ਸ: 's', ਹ: 'h',
+  ਸ਼: 'sh', ਖ਼: 'kh', ਗ਼: 'gh', ਜ਼: 'z', ਫ਼: 'f', ਲ਼: 'l',
+};
+const G_NUKTA: Record<string, string> = { ਸ: 'sh', ਖ: 'kh', ਗ: 'gh', ਜ: 'z', ਫ: 'f', ਲ: 'l' };
+const G_VIRAMA = '੍';
+const G_NUKTA_MARK = '਼';
+const G_NASALS = new Set(['ਂ', 'ੰ', 'ਁ']);
+const G_ADDAK = 'ੱ';
+const GURMUKHI = /[਀-੿]/;
+const isGurmukhi = (ch: string) => GURMUKHI.test(ch);
+
+function romaniseGurmukhiRun(run: string): string {
+  const chars = [...run.normalize('NFC')];
+  let out = '';
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i]!;
+    if (ch === '।' || ch === '॥') {
+      out += '.';
+      continue;
+    }
+    if (G_VOWELS[ch]) {
+      out += G_VOWELS[ch];
+      continue;
+    }
+    if (G_NASALS.has(ch)) {
+      out += 'n';
+      continue;
+    }
+    if (ch === G_VIRAMA || ch === G_NUKTA_MARK || ch === G_ADDAK || G_SIGNS[ch]) continue;
+    let latin = G_CONSONANTS[ch];
+    if (latin === undefined) {
+      out += ch;
+      continue;
+    }
+    let next = chars[i + 1];
+    if (next === G_NUKTA_MARK) {
+      latin = G_NUKTA[ch] ?? latin;
+      i += 1;
+      next = chars[i + 1];
+    }
+    out += latin;
+    if (next === G_VIRAMA) {
+      i += 1;
+      continue;
+    }
+    if (next && G_SIGNS[next]) {
+      out += G_SIGNS[next];
+      i += 1;
+      continue;
+    }
+    if (next && isGurmukhi(next)) out += 'a';
+  }
+  return out;
+}
+
 const isDevanagari = (ch: string) => DEVANAGARI.test(ch);
 
 function romaniseRun(run: string): string {
@@ -73,8 +133,10 @@ function romaniseRun(run: string): string {
   return out;
 }
 
-/** Only the Devanagari runs are touched; everything around them is returned as it was. */
+/** Only the Devanagari and Gurmukhi runs are touched; everything around them is returned as it was. */
 export function romaniseDevanagari(text: string): string {
-  if (!DEVANAGARI.test(text)) return text;
-  return text.replace(/[ऀ-ॿ]+/g, (run) => romaniseRun(run));
+  let out = text;
+  if (DEVANAGARI.test(out)) out = out.replace(/[ऀ-ॿ]+/g, (run) => romaniseRun(run));
+  if (GURMUKHI.test(out)) out = out.replace(/[਀-੿]+/g, (run) => romaniseGurmukhiRun(run));
+  return out;
 }

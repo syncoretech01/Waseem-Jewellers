@@ -166,36 +166,45 @@ concierge believes it is being asked about is visible and undoable.
 ## Voice
 
 Three tiers, chosen in one place (`voice/engine.ts`, `chooseVoiceEngine`) by the same
-capabilities probe that picks the text model:
+capabilities probe that picks the text model. Top down:
 
-| Tier | Advertised as | Hears | Speaks |
-|---|---|---|---|
-| **Server** (the quality target that ships) | `voice: 'server'` when `OPENAI_API_KEY` — or the concierge key on the OpenAI base — is set | `ServerTranscriptionAdapter`: the microphone is recorded with `MediaRecorder`, the meter ends the utterance on silence (900 ms after speech, 15 s at most), and the audio is posted to `POST /api/concierge/transcribe`, which calls the transcription model (`CONCIERGE_STT_MODEL`, default `gpt-4o-transcribe`) with a jewellery vocabulary prompt and an English/Urdu/Punjabi hint, and returns the text with the script it detected | `serverSpeechEngine`: the reply is posted to `POST /api/concierge/speak` (`CONCIERGE_TTS_MODEL`, default `gpt-4o-mini-tts`; `CONCIERGE_TTS_VOICE`, default `marin`), streamed back as MP3, metered through an analyser so the ring breathes with the voice, cached per sentence |
-| **Browser** (the fallback) | `voice: 'browser'` | `WebSpeechAdapter` — no browser offers `pa-PK`; Punjabi in Arabic script is heard as `ur-PK`, Roman Urdu as `en-IN`; three alternatives are scored | `browserSpeechEngine`, per run of one script, never a wrong-language voice |
-| **Realtime** | `voice: 'native'` | not built — the seam (`registerVoiceEngine`) is | — |
+| Tier | Advertised as | What it is |
+|---|---|---|
+| **Native** — the client-demo voice | `voice: 'native'` when `OPENAI_API_KEY` is set and `CONCIERGE_REALTIME` is not `off` | One model that hears, understands and speaks: `gpt-realtime-2.1` over WebRTC (`voice/realtime.ts`). The server mints a ten-minute client secret (`POST /api/concierge/realtime-token`) with the whole session decided there — model, voice (`OPENAI_REALTIME_VOICE`, default `marin`), semantic voice-activity detection with interruption, noise reduction, the input transcription model (`CONCIERGE_REALTIME_STT`, default `gpt-4o-transcribe` with a Roman-script vocabulary prompt), the browser tools, and the spoken persona (`voice/realtimePrompt.ts`). The browser opens the call, keeps one conversation across turns and routes, refreshes a small `<site-context>` block through `session.update` as the page changes (piece in view with its published facts, the pieces just shown with ordinals and slugs, the standing request, the selection), and answers every function call through `executeTool` — the validator is the only gate on this path, and it is enough. |
+| **Server** — the fallback | `voice: 'server'`, and implied by `native` | `ServerTranscriptionAdapter` records an utterance with `MediaRecorder`, ends it on the meter's silence and posts it to `POST /api/concierge/transcribe` (`CONCIERGE_STT_MODEL`, default `gpt-4o-transcribe` with the vocabulary prompt; the newer `gpt-transcribe` family takes keywords and `languages: en, ur` — Punjabi is not an accepted code and is heard through Urdu). The words enter the same grounded, validated, register-filtered text turn a typed sentence does; the reply is spoken by `POST /api/concierge/speak` (`gpt-4o-mini-tts`, the associate's register as instructions). |
+| **Browser** — what ships with no credential | `voice: 'browser'` | `WebSpeechAdapter` and `speechSynthesis`. No browser offers `pa-PK`; Punjabi in Arabic script is heard as `ur-PK`, Roman Urdu as `en-IN`; three alternatives are scored; a run with no voice in its own language is written rather than spoken in another. |
 
-The server tier is preferred whenever it is advertised and the browser can record; if it cannot
-hear an utterance (network, an unconfigured key) the controller falls back to the browser for
-that one utterance and says so; the scripted example never runs in place of a real ear. The
-language follows the conversation (`memory.language`), not `navigator.language`, and a
-transcription that comes back in Urdu or Gurmukhi script sets it. **Barge-in:** while the
-concierge speaks, the microphone is armed; a tap on the ring or a word from the visitor cancels
-the speech mid-sentence and the stage says "Interrupted"; a new turn discards what was queued.
-Permanent secrets stay on the server; the routes are rate-limited per IP hash and cap the audio
-at 2.5 MB. `npm run voice:check` drives every state through a headless browser with the
-speech APIs and both routes mocked (19 assertions).
+**The ladder steps down one rung, never silently.** A realtime session that cannot open
+(the token refused, WebRTC failing) falls to the server tier for that visitor; a server
+transcription that fails falls to the browser's own hearing. The store records the rung
+(`voice.fallback`) and the stage says so in the visitor's words — "Listening — if I mishear,
+correct me or write to me." — never "WebSpeech", "API" or "provider".
 
-The browser tier in detail: No browser offers
-`pa-PK`; Punjabi in Arabic script is heard as `ur-PK`, Roman Urdu as `en-IN`, and the language
-follows the conversation (`memory.language`), not `navigator.language`. Three recognition
-alternatives are scored. Speech is planned per run of one script, each run asks for a voice in
-its own language, and a run with no such voice is not spoken in another — the concierge says so
-once and lets the written reply stand.
+**The native session, event by event.** `speech_started` over a reply cancels it on both ends
+(`response.cancel` + `output_audio_buffer.clear`, the stage says "Go on — I am listening.");
+`speech_stopped` writes a placeholder line into the exchange and moves the state to THINKING;
+the transcription lands on its own line by item id (two quick sentences keep their own words)
+and the stage shows it as *Heard*; `response.created` opens a concierge turn; the reply's
+transcript streams as deltas; `output_audio_buffer.started` / `stopped` drive SPEAKING, so the
+state follows the audio; function calls run through `executeTool`, their outputs go back, and
+the model continues the same turn; `response.done` with no calls pending finishes it. No more
+than four actions answer one sentence. A typed correction ("Not quite? Correct it") goes into
+the same session; "Once more" clears the words and listens again; "Write instead" rests the
+microphone without ending the conversation. Four minutes of silence end the session; the next
+tap reopens it. A transcript the model writes in Devanagari or Gurmukhi is romanised before it
+is shown (`src/lib/romanise.ts`); Urdu script and English are left as they are.
 
-`chooseVoiceEngine` picks the engine from the same capabilities probe that picks the text
-model. The realtime engine registers itself through `registerVoiceEngine` when it exists and the
-server advertises `voice: 'native'`; nothing in the UI changes. Its contract is written at that
-seam. `executeTool` validates its own arguments because on that path nothing else will.
+**What was measured, on the review build, in a real browser with the ten spoken prompts
+played into the microphone (16 September 2026):** first spoken word 0.5–0.8 s after the
+visitor stopped; the action 1.5–3.3 s; the turn 3–6 s; barge-in two seconds into a reply
+cancelled it and answered the new sentence with the context kept. The transcription →
+text-model → speech pipeline on the same build waited 4.8–7.6 s for the first spoken word.
+Realtime is the client-demo path; the pipeline is the fallback. The prompts were synthesised
+speech, not a Lahore speaker — the blind native-speaker gate still stands.
+
+`npm run voice:check` drives every state through a headless browser with the speech APIs
+faked and the routes mocked: browser tier, server tier, and the native tier refused and
+falling to the server tier (24 assertions).
 
 ## The UI
 
@@ -229,11 +238,12 @@ nothing was sent, *delivered* only when the sink took it.
 | Variable | Read by | Effect |
 |---|---|---|
 | `CONCIERGE_API_KEY` | `src/server/env.ts` | The model path goes live; the same build, redeployed. Absent is the shipped state. |
-| `CONCIERGE_MODEL`, `CONCIERGE_BASE_URL` | `src/server/env.ts` | Defaults `gpt-4o-mini`, the OpenAI base. |
+| `CONCIERGE_MODEL`, `CONCIERGE_BASE_URL` | `src/server/env.ts` | Defaults `gpt-5.6-terra` (reasoning off, `max_completion_tokens`; older families get `temperature` and `max_tokens`), the OpenAI base. |
 | `CONCIERGE_SIGNING_SECRET` | `src/server/env.ts` | Signs continuations; falls back to the key. |
 | `ENQUIRY_WEBHOOK_URL`, `NEXT_PUBLIC_SITE_URL`, `ENQUIRY_PRIVACY_URL`, `ENQUIRY_PRIVACY_CONTACT` | `src/server/enquiry/readiness.ts` | All four, valid, before a consultation leaves the device. |
 | `NEXT_PUBLIC_QA_TIER_OVERRIDE=1` | `src/lib/quality.ts` | A QA build honours `?tier=` and exposes `__wjFps`. |
-| `OPENAI_API_KEY` (or `CONCIERGE_API_KEY` on the OpenAI base) | `src/server/env.ts` (`voiceEnv`) | The server voice tier goes live: `/api/concierge/transcribe` and `/api/concierge/speak`; the probe advertises `voice: 'server'`. |
+| `OPENAI_API_KEY` | `src/server/env.ts` | One credential, everything on: the text model (when `CONCIERGE_API_KEY` is absent and the base is OpenAI's), the server voice tier and the realtime tier; the probe advertises `intelligence: 'model'`, `voice: 'native'`. |
+| `OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`, `CONCIERGE_REALTIME_STT`, `CONCIERGE_REALTIME` | `src/server/env.ts` (`realtimeEnv`) | Defaults `gpt-realtime-2.1`, `marin`, `gpt-4o-transcribe`; `CONCIERGE_REALTIME=off` keeps the server tier as the top of the ladder. |
 | `CONCIERGE_STT_MODEL`, `CONCIERGE_TTS_MODEL`, `CONCIERGE_TTS_VOICE`, `CONCIERGE_VOICE_BASE_URL` | `src/server/env.ts` | Defaults `gpt-4o-transcribe`, `gpt-4o-mini-tts`, `marin`, the OpenAI base. |
 
 Nothing `NEXT_PUBLIC_` selects a provider. That variable existed in Stage 1 and could not do the
@@ -246,11 +256,8 @@ module, an ESLint rule forbidding `@/server/*` from client directories, and
 
 ## Not built
 
-- The realtime voice engine (the seam is; the contract is at `voice/engine.ts`).
 - `showSetMembers` and campaign filtering, for want of data (above).
-- Live verification of the server voice tier against the provider: the routes, the adapter, the
-  speech engine and the controller are built and pass the mocked harness, but no key has been
-  configured on any environment, so a real Pakistani utterance has not yet been transcribed by
-  the model. That is the blind native-speaker gate's precondition.
+- The blind native-speaker gate: the voice has been tested with synthesised Pakistani speech on
+  the review build, not with people from Lahore speaking naturally.
 - Server-side persistence of anything. Memory is session-scoped by design; the selection alone
   persists, in `localStorage`, pruned against the catalogue at hydration.
