@@ -1,5 +1,6 @@
 import { voiceEnv } from '@/server/env';
 import { clientIp, sameOrigin, takeToken, MAX_INPUT_CHARS, type Limit } from '@/server/concierge/limits';
+import { romaniseDevanagari } from '@/lib/romanise';
 
 /**
  * Hearing, through a transcription model.
@@ -102,6 +103,6 @@ export async function POST(request: Request) {
   } catch {
     return fail('UPSTREAM', 'unreadable transcription', 502);
   }
-  text = text.replace(/\s+/g, ' ').trim().slice(0, MAX_INPUT_CHARS);
+  text = romaniseDevanagari(text.replace(/\s+/g, ' ').trim().slice(0, MAX_INPUT_CHARS));
   return Response.json({ text, language: languageOf(text) }, { headers: { 'cache-control': 'no-store' } });
 }

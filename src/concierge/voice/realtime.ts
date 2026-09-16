@@ -95,6 +95,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   /** The conversation as the store sees it. */
   private turnId: string | null = null;
   private utteranceId: string | null = null;
+  /** The buffer item each spoken line became, so a transcript lands on its own line even when two arrive close together. */
+  private utterances = new Map<string, string>();
   private interim = '';
   private replyText = '';
   private pending = new Map<string, PendingCall>();
@@ -431,6 +433,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       case 'input_audio_buffer.speech_stopped': {
         this.note('speech.stopped');
         this.utteranceId = uid('v');
+        if (typeof e.item_id === 'string') this.utterances.set(e.item_id, this.utteranceId);
+        if (this.utterances.size > 12) this.utterances.delete(this.utterances.keys().next().value!);
         rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: this.interim || '…', final: false });
         h.onTranscribing?.();
         rt.emit({ type: 'voice.thinking' });
@@ -452,11 +456,14 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         if (language) rt.onLanguage(language);
         h.onFinal(text, { language });
         // the words usually land after the sentence ended; if they land first, the line is written now
-        if (!this.utteranceId) {
-          this.utteranceId = uid('v');
-          rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: '…', final: false });
+        const itemId = typeof e.item_id === 'string' ? e.item_id : '';
+        let id = this.utterances.get(itemId) ?? this.utteranceId;
+        if (!id) {
+          id = uid('v');
+          rt.emit({ type: 'voice.utterance', id, text: '…', final: false });
         }
-        rt.emit({ type: 'voice.utterance', id: this.utteranceId, text, final: true });
+        if (itemId) this.utterances.delete(itemId);
+        rt.emit({ type: 'voice.utterance', id, text, final: true });
         break;
       }
 
