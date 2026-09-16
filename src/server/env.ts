@@ -23,14 +23,25 @@ export interface ConciergeEnv {
   secret: string | null;
 }
 
+/**
+ * One credential switches everything on.
+ *
+ * `OPENAI_API_KEY` is the credential this project is actually given; `CONCIERGE_API_KEY` exists
+ * for a deployment that routes the text model through another provider or base. When the base
+ * is OpenAI's, the OpenAI key serves the text path too, so the same secret is never stored
+ * twice. A non-OpenAI base never receives the OpenAI key.
+ */
 export function conciergeEnv(): ConciergeEnv {
+  const baseUrl = (process.env.CONCIERGE_BASE_URL?.trim() || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const openAiBase = /api\.openai\.com/.test(baseUrl);
+  const apiKey = process.env.CONCIERGE_API_KEY?.trim() || (openAiBase ? process.env.OPENAI_API_KEY?.trim() : null) || null;
   return {
-    apiKey: process.env.CONCIERGE_API_KEY?.trim() || null,
+    apiKey,
     model: process.env.CONCIERGE_MODEL?.trim() || 'gpt-4o-mini',
-    baseUrl: (process.env.CONCIERGE_BASE_URL?.trim() || 'https://api.openai.com/v1').replace(/\/$/, ''),
+    baseUrl,
     // falls back to the key so a deployment that sets one variable still gets signed
     // continuations; without either there is no model path to protect
-    secret: process.env.CONCIERGE_SIGNING_SECRET?.trim() || process.env.CONCIERGE_API_KEY?.trim() || null,
+    secret: process.env.CONCIERGE_SIGNING_SECRET?.trim() || apiKey,
   };
 }
 
