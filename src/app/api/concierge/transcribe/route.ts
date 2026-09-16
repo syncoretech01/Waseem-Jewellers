@@ -27,6 +27,14 @@ const PROMPT =
 
 const LANGUAGE_HINT: Record<string, string> = { en: 'en', ur: 'ur', 'pa-Arab': 'pa', 'pa-Guru': 'pa' };
 
+/**
+ * The current transcription models take the vocabulary as keywords and the languages as a
+ * list; the older ones take a prompt and one language. The route serves either, so the model
+ * is a deployment setting rather than a code change.
+ */
+const KEYWORDS = ['Waseem Jewellers', 'haar', 'satlada', 'raani haar', 'choker', 'tikka', 'jhumka', 'kangan', 'bangle', 'angoothi', 'nath', 'polki', 'kundan', 'jadau', 'heera', 'sona', 'tola', 'lakh', 'crore', 'baraat', 'walima', 'mehndi', 'dulhan', 'Rang-e-Jamal', 'Aks-e-Noor', 'Naqsh-e-Gul', 'Dewan', 'Rukh-e-Jana', 'dikhao', 'kholo', 'chahiye', 'halka', 'bhaari', 'ehde varga', 'doosra', 'hor dikhao'];
+const takesKeywords = (model: string) => /^gpt-transcribe|^gpt-live-transcribe/.test(model);
+
 /** The script of what came back decides how the browser tier should listen next time. */
 function languageOf(text: string): string | null {
   if (/[؀-ۿ]/.test(text)) return 'ur';
@@ -59,10 +67,16 @@ export async function POST(request: Request) {
   const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : 'webm';
   upstream.append('file', new File([audio], `utterance.${ext}`, { type }));
   upstream.append('model', env.sttModel);
-  upstream.append('prompt', PROMPT);
   upstream.append('response_format', 'json');
-  // a known language is a hint; mixed or Roman Urdu is left to the model, which hears it better than a wrong hint
-  if (hint) upstream.append('language', hint);
+  if (takesKeywords(env.sttModel)) {
+    for (const k of KEYWORDS) upstream.append('keywords[]', k);
+    // the three languages this concierge answers in, so a code-switched sentence is heard as one
+    for (const l of hint ? [hint] : ['en', 'ur', 'pa']) upstream.append('languages[]', l);
+  } else {
+    upstream.append('prompt', PROMPT);
+    // a known language is a hint; mixed or Roman Urdu is left to the model, which hears it better than a wrong hint
+    if (hint) upstream.append('language', hint);
+  }
 
   let res: Response;
   try {

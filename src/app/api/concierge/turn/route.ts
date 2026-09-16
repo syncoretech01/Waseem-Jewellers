@@ -160,8 +160,12 @@ export async function POST(request: Request) {
             model: env.model,
             messages,
             stream: true,
-            max_tokens: 220,
-            temperature: 0.4,
+            /**
+             * A reasoning-family model refuses `temperature` and wants `max_completion_tokens`;
+             * it answers a concierge sentence fastest with no reasoning at all. The older
+             * families take the sampling parameters they always did.
+             */
+            ...(/^gpt-[5-9]/.test(env.model) ? { max_completion_tokens: 260, reasoning_effort: 'none', verbosity: 'low' } : { max_tokens: 220, temperature: 0.4 }),
             tools: TOOL_DEFS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })),
           }),
           signal: AbortSignal.timeout(20_000),

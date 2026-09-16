@@ -1,6 +1,6 @@
 import { realtimeEnv } from '@/server/env';
 import { clientIp, sameOrigin, takeToken, type Limit } from '@/server/concierge/limits';
-import { REALTIME_VOICES, TRANSCRIPTION_PROMPT, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
+import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
 
 /**
  * A short-lived key for one realtime conversation.
@@ -59,42 +59,59 @@ export async function POST(request: Request) {
   const voice = typeof body.voice === 'string' && VOICE_SET.has(body.voice) ? body.voice : env.voice;
   const instructions = withContext(VOICE_INSTRUCTIONS, renderVoiceContext(sanitiseContext(body.context)));
 
-  const session = {
+  /**
+   * What the visitor's words are written down with. The live transcription model takes the
+   * vocabulary as keywords and the three languages as hints; the older model takes a prompt.
+   * If the provider refuses the first shape the second is tried, so a model rename on their
+   * side degrades the transcript rather than the conversation.
+   */
+  const transcriptions: Record<string, unknown>[] = [
+    env.sttModel.startsWith('gpt-live-transcribe') || env.sttModel.startsWith('gpt-transcribe')
+      ? { model: env.sttModel, prompt: TRANSCRIPTION_PROMPT, keywords: TRANSCRIPTION_KEYWORDS, languages: ['en', 'ur', 'pa'], delay: 'low' }
+      : { model: env.sttModel, prompt: TRANSCRIPTION_PROMPT },
+    { model: 'gpt-4o-transcribe', prompt: TRANSCRIPTION_PROMPT },
+  ];
+  const sessionWith = (transcription: Record<string, unknown>) => ({
     type: 'realtime',
     model: env.model,
     instructions,
     output_modalities: ['audio'],
-    max_output_tokens: 240,
+    // audio tokens count against this; a short spoken sentence with a tool call is a few hundred
+    max_output_tokens: 1400,
     tool_choice: 'auto',
     tools: realtimeTools(),
     audio: {
       input: {
         format: { type: 'audio/pcm', rate: 24000 },
-        transcription: { model: 'gpt-4o-transcribe', prompt: TRANSCRIPTION_PROMPT },
+        transcription,
         turn_detection: { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: true },
         noise_reduction: { type: 'near_field' },
       },
       output: { voice, speed: 0.95 },
     },
-  };
+  });
 
-  let res: Response;
-  try {
-    res = await fetch(`${env.baseUrl}/realtime/client_secrets`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ expires_after: { anchor: 'created_at', seconds: SECRET_SECONDS }, session }),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
-  } catch {
-    return fail('UPSTREAM', 'the voice service did not answer', 502);
-  }
-  if (!res.ok) {
+  let res: Response | null = null;
+  let transcription = transcriptions[0]!;
+  for (const candidate of transcriptions) {
+    transcription = candidate;
+    try {
+      res = await fetch(`${env.baseUrl}/realtime/client_secrets`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ expires_after: { anchor: 'created_at', seconds: SECRET_SECONDS }, session: sessionWith(candidate) }),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+    } catch {
+      return fail('UPSTREAM', 'the voice service did not answer', 502);
+    }
+    if (res.ok) break;
     // the provider's reason stays in the server log; the browser learns only that it failed
     const detail = await res.text().catch(() => '');
-    console.error('[realtime-token] upstream', res.status, detail.slice(0, 300));
-    return fail('UPSTREAM', `voice session ${res.status}`, 502);
+    console.error('[realtime-token] upstream', res.status, String(candidate.model), detail.slice(0, 300));
+    if (res.status !== 400) break;
   }
+  if (!res || !res.ok) return fail('UPSTREAM', `voice session ${res?.status ?? 0}`, 502);
   const data = (await res.json()) as { value?: string; expires_at?: number };
   if (!data.value) return fail('UPSTREAM', 'no client secret', 502);
 
@@ -104,6 +121,7 @@ export async function POST(request: Request) {
       expiresAt: data.expires_at ?? null,
       model: env.model,
       voice,
+      transcription: String(transcription.model),
       /** The base instructions, so the browser can refresh the context block behind them. */
       instructions: VOICE_INSTRUCTIONS,
       callsUrl: `${env.baseUrl}/realtime/calls`,

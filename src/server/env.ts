@@ -37,7 +37,8 @@ export function conciergeEnv(): ConciergeEnv {
   const apiKey = process.env.CONCIERGE_API_KEY?.trim() || (openAiBase ? process.env.OPENAI_API_KEY?.trim() : null) || null;
   return {
     apiKey,
-    model: process.env.CONCIERGE_MODEL?.trim() || 'gpt-4o-mini',
+    /** A current, low-latency tool-caller; the turn route sends the parameters its family accepts. */
+    model: process.env.CONCIERGE_MODEL?.trim() || 'gpt-5.6-terra',
     baseUrl,
     // falls back to the key so a deployment that sets one variable still gets signed
     // continuations; without either there is no model path to protect
@@ -68,7 +69,8 @@ export function voiceEnv(): VoiceEnv {
   return {
     apiKey: process.env.OPENAI_API_KEY?.trim() || (openAiBase ? concierge.apiKey : null),
     baseUrl,
-    sttModel: process.env.CONCIERGE_STT_MODEL?.trim() || 'gpt-4o-transcribe',
+    /** The recommended file model; gpt-4o-transcribe and whisper-1 are on notice for February 2027. */
+    sttModel: process.env.CONCIERGE_STT_MODEL?.trim() || 'gpt-transcribe',
     ttsModel: process.env.CONCIERGE_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
     ttsVoice: process.env.CONCIERGE_TTS_VOICE?.trim() || process.env.OPENAI_REALTIME_VOICE?.trim() || 'marin',
   };
@@ -86,6 +88,8 @@ export interface RealtimeEnv {
   baseUrl: string;
   model: string;
   voice: string;
+  /** What writes the visitor's words down inside the session. */
+  sttModel: string;
   enabled: boolean;
 }
 
@@ -98,6 +102,7 @@ export function realtimeEnv(): RealtimeEnv {
     baseUrl: voice.baseUrl,
     model: process.env.OPENAI_REALTIME_MODEL?.trim() || 'gpt-realtime-2.1',
     voice: process.env.OPENAI_REALTIME_VOICE?.trim() || process.env.CONCIERGE_TTS_VOICE?.trim() || 'marin',
+    sttModel: process.env.CONCIERGE_REALTIME_STT?.trim() || 'gpt-live-transcribe',
     enabled: onOpenAi && Boolean(voice.apiKey) && !off,
   };
 }
