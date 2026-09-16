@@ -67,7 +67,7 @@ export async function POST(request: Request) {
    */
   const transcriptions: Record<string, unknown>[] = [
     env.sttModel.startsWith('gpt-live-transcribe') || env.sttModel.startsWith('gpt-transcribe')
-      ? { model: env.sttModel, prompt: TRANSCRIPTION_PROMPT, keywords: TRANSCRIPTION_KEYWORDS, languages: ['en', 'ur', 'pa'], delay: 'low' }
+      ? { model: env.sttModel, prompt: TRANSCRIPTION_PROMPT, keywords: TRANSCRIPTION_KEYWORDS, languages: ['en', 'ur'], delay: 'low' }
       : { model: env.sttModel, prompt: TRANSCRIPTION_PROMPT },
     { model: 'gpt-4o-transcribe', prompt: TRANSCRIPTION_PROMPT },
   ];
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     if (res.ok) break;
     // the provider's reason stays in the server log; the browser learns only that it failed
     const detail = await res.text().catch(() => '');
-    console.error('[realtime-token] upstream', res.status, String(candidate.model), detail.slice(0, 300));
+    console.error('[realtime-token] upstream', res.status, String(candidate.model), detail.slice(0, 900));
     if (res.status !== 400) break;
   }
   if (!res || !res.ok) return fail('UPSTREAM', `voice session ${res?.status ?? 0}`, 502);

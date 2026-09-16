@@ -70,8 +70,8 @@ export async function POST(request: Request) {
   upstream.append('response_format', 'json');
   if (takesKeywords(env.sttModel)) {
     for (const k of KEYWORDS) upstream.append('keywords[]', k);
-    // the three languages this concierge answers in, so a code-switched sentence is heard as one
-    for (const l of hint ? [hint] : ['en', 'ur', 'pa']) upstream.append('languages[]', l);
+    // the two language codes the model accepts (Punjabi is not one of them; it is heard through Urdu), so a code-switched sentence is heard as one
+    for (const l of (hint === 'pa' ? ['ur'] : hint ? [hint] : ['en', 'ur'])) upstream.append('languages[]', l);
   } else {
     upstream.append('prompt', PROMPT);
     // a known language is a hint; mixed or Roman Urdu is left to the model, which hears it better than a wrong hint
