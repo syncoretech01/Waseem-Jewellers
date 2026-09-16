@@ -81,9 +81,10 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
-  // a narrow stage stands further back, so the band never runs behind the labels on a phone
-  const width = useThree((s) => s.size.width);
-  const far = width < 640 ? 1.42 : width < 900 ? 1.18 : 1;
+  // a portrait stage stands further back: the camera's field of view is vertical, so on a
+  // phone the band would otherwise fill the width and run behind the labels
+  const size = useThree((s) => s.size);
+  const far = Math.max(1, 0.9 / Math.max(0.2, size.width / size.height));
   const ready = useRef(false);
 
   // damped state
@@ -190,7 +191,8 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
     camera.position.x = c.px * 0.3;
     camera.position.y = (2.6 - c.py * 0.15 + c.pull * 0.9) * far;
     camera.position.z = (8.6 + c.pull * 2.2) * far;
-    camera.lookAt(0, -0.25, 0);
+    // and looks a little lower on a portrait stage, so the object sits above the index rather than behind it
+    camera.lookAt(0, -0.25 - (far - 1) * 0.9, 0);
   });
 
   return (

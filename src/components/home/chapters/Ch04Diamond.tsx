@@ -32,23 +32,25 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
       <div ref={scope}>
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
           {/* the pieces first, on this side */}
-          <div className="md:col-span-8 md:order-1">
+          <div className="order-2 md:order-1 md:col-span-8">
             <PieceCluster rows={department.rows} tone="ivory" reverse />
           </div>
 
-          {/* the words, the kinds, the door */}
-          <div className="flex flex-col gap-7 md:col-span-4 md:order-2 md:sticky md:top-[calc(var(--nav-h)+4svh)] md:gap-9 md:pl-[2vw]">
-            <div className="flex flex-col gap-4">
+          {/* the words, the kinds, the door — on a phone the title leads, the pieces follow, the kinds close */}
+          <div className="contents md:sticky md:top-[calc(var(--nav-h)+4svh)] md:order-2 md:col-span-4 md:flex md:flex-col md:gap-9 md:pl-[2vw]">
+            <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-champagne">{COPY.departments.diamond.eyebrow}</Eyebrow>
-              <h2 id="diamond-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ivory opacity-0">
+              <h2 id="diamond-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ivory opacity-0 [text-wrap:balance]">
                 {COPY.departments.diamond.title(department.count)}
               </h2>
               <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70" data-rise>
                 {COPY.departments.diamond.line}
               </p>
             </div>
-            <KindsList department={department} tone="ivory" heading={COPY.departments.kinds} />
-            <div data-rise>
+            <div className="order-3 md:order-none">
+              <KindsList department={department} tone="ivory" heading={COPY.departments.kinds} />
+            </div>
+            <div className="order-4 md:order-none" data-rise>
               <Button variant="bracket" href="/diamond" cursor="explore">
                 {COPY.departments.diamond.cta}
               </Button>

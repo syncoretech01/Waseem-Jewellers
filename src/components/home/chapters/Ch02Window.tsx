@@ -15,17 +15,18 @@ import { cn } from '@/lib/cn';
 
 /** A tag the way a jeweller writes one: purity, weight, reference — nothing invented. */
 export function tagOf(r: PieceRow): string {
-  const grams = r.w !== undefined ? `${Number(r.w.toFixed(2))} g` : undefined;
-  return [r.k, grams, r.ct !== undefined ? `${r.ct} ct` : undefined, r.rf].filter(Boolean).join(' · ');
+  // a number and its unit never part company at a line end
+  const grams = r.w !== undefined ? `${Number(r.w.toFixed(2))}\u00a0g` : undefined;
+  return [r.k, grams, r.ct !== undefined ? `${r.ct}\u00a0ct` : undefined, r.rf].filter(Boolean).join(' · ');
 }
 
 /** The piece's kind, for the line above its name. */
 export const kindOf = (r: PieceRow) => (r.c ? CATEGORY_LABEL[r.c as Category] : 'Jewellery');
 
 /**
- * Ten positions in a twelve-column window, read left to right and down: two large plates,
- * the rest smaller and set off one another so the eye travels rather than scans. The
- * asymmetry and the whitespace are what make this a window and not a grid.
+ * Nine positions in a twelve-column window, read left to right and down in three rows: one
+ * large plate, the rest smaller and set off one another so the eye travels rather than
+ * scans. The asymmetry and the whitespace are what make this a window and not a grid.
  */
 const SLOTS = [
   { col: 'md:col-start-1 md:col-span-5', aspect: '1 / 1', offset: '', size: 'lg' },
@@ -37,7 +38,6 @@ const SLOTS = [
   { col: 'md:col-start-1 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[8svh]', size: 'md' },
   { col: 'md:col-start-6 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[2svh]', size: 'sm' },
   { col: 'md:col-start-9 md:col-span-4', aspect: '4 / 5', offset: 'md:-mt-[6svh]', size: 'md' },
-  { col: 'md:col-start-9 md:col-span-3', aspect: '1 / 1', offset: 'md:-mt-[2svh]', size: 'sm' },
 ];
 
 const SIZES: Record<string, string> = {
@@ -68,7 +68,7 @@ export function Ch02Window({ pieces, kinds, total }: { pieces: PieceRow[]; kinds
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-6 md:grid-cols-12 md:items-end">
           <div className="flex flex-col gap-4 md:col-span-7">
             <Eyebrow className="text-ink/60">{COPY.window.eyebrow}</Eyebrow>
-            <h2 id="window-title" data-split className="display max-w-[13em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0">
+            <h2 id="window-title" data-split className="display max-w-[13em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0 [text-wrap:balance]">
               {COPY.window.title}
             </h2>
           </div>
@@ -89,7 +89,7 @@ export function Ch02Window({ pieces, kinds, total }: { pieces: PieceRow[]; kinds
                     <p className={cn('font-display leading-tight text-ink', slot.size === 'lg' ? 'text-[1.375rem]' : 'text-[1.0625rem]')} style={{ fontVariationSettings: slot.size === 'lg' ? '"opsz" 22' : '"opsz" 16' }}>
                       {row.t}
                     </p>
-                    <p className="micro flex flex-wrap items-baseline justify-between gap-x-4 text-ink/55">
+                    <p className="micro flex flex-col gap-1 text-ink/55 md:flex-row md:flex-wrap md:items-baseline md:justify-between md:gap-x-4">
                       <span>{tagOf(row)}</span>
                       <span className="text-ink/45 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.window.view}</span>
                     </p>
@@ -104,10 +104,10 @@ export function Ch02Window({ pieces, kinds, total }: { pieces: PieceRow[]; kinds
         {kinds.length > 0 && (
           <nav className="mt-[10svh] border-t border-ink/10 pt-8 md:mt-[12svh] md:pt-10" aria-label={COPY.window.kinds} data-rise>
             <p className="micro text-ink/50">{COPY.window.kinds}</p>
-            <ul className="mt-5 flex flex-wrap gap-x-9 gap-y-4 md:gap-x-12">
+            <ul className="mt-5 flex flex-wrap gap-x-9 gap-y-4 md:grid md:grid-cols-5 md:gap-x-8 md:gap-y-5">
               {kinds.map((k) => (
                 <li key={k.category}>
-                  <TransitionLink href={k.href} className="group/kind flex items-baseline gap-3" data-cursor="explore">
+                  <TransitionLink href={k.href} className="group/kind flex items-baseline gap-3 py-2" data-cursor="explore">
                     <span className="display text-[clamp(1.375rem,2vw,2rem)] leading-none text-ink transition-colors group-hover/kind:text-gold-deep">{k.label}</span>
                     <span className="font-display text-[0.8125rem] text-ink/45" style={{ fontVariationSettings: '"opsz" 12' }}>
                       {k.total}

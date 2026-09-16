@@ -29,7 +29,7 @@ export const COPY = {
   departments: {
     gold: {
       eyebrow: 'Gold',
-      title: (n: number) => `${n} pieces in gold, mostly 21 karat.`,
+      title: (n: number) => `${n} pieces in gold, mostly 21\u00a0karat.`,
       line: 'Pendants, chains, bangles, rings, earrings — weighed and marked, and worn every day in Lahore.',
       cta: 'Explore Gold',
       /** The figure: gold looked at closely, then the door to the set it belongs to. */
@@ -44,7 +44,7 @@ export const COPY = {
       suite: { eyebrow: 'Graded as published', title: 'A sapphire, in a pavé surround.', line: 'The one diamond suite Waseem photographed as a campaign — and publishes at 21K, 94.68 grams, with 13.26 carats of diamonds graded H and VVS1.' },
     },
     men: { eyebrow: 'Men', title: (n: number) => `${n} pieces for men.`, line: 'Rings, bracelets and cufflinks — weight, in the hand.', cta: 'Explore Men' },
-    kids: { eyebrow: 'Kids', title: (n: number) => `${n} pieces for children.`, line: 'Small, and made properly.', cta: 'Explore Kids' },
+    kids: { eyebrow: 'Kids', title: (n: number) => `${n} pieces for kids.`, line: 'Small, and made properly.', cta: 'Explore Kids' },
     kinds: 'By kind',
   },
   invitation: {

@@ -67,7 +67,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
 
         const proxy = { progress: 0 };
         const setters = [...cols].map((c) => gsap.quickSetter(c, 'y', 'px'));
-        const travel = () => window.innerHeight * 0.16;
+        const travel = () => window.innerHeight * 0.08;
         const tick = () => {
           const t = travel();
           cols.forEach((_, i) => {
@@ -148,7 +148,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
 
       {/* desktop columns */}
       <div className="worlds-columns absolute inset-0 z-[5] hidden md:block">
-        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+3rem)] flex h-full gap-[2vw]">
+        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+2.5rem)] flex h-full gap-[2vw]">
           {WORLDS.map((w, i) => (
             <div key={w.slug} className="relative flex-1">
               <span className="world-toplight hairline absolute inset-x-0 top-0 z-10" />
@@ -198,17 +198,17 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                   </span>
                   <span className="display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory">{w.name}</span>
                 </p>
-                <p className={cn('font-display italic text-[0.875rem] text-ivory/60 transition-opacity duration-500', active === i ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 14' }}>
-                  {w.mood}
-                </p>
                 {doors[w.pieces[0] ?? ''] && (
                   <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door flex w-fit flex-col gap-0.5" data-cursor="view">
                     <span className="font-display text-[0.9375rem] leading-tight text-ivory/85 transition-colors group-hover/door:text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
                       {doors[w.pieces[0] ?? '']!.t}
                     </span>
-                    <span className="micro text-champagne/60">{tagOf(doors[w.pieces[0] ?? '']!) || COPY.hero.view}</span>
+                    <span className="micro text-champagne/60">{[tagOf(doors[w.pieces[0] ?? '']!), COPY.hero.view].filter(Boolean).join(' · ')}</span>
                   </TransitionLink>
                 )}
+                <p className={cn('font-display italic text-[0.875rem] text-ivory/60 transition-opacity duration-500', active === i ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 14' }}>
+                  {w.mood}
+                </p>
                 </div>
               </div>
             </div>
@@ -247,8 +247,11 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
               {w.mood}
             </p>
             {doors[w.pieces[0] ?? ''] && (
-              <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="micro mt-2 inline-block text-champagne/80" data-cursor="view">
-                {doors[w.pieces[0] ?? '']!.t} · {COPY.hero.view}
+              <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door mt-3 flex w-fit flex-col gap-0.5 py-2" data-cursor="view">
+                <span className="font-display text-[0.9375rem] leading-tight text-ivory/85" style={{ fontVariationSettings: '"opsz" 14' }}>
+                  {doors[w.pieces[0] ?? '']!.t}
+                </span>
+                <span className="micro text-champagne/70">{[tagOf(doors[w.pieces[0] ?? '']!), COPY.hero.view].filter(Boolean).join(' · ')}</span>
               </TransitionLink>
             )}
           </div>

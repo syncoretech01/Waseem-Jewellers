@@ -127,11 +127,11 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
     ) : null;
 
   return (
-    <section ref={ref} id="ch09" className="relative bg-ink text-ivory md:h-svh md:overflow-hidden" aria-labelledby="bespoke-title">
+    <section ref={ref} id="ch09" className="relative bg-ink text-ivory md:h-svh md:overflow-hidden" aria-label={COPY.bespoke.title}>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[40svh] md:block" style={{ background: 'linear-gradient(180deg, transparent 0%, #100d0b 70%, #0B0A09 100%)' }} />
 
       {/* the eyebrow sits beneath the nav band, never inside it */}
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
+      <div className="relative z-10 flex items-start justify-between px-gutter pt-8 md:absolute md:inset-x-0 md:top-0 md:pt-[calc(var(--nav-h)+1.25rem)]">
         <p className="micro text-champagne">{COPY.bespoke.eyebrow}</p>
         {pair && <p className="micro hidden text-ivory/50 md:block">{pair.t}</p>}
       </div>
@@ -139,7 +139,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
       {/* desktop: the words at the left, the pair at the right, one pin */}
       <div className="bespoke-stage relative hidden h-full grid-cols-12 items-center gap-x-[4vw] px-gutter md:grid">
         <div className="col-span-5 flex flex-col gap-8">
-          <h2 id="bespoke-title" className="display max-w-[8em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ivory">
+          <h2 className="display max-w-[8em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ivory [text-wrap:balance]">
             {COPY.bespoke.title}
           </h2>
           <p className="max-w-[28em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.bespoke.line}</p>
@@ -167,7 +167,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
       {/* mobile: stacked; the figure reads as it travels through the viewport */}
       <div className="bespoke-stack flex flex-col gap-10 px-gutter pb-20 pt-10 md:hidden">
         <div className="flex flex-col gap-5">
-          <p className="display text-[2.4rem] leading-[1.02] text-ivory">{COPY.bespoke.title}</p>
+          <h2 className="display text-[2.4rem] leading-[1.02] text-ivory">{COPY.bespoke.title}</h2>
           <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.bespoke.line}</p>
         </div>
         {figureFor(false)}

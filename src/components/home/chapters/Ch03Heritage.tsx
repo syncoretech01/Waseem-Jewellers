@@ -51,13 +51,13 @@ export function Ch03Heritage() {
   );
 
   return (
-    <section ref={ref} id="ch03-heritage" data-theme="ivory" className="relative bg-bg-2 px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="heritage-title">
+    <section ref={ref} id="ch03-heritage" data-theme="ivory" className="relative border-t border-ink/10 bg-bg-2 px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="heritage-title">
       <div ref={scope} className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
         {/* the words, and the showrooms */}
         <div className="flex flex-col gap-8 md:col-span-5 md:gap-10">
           <div className="flex flex-col gap-4">
             <Eyebrow className="text-ink/60">{COPY.heritage.eyebrow}</Eyebrow>
-            <h2 id="heritage-title" data-split className="display max-w-[9em] text-[clamp(2.25rem,4.2vw,4.5rem)] leading-[1.02] text-ink opacity-0">
+            <h2 id="heritage-title" data-split className="display max-w-[9em] text-[clamp(2.25rem,4.2vw,4.5rem)] leading-[1.02] text-ink opacity-0 [text-wrap:balance]">
               {COPY.heritage.title}
             </h2>
             <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
@@ -86,16 +86,19 @@ export function Ch03Heritage() {
               {SITE.showrooms.map((s) => (
                 <li key={s.id}>
                   <a href={s.mapsUrl} target="_blank" rel="noreferrer" className="group/room flex items-baseline justify-between gap-6 py-3.5 text-ink" data-cursor="open">
-                    <span className="font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
+                    <span className="shrink-0 whitespace-nowrap font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
                       {s.name}
                     </span>
-                    <span className="micro text-right text-ink/50 transition-colors group-hover/room:text-ink">{s.address}</span>
+                    <span className="micro max-w-[22em] text-right text-ink/50 transition-colors group-hover/room:text-ink">{s.address}</span>
                   </a>
                 </li>
               ))}
             </ul>
             <p className="micro text-ink/50">
-              {SITE.hours} · {SITE.phone}
+              {SITE.hours} ·{' '}
+              <a href={`tel:${SITE.phone.replace(/\s/g, '')}`} className="underline-offset-4 transition-colors hover:text-ink hover:underline">
+                {SITE.phone}
+              </a>
             </p>
           </div>
 
@@ -124,10 +127,7 @@ export function Ch03Heritage() {
             <div className="relative w-full overflow-hidden bg-pearl" style={{ aspectRatio: '3 / 2' }}>
               <Img id="heritage-vitrine" sizes="(min-width: 768px) 42vw, 92vw" className="object-cover" />
             </div>
-            <figcaption className="micro mt-3 flex items-baseline justify-between gap-6 text-ink/50">
-              <span>Gold · the vitrine</span>
-              <span className="display text-[1.125rem] normal-case tracking-normal text-ink/70">{COPY.heritage.closing}</span>
-            </figcaption>
+            <figcaption className="micro mt-3 text-ink/50">Gold · the vitrine</figcaption>
           </figure>
           <div className="col-span-12 flex justify-end pt-2 md:col-span-9 md:col-start-2" data-rise>
             <WaseemLockup tone="gold" className="h-[4.5rem] w-auto md:h-[5.5rem]" />

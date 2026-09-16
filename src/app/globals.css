@@ -330,6 +330,17 @@ html[data-rm="1"] footer[data-section="footer"] {
   height: auto;
   min-height: 100svh;
 }
+/* on a phone the footer's contents are taller than the screen: it flows, as under reduced motion */
+@media (max-width: 767px) {
+  #page-root {
+    margin-bottom: 0;
+  }
+  footer[data-section="footer"] {
+    position: relative;
+    height: auto;
+    min-height: 100svh;
+  }
+}
 
 /* concierge spotlight: light and lines only, never transforms */
 .is-spotlit [data-reveal-inner]::after,

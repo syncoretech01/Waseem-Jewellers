@@ -191,7 +191,7 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
           <Video id="hero-royal" ref={video} onFirstFrame={heroPainted} preload="auto" revealAfter={0.55} showStill={false} ariaLabel="Royal Wedding — the Waseem film" />
         </div>
         <div className="hero-vignette pointer-events-none absolute inset-0 opacity-45" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/85 via-transparent to-ink/30" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/45 via-40% to-ink/30 md:via-transparent md:via-50%" />
         <div className="grain pointer-events-none absolute inset-0" />
         <div className="letterbox absolute inset-x-0 top-0 h-[12svh] origin-top scale-y-[0.15] bg-ink" />
         <div className="letterbox absolute inset-x-0 bottom-0 h-[12svh] origin-bottom scale-y-[0.15] bg-ink" />
@@ -220,10 +220,10 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
         {/* the departments: what is sold, and how much of it — the first doors on the page */}
         {departments.length > 0 && (
           <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
-            <ul className="intro-tail flex flex-wrap items-baseline gap-x-7 gap-y-3 opacity-0 md:gap-x-9">
+            <ul className="intro-tail flex flex-wrap items-baseline gap-x-7 gap-y-1 opacity-0 md:gap-x-9">
               {departments.map(({ department, count }) => (
                 <li key={department}>
-                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline gap-2.5" data-cursor="explore">
+                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline gap-2.5 py-2" data-cursor="explore">
                     <span className="relative font-display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
                       {DEPARTMENT_LABEL[department]}
                       <span aria-hidden className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100" />

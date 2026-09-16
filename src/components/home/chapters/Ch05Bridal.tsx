@@ -47,7 +47,7 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-6 md:grid-cols-12 md:items-end">
           <div className="flex flex-col gap-4 md:col-span-7">
             <Eyebrow className="text-ink/60">{COPY.bridal.eyebrow}</Eyebrow>
-            <h2 id="bridal-title" data-split className="display max-w-[11em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0">
+            <h2 id="bridal-title" data-split className="display max-w-[11em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0 [text-wrap:balance]">
               {COPY.bridal.title(count)}
             </h2>
           </div>
@@ -86,7 +86,7 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
                     </p>
                     <p className="micro text-ink/55">{tagOf(suite)}</p>
                   </div>
-                  <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.bridal.close.view}</span>
+                  <span className="micro w-fit shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.bridal.close.view}</span>
                 </div>
               </PieceLink>
             </div>
@@ -95,7 +95,7 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
           <div className="flex flex-col gap-8 md:col-span-4 md:col-start-9 md:gap-10">
             {/* the index of the suite's four, lit in step with the figure */}
             {suiteDescriptor && (
-              <div className="flex flex-col gap-4" data-rise>
+              <div className="hidden flex-col gap-4 md:flex" data-rise>
                 <p className="micro text-ink/55">{COPY.bridal.close.eyebrow}</p>
                 <ol className="flex flex-col gap-2.5 border-t border-ink/10 pt-5">
                   {suiteDescriptor.regions.map((r, i) => (
@@ -116,7 +116,7 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
                 <PieceLink
                   product={pieceRefOf(choker)}
                   sizes={chokerSizes}
-                  aspect="4 / 5"
+                  aspect="1 / 1"
                   cursor="view"
                   figure={
                     <SemanticFigure

@@ -92,9 +92,14 @@ export function Footer() {
             <span key={s.id}>{s.address}</span>
           ))}
           <span className="mt-2">
-            {SITE.hours} · {SITE.phone}
+            {SITE.hours} ·{' '}
+            <a href={`tel:${SITE.phone.replace(/\s/g, '')}`} className="underline-offset-4 transition-colors hover:text-ivory hover:underline">
+              {SITE.phone}
+            </a>
           </span>
-          <span>WhatsApp {SITE.whatsapp}</span>
+          <a href={SITE.whatsappHref} target="_blank" rel="noreferrer" className="w-fit underline-offset-4 transition-colors hover:text-ivory hover:underline">
+            WhatsApp {SITE.whatsapp}
+          </a>
           <a href={SITE.showrooms[0]!.mapsUrl} target="_blank" rel="noreferrer" className="w-fit transition-colors hover:text-ivory">
             Directions →
           </a>

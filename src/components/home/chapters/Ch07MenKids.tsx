@@ -28,7 +28,7 @@ function Half({ department, copy, href, align }: { department: ShowcaseDepartmen
     <div className={cn('flex flex-col gap-8 md:gap-10', align === 'right' && 'md:border-l md:border-ink/10 md:pl-[4vw]')}>
       <div className="flex flex-col gap-4">
         <Eyebrow className="text-ink/60">{copy.eyebrow}</Eyebrow>
-        <h3 data-split className="display max-w-[9em] text-[clamp(1.75rem,2.8vw,3rem)] leading-[1.06] text-ink opacity-0">
+        <h3 data-split className="display max-w-[9em] text-[clamp(1.75rem,2.8vw,3rem)] leading-[1.06] text-ink opacity-0 [text-wrap:balance] md:min-h-[2.15em]">
           {copy.title(department.count)}
         </h3>
         <p className="max-w-[26em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
@@ -36,16 +36,16 @@ function Half({ department, copy, href, align }: { department: ShowcaseDepartmen
         </p>
       </div>
       {lead && (
-        <div className="grid grid-cols-2 gap-x-[4vw] gap-y-6 md:gap-x-[2vw]">
-          <div className="col-span-2 sm:col-span-1" data-rise>
-            <PieceLink product={pieceRefOf(lead)} sizes="(min-width: 768px) 20vw, 92vw" aspect="4 / 5" cursor="view">
+        <div className="grid grid-cols-2 gap-x-[4vw] gap-y-6 sm:grid-cols-5 md:gap-x-[2vw]">
+          <div className="col-span-2 sm:col-span-3" data-rise>
+            <PieceLink product={pieceRefOf(lead)} sizes="(min-width: 768px) 24vw, 92vw" aspect="4 / 5" cursor="view">
               {label(lead, 'lg')}
             </PieceLink>
           </div>
-          <ul className="col-span-2 grid grid-cols-2 gap-x-[4vw] gap-y-6 sm:col-span-1 md:gap-x-[2vw]" aria-label="More pieces">
-            {rest.slice(0, 2).map((row, i) => (
-              <li key={row.s} className={cn('col-span-1', i === 1 && 'md:mt-[6svh]')} data-rise>
-                <PieceLink product={pieceRefOf(row)} sizes="(min-width: 768px) 9vw, 44vw" aspect="1 / 1" cursor="view">
+          <ul className="col-span-2 grid grid-cols-2 gap-x-[4vw] gap-y-6 sm:grid-cols-1 md:gap-y-[3svh]" aria-label="More pieces">
+            {rest.slice(0, 2).map((row) => (
+              <li key={row.s} data-rise>
+                <PieceLink product={pieceRefOf(row)} sizes="(min-width: 768px) 15vw, 44vw" aspect="1 / 1" cursor="view">
                   {label(row, 'sm')}
                 </PieceLink>
               </li>

@@ -297,7 +297,6 @@ class SnapshotRepository implements CatalogueRepository {
       ['chain', 'gold'],
       ['ring', 'gold'],
       ['cufflink', 'men'],
-      ['pendant', 'gold'],
     ];
     const used = new Set<string>();
     const take = (category: Category, department?: Department) => {
@@ -332,7 +331,8 @@ class SnapshotRepository implements CatalogueRepository {
       kids: ['bracelet', 'ring'],
     };
     const showcaseDepartments: ShowcaseDepartment[] = perDepartment.map(({ department, categories: cats }) => {
-      const inD = pool.filter((p) => p.departments.includes(department));
+      // a piece already in the window is not shown again a screen later
+      const inD = pool.filter((p) => p.departments.includes(department) && !used.has(p.slug));
       // one kind after another, so six pieces are six kinds where the department has them
       const lanes = new Map<string, Product[]>();
       for (const p of inD) lanes.set(p.category ?? '', [...(lanes.get(p.category ?? '') ?? []), p]);

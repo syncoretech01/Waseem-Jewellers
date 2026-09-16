@@ -88,6 +88,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         const band = root.querySelector<HTMLElement>('.craft-band');
         const labels = root.querySelectorAll<HTMLElement>('.craft-label');
         const notes = root.querySelectorAll<HTMLElement>('.craft-note');
+        const index = root.querySelector<HTMLElement>('.craft-index');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
         const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
         if (!stone || !wrap) return;
@@ -153,8 +154,9 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           .to([stone, ring, band, halo], { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
           .to([ring, band], { opacity: 0.12, ease: 'none', duration: 0.12 }, 0.86)
           .to(halo, { opacity: 0.35, ease: 'none', duration: 0.12 }, 0.86)
-          // the closing line takes the index's place rather than printing over it
-          .to([labels, notes], { autoAlpha: 0, ease: 'none', duration: 0.06 }, 0.84)
+          // the closing line takes the index's place rather than printing over it — the index
+          // fades as one box, so the labels and notes keep their own lit states beneath it
+          .to(index, { autoAlpha: 0, ease: 'none', duration: 0.06 }, 0.84)
           .fromTo(closing, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.12 }, 0.86);
         ready();
       });
@@ -206,7 +208,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
               {COPY.craft.title}
             </h2>
           </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
+          <div className="craft-index grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
             <ol className="flex flex-col gap-2 md:gap-3">
               {COPY.craft.labels.map((l) => (
                 <li key={l.key} className={cn('craft-label flex items-baseline gap-4 transition-all duration-500 data-[lit=1]:translate-x-2 data-[lit=1]:opacity-100', 'opacity-25')} data-lit="0">

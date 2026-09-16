@@ -37,27 +37,29 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
     <section ref={ref} id="ch03-gold" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="gold-title">
       <div ref={scope}>
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
-          {/* the words, the kinds, the door */}
-          <div className="flex flex-col gap-7 md:col-span-4 md:sticky md:top-[calc(var(--nav-h)+4svh)] md:gap-9">
-            <div className="flex flex-col gap-4">
+          {/* the words, the kinds, the door — on a phone the title leads, the pieces follow, the kinds close */}
+          <div className="contents md:sticky md:top-[calc(var(--nav-h)+4svh)] md:col-span-4 md:flex md:flex-col md:gap-9">
+            <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-ink/60">{COPY.departments.gold.eyebrow}</Eyebrow>
-              <h2 id="gold-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ink opacity-0">
+              <h2 id="gold-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ink opacity-0 [text-wrap:balance]">
                 {COPY.departments.gold.title(department.count)}
               </h2>
               <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
                 {COPY.departments.gold.line}
               </p>
             </div>
-            <KindsList department={department} heading={COPY.departments.kinds} />
-            <div data-rise>
+            <div className="order-3 md:order-none">
+              <KindsList department={department} heading={COPY.departments.kinds} />
+            </div>
+            <div className="order-4 md:order-none" data-rise>
               <Button variant="bracket" href="/gold" cursor="explore">
                 {COPY.departments.gold.cta}
               </Button>
             </div>
           </div>
 
-          {/* the pieces — first on a phone, beside the words on a desk */}
-          <div className="order-first md:order-none md:col-span-8">
+          {/* the pieces */}
+          <div className="order-2 md:order-none md:col-span-8">
             <PieceCluster rows={department.rows} />
           </div>
         </div>
@@ -96,11 +98,11 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
                 </div>
               </PieceLink>
             </div>
-            <div className="flex flex-col gap-5 md:col-span-4 md:col-start-9" data-rise>
+            <div className="order-first flex flex-col gap-5 md:order-none md:col-span-4 md:col-start-9" data-rise>
               <p className="micro text-ink/55">{COPY.departments.gold.figure.eyebrow}</p>
-              <ol className="flex flex-col gap-3 border-t border-ink/10 pt-5">
+              <ol className="hidden flex-col gap-3 border-t border-ink/10 pt-5 md:flex">
                 {descriptor.regions.map((r, i) => (
-                  <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex flex-col gap-1 opacity-45 transition-opacity duration-500 data-[lit=1]:opacity-100">
+                  <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex flex-col gap-1 opacity-65 transition-opacity duration-500 data-[lit=1]:opacity-100">
                     <span className="flex items-baseline gap-4">
                       <span className="font-display text-[0.75rem] text-ink/50" style={{ fontVariationSettings: '"opsz" 12' }}>
                         {String(i + 1).padStart(2, '0')}

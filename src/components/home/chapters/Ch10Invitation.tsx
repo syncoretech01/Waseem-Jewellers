@@ -28,7 +28,7 @@ export function Ch10Invitation() {
       <div ref={scope} className="grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] md:grid-cols-12 md:items-center">
         <div className="flex flex-col gap-5 md:col-span-6">
           <Eyebrow className="text-ink/60">{COPY.invitation.eyebrow}</Eyebrow>
-          <h2 id="invitation-title" data-split className="display max-w-[10em] text-[clamp(2rem,3.8vw,4rem)] leading-[1.04] text-ink opacity-0">
+          <h2 id="invitation-title" data-split className="display max-w-[10em] text-[clamp(2rem,3.8vw,4rem)] leading-[1.04] text-ink opacity-0 [text-wrap:balance]">
             {COPY.invitation.title}
           </h2>
           <p className="max-w-[30em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
@@ -51,7 +51,7 @@ export function Ch10Invitation() {
               </span>
               <span className="micro">{COPY.invitation.speak}</span>
             </button>
-            <button type="button" onClick={() => requestConcierge({ mode: 'chat' })} className="micro text-ink/60 underline-offset-4 transition-colors hover:text-ink hover:underline" data-cursor="ask">
+            <button type="button" onClick={() => requestConcierge({ mode: 'chat' })} className="micro py-3 text-ink/60 underline-offset-4 transition-colors hover:text-ink hover:underline" data-cursor="ask">
               {COPY.invitation.write}
             </button>
           </div>
