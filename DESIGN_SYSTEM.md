@@ -91,7 +91,7 @@ Every chapter and page section calls `useChapter({ id, theme, pinned })` (`src/m
 
 The mirror is what lets the fixed chrome — the nav and the concierge orb's label — read as though it belongs to the chapter beneath it, because that chrome styles itself from the semantic tokens (`text-fg`) rather than from literal colours. Below `#page-root` (the fixed footer), the registry falls back to `footer` and `dark`.
 
-Chapter themes as shipped: hero, craft, collections, bridal, slider, duality, bespoke, the collection opening and the product gallery are `dark`; heritage, the jewellery wall and the collection intro/index/details are `ivory`. Two sections take their theme from a prop or from data: the "worn together" rail is `ivory` on the product route and `dark` on the collection route, and the collection story chapters carry the theme set on each chapter in `src/data/collections.ts`. `Dialog` opens its panel with its own `data-theme` (the consultation modal and the selection ledger are both `ivory` islands).
+Chapter themes as shipped: hero, craft, diamond, collections, bespoke, the collection opening and the product gallery are `dark`; the window, gold, bridal, men and kids, heritage, the concierge invitation and the collection intro/index/details are `ivory`. Two sections take their theme from a prop or from data: the "worn together" rail is `ivory` on the product route and `dark` on the collection route, and the collection story chapters carry the theme set on each chapter in `src/data/collections.ts`. `Dialog` opens its panel with its own `data-theme` (the consultation modal and the selection ledger are both `ivory` islands).
 
 `layout.tsx` renders `<html lang="en" data-theme="dark">` with `suppressHydrationWarning`, and a synchronous script stamps three more attributes before hydration: `data-rm` (reduced motion), which the CSS in §8 reads directly; `data-visited` (a `wj:visited` timestamp under 24h old), which the loader reads; and `data-coarse` (coarse pointer). `qualityStore` later adds `data-tier` with the lower-cased tier name. Components read pointer and tier from `qualityStore`, not from the attributes.
 
@@ -172,13 +172,13 @@ Easing and duration tokens (`--ease-out-expo`, `--ease-in-out-quart`, `--ease-si
 | `no-scrollbar` | `scrollbar-width: none` + a `::-webkit-scrollbar { display: none }` rule | For the mobile rails and the concierge result tray. |
 | `is-spotlit` | A state class, not a style utility | See below. |
 
-**The trap:** `grain` and `vignette` set `isolation`, not `position`. Their pseudo-elements are `position: absolute; inset: 0`, so they land on the nearest positioned ancestor, which may not be the element you put the class on. Every use in the codebase applies them to an element that is itself positioned — `<div className="absolute inset-0 grain vignette">` in the menu overlay and the collection opening, `<div className="grain pointer-events-none absolute inset-0" />` in the hero, bridal and duality chapters. Follow that pattern. The `isolation: isolate` is there so `mix-blend-mode: overlay` blends against the chapter and not against whatever sits behind it.
+**The trap:** `grain` and `vignette` set `isolation`, not `position`. Their pseudo-elements are `position: absolute; inset: 0`, so they land on the nearest positioned ancestor, which may not be the element you put the class on. Every use in the codebase applies them to an element that is itself positioned — `<div className="absolute inset-0 grain vignette">` in the menu overlay and the collection opening, `<div className="grain pointer-events-none absolute inset-0" />` in the hero and the bridal inset. Follow that pattern. The `isolation: isolate` is there so `mix-blend-mode: overlay` blends against the chapter and not against whatever sits behind it.
 
 Both pseudo-elements are `pointer-events: none` and sit at `z-index: 2` within their stacking context, above imagery and below chapter UI.
 
 **`is-spotlit`** is how the concierge points at something on the page. Adding the class to a section makes a gold-hi sheen sweep across `[data-reveal-inner]` (or the first child `div`) twice over 1.6s, at `z-index: 3`. It is light and lines only — it never transforms the element, so it cannot disturb a pinned composition. It is added and removed on a timer by `src/concierge/tools/executeTool.ts` (2600ms) and `src/components/collection/CollectionExperience.tsx` (2400/2600ms).
 
-Related scoped classes also live in `globals.css`: `.wall-sheen` (a pointer-following radial highlight driven by `--sx`/`--sy` on the hovered piece in the jewellery wall), `.wj-ring-light` (the drawn arc on the concierge invitation) and the `[data-webgl="1"]` rules that hide the drawn craft object once the WebGL one renders.
+Related scoped classes also live in `globals.css`: `.wj-ring-light` (the drawn arc on the concierge invitation) and the `[data-webgl="1"]` rules that hide the drawn craft object once the WebGL one — or its rendered still — is up.
 
 ---
 
@@ -200,7 +200,7 @@ Two global state classes: `html.has-cursor` (set by `CursorLayer`, and dropped a
 
 `data-rm="1"` is stamped on `<html>` by the pre-paint script in `layout.tsx`, before hydration, so the reduced-motion layout is pure CSS and cannot mismatch on the client.
 
-The block does structural work, not just animation suppression. Chapters whose desktop composition is only traversable by scroll fall back to their stacked reading order: `.heritage-wrap` loses its fixed height and its track becomes a vertical column with `14svh` gaps and gutter padding; `#ch07` (slider) and `#ch09` (bespoke) lose their pinned heights; `.vitrine-stage`, `.bespoke-stage`, `.heritage-travel` and `.slider-hint` are hidden while `.slider-rail` and `.bespoke-stack` become flex. The concierge orb core and the invitation ring stop animating.
+The block does structural work, not just animation suppression. The one chapter whose desktop composition is only traversable by scroll falls back to its stacked reading order: `#ch09` (bespoke) loses its pinned height, `.bespoke-stage` is hidden and `.bespoke-stack` becomes flex. The concierge orb core and the invitation ring stop animating.
 
 There is also a `@media (prefers-reduced-motion: reduce) { .sheen { animation: none } }` rule; no element currently carries a bare `sheen` class (the keyframe is used by name), so this rule is inert.
 
@@ -285,7 +285,7 @@ Behaviour worth knowing:
 
 Also asset-map bound (`getVideo(id)`). Always `muted`, `playsInline`, `loop`, poster-first, with `disablePictureInPicture` and `disableRemotePlayback`, and with **no** `autoplay` attribute — playback is started from an effect once the quality tier is known. A portrait source is served under `(max-width: 767px) and (orientation: portrait)`; the landscape source is 720p on the `LOW` tier and 1280p otherwise. An `IntersectionObserver` at `25%` root margin plays it in view and pauses it out of view, and it never plays on the `REDUCED` tier or when the visitor has paused media. `onFirstFrame` fires from `requestVideoFrameCallback`, falling back to the `playing` event and a 2500ms timeout. Props: `id`, `className`, `style`, `autoPlayInView` (default true), `preload` (default `'none'`), `onFirstFrame`, `ref` (a `VideoHandle` of `el` / `play` / `pause`), `ariaLabel` (absent means `aria-hidden`), `portrait` (default true — set false to skip the portrait source).
 
-Video sits under film: the hero, bridal and duality chapters lay a `grain` plane over the frame (the hero adds its own radial `.hero-vignette`), and the collection opening, the menu overlay's item preview and the collection interlude put the video inside a `grain` / `grain vignette` box.
+Video sits under film: the hero and the bridal inset lay a `grain` plane over the frame (the hero adds its own radial `.hero-vignette`), and the collection opening, the menu overlay's item preview and the collection interlude put the video inside a `grain` / `grain vignette` box.
 
 ### `WaseemMark` / `WaseemLockup` — `src/components/brand/`
 

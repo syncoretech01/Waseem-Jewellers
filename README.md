@@ -23,24 +23,25 @@ Follow this in order the first time; it is the intended path through the work.
 
 **The loading ritual.** A hairline of light, the wordmark, SINCE 1952, and the house stone filling with light, then the hand-off into the hero. On a high tier with WebGL the three-dimensional stone joins the drawing if its chunk arrives in time; otherwise the SVG stone carries the whole ritual. A returning visitor within 24 hours gets the short path (the flag is `wj:visited` in `localStorage` — clear it to see the full ritual again). Every other route gets a 0.6 s lift instead.
 
-**The homepage**, ten chapters in one continuous scroll:
+**The homepage**, eleven chapters in one continuous scroll, in the order a shop is walked:
 
 | Chapter | What to do |
 |---|---|
-| Hero | Let the film run; move the pointer for drift. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the jewel at the bottom right takes over. |
-| Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels. The WebGL object mounts here on high and medium tiers; the SVG stone stands in below that. |
-| 1952 | Ivory paper rises around the numeral, then the house's moments pass horizontally. The facade scrubs from monochrome into colour. |
-| Worlds | Five columns at opposing speeds. Hover or tab into a column to raise its name; choose one and its middle tile flies into Bridal. |
-| Bridal cinema | A portrait window opens into full cinema and closes by contracting to the first portrait of the wall. |
-| The wall | Twelve-column composition: all ten pieces and one campaign photograph. Hover a tile for tilt and sheen; a piece tile opens its page. |
-| Slider | Eight pieces in a vitrine. The wheel moves it, a drag releases with inertia into a snap, the arrow keys step, and Enter opens the centred piece. |
-| Gold / Diamond | Move the pointer across the frame — the mask edge follows it. Choosing a side fills the frame and flies into that edit on Bridal. |
-| Bespoke | Five cards, one per step. The consultation is the only door out of this chapter. |
-| Footer | Showrooms, hours and contact, revealed from beneath the page. |
+| Hero | Let the film run; the shop's name is across it, with the five departments and their live counts as the first doors. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the jewel at the bottom right takes over. |
+| The Window | Nine pieces photographed as pieces, one of every kind, each with purity · weight · reference; every kind counted beneath as a door. Fed by `repository.showcase()` — only white-ground packshots with published facts qualify. |
+| Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels. The object renders on every tier; without WebGL, or under reduced motion, a still of the same object stands in. The coda beneath names the same anatomy on the Lavender Halo Ring. |
+| Gold · Diamond | Each department as a department: the count, the kinds with their numbers, a tray of its pieces, the door. Gold closes on the goldwork figure; Diamond on the sapphire suite with its published grading. |
+| Bridal | The suite figure (tikka, earrings, choker, haar named in place), the choker figure beside it, the film as an inset, the count and the appointment. |
+| Signature Collections | Five columns at opposing speeds, the jewellery frame above the portrait. Hover or tab into a column to raise its name; choose one and its portrait flies into the collection page. |
+| Men · Kids | The two departments with their pieces, kinds and doors. |
+| 1952 | The facade arriving in colour, two prints, the two names, the three showrooms with addresses and hours, an appointment. |
+| Bespoke | One pair of earrings looked at as a jeweller looks; the bespoke door is open from the first frame. |
+| Waseem Concierge | Speak or write; three lines it understands, each of which sends itself. |
+| Footer | Showrooms, hours and contact, revealed from beneath the page (it flows on a phone). |
 
 **The menu.** MENU at the top right. Six entries with hover media: Gold and Diamond open Bridal edits, Bridal the house itself, Collections and Heritage jump to homepage chapters, Bespoke opens the consultation. Escape closes it.
 
-**Bridal** — `/collections/bridal`. The opening film, the intro, then a sticky line: Story runs the four chapters (I–IV), Index lays the pieces out, and Gold / Diamond / Polki filter the index. `?edit=gold` and `?edit=diamond` (what the menu and the duality chapter use) open the named edit directly. The page closes with a consultation and a "Worn together" rail.
+**Bridal** — `/collections/bridal`. The opening film, the intro, then a sticky line: Story runs the four chapters (I–IV), Index lays the pieces out, and Gold / Diamond / Polki filter the index. `?edit=gold` and `?edit=diamond` open the named edit directly. The page closes with a consultation and a "Worn together" rail.
 
 **A piece** — for example `/jewellery/lavender-halo-ring-r11912`. Hovering a gallery image draws it to the eye; clicking a macro enters drag-to-inspect at 2.4×, Escape leaves it. In the column that sticks on desktop: Enquire hands the piece to the concierge, Private viewing opens the consultation with the piece attached, Save piece keeps it in your selection. A piece from the worn-together rail transitions straight into the next product.
 
