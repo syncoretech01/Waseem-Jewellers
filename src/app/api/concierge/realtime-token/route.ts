@@ -1,6 +1,6 @@
 import { realtimeEnv } from '@/server/env';
 import { getRepository } from '@/data/repository';
-import { priceLabelOf, specLineOf } from '@/data/clientIndex';
+import type { PieceRow } from '@/lib/facets';
 import { clientIp, sameOrigin, takeToken, type Limit } from '@/server/concierge/limits';
 import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
 
@@ -37,9 +37,11 @@ async function sanitiseContext(raw: unknown): Promise<VoiceContextInput> {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const rows = await getRepository().rows();
   const bySlug = new Map(rows.map((row) => [row.s, row]));
+  // the published facts, in the order a jeweller would say them — the same line the browser shows
+  const published = (r: PieceRow) => [r.k, r.w !== undefined ? `${r.w.toFixed(3)} g` : undefined, r.ct !== undefined ? `${r.ct} ct` : undefined, r.rf].filter(Boolean).join(', ') || (r.p > 0 ? `Rs. ${new Intl.NumberFormat('en-US').format(r.p)}` : 'price on request');
   const factsOf = (slug: string) => {
     const row = bySlug.get(slug);
-    return row ? { name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null;
+    return row ? { name: row.t, facts: published(row) } : null;
   };
   const piece = r.pieceInView && typeof r.pieceInView === 'object' ? (r.pieceInView as Record<string, unknown>) : null;
   const pieceSlug = piece ? str(piece.slug, 120) : '';
