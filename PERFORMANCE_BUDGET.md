@@ -129,7 +129,7 @@ A live `prefers-reduced-motion` change is followed: turning it on forces REDUCED
 | Chapter scrubs | yes | yes | yes | replaced by composed stills |
 | Concierge orb | WebGL | WebGL | WebGL | static |
 
-Notes on the edges. The craft chapter renders its SVG stone, halo, ring and band in the DOM at every tier — the canvas is an overlay, so LOW and REDUCED lose the object's dimensionality, not the chapter. Under REDUCED the chapters take their still path — the `reduce` condition of `gsap.matchMedia` in most, a plain store check in CH06 and CH08 — which sets the finished composition (labels lit, reveals at rest) instead of building a scrubbed timeline. `scrollTo` collapses to an immediate jump, and no video ever plays. The concierge orb falls back to `OrbStatic` whenever `orbRenderer` is `'static'`, which is any tier without a usable WebGL probe plus REDUCED.
+Notes on the edges. The craft chapter's object is for everyone (16 Sep 2026): HIGH and MEDIUM render it with the refractive stone; LOW — every phone — renders the same geometry at DPR 1 with the non-refractive stone, on a demand frameloop, which is what makes the three chunk (253 kB gz, fetched only as the chapter approaches) affordable there; REDUCED and a browser without WebGL show a still of the same object rendered once from the same scene (`public/assets/waseem/images/craft/ring-*.webp`, 11–36 kB, cut by `scripts/assets/craft-poster.mjs`). The SVG stone, halo, ring and band remain in the DOM only for the drawing's own reveal and are hidden the moment the object or the still is up. Under REDUCED the pinned chapters take their still path — the `reduce` condition of `gsap.matchMedia` — which sets the finished composition (labels lit, reveals at rest) instead of building a scrubbed timeline. `scrollTo` collapses to an immediate jump, and no video ever plays. The concierge orb falls back to `OrbStatic` whenever `orbRenderer` is `'static'`, which is any tier without a usable WebGL probe plus REDUCED.
 
 ## WebGL rules
 
@@ -141,7 +141,7 @@ Three canvases exist in Stage 1. Two are transient; one is long-lived.
 | Craft object | `src/components/three/craft/CraftScene.tsx` | `demand` | `[1, max(1, min(dprCap, 1.75 on HIGH, 1.5 on MEDIUM))]` | high-performance | mounts near CH02, then persists |
 | Concierge orb | `src/concierge/orb/OrbCanvas.tsx` | `always` | `[1, 2]` | low-power | mounts with the voice stage |
 
-**One heavy canvas at a time.** The craft object is the only expensive scene. It mounts only when the loader has finished, the tier is HIGH or MEDIUM, WebGL is available, and an `IntersectionObserver` with `rootMargin: '100% 0px'` reports the chapter within one viewport. The loader gem is gone before that point. The orb is a single sphere on a small element. Once mounted, the craft canvas is not torn down again for the life of the page — its cost is bounded by demand rendering rather than by unmounting.
+**One heavy canvas at a time.** The craft object is the only expensive scene. It mounts only when the loader has finished, the tier is not REDUCED, WebGL is available, and an `IntersectionObserver` with `rootMargin: '100% 0px'` reports the chapter within one viewport. The loader gem is gone before that point. The orb is a single sphere on a small element. Once mounted, the craft canvas is not torn down again for the life of the page — its cost is bounded by demand rendering rather than by unmounting.
 
 **Demand rendering.** `useDemandInvalidate` (`src/lib/three/sceneLifecycle.ts`) adds one function to `gsap.ticker` and calls `invalidate()` only when something has changed: a damped value still settling, a new `craftProgress.value` from the chapter's scrub, or a mouse that has moved more than 0.002 in normalised space (the shared pointer model in `src/lib/motion/pointer.ts` tracks `pointerType === 'mouse'` only). A still, unhovered scene renders nothing.
 
@@ -192,7 +192,7 @@ Video is encoded by `scripts/assets/encode-videos.mjs` into three variants and t
 | `./LoaderGem` | bare `import()` in `Loader` | home route without `data-rm`, requested as the ritual mounts at every tier; raced against a 400 ms timer (2500 ms in development) and joined only on HIGH with WebGL while the fill is still below 0.75 (0.97 in development) |
 | `./OrbCanvas` | `next/dynamic`, `ssr: false` in `Orb` | preloaded on pointer-enter of the concierge invitation or orb; rendered only for the voice stage with `orbRenderer === 'webgl'` |
 | `gsap/Flip` | `loadFlip()` in `src/lib/motion/lazyPlugins.ts` | a 1500 ms timer in `TransitionLayer`. Registered but not called: the FLIP transition tweens its own clone with core GSAP |
-| `gsap/Observer` | `loadObserver()` in the same file | CH07's spatial slider, desktop branch only — the drag is not built on mobile or under REDUCED |
+| `gsap/Observer` | `loadObserver()` in the same file | no homepage consumer since the spatial slider left (16 Sep 2026); kept for a drag surface that needs it |
 
 So three and R3F arrive on every tier but REDUCED: the loader stone requests them on the home route, and the concierge orb requests them when the voice stage opens. drei is pulled in only by `CraftScene`, so it never loads on LOW or REDUCED.
 
@@ -208,7 +208,7 @@ From `ASSET_MANIFEST.md`, generated by `npm run assets` on 2026-09-07: **48 imag
 | bridal-cinema | 5.57 MB | 1.67 MB | 1.83 MB | bridal cinema (CH05) |
 | bridal-opening | 1.85 MB | 561 kB | 538 kB | /collections/bridal opening and its interlude block |
 | menu-ambient | 4.09 MB | 1.27 MB | 1.09 MB | menu ambient backdrop, menu COLLECTIONS |
-| diamond-studio | 2.59 MB | 783 kB | 988 kB | CH08 diamond side, menu DIAMOND |
+| diamond-studio | 2.59 MB | 783 kB | 988 kB | menu DIAMOND |
 
 Only one variant of a clip is ever fetched, and — the hero apart, which passes `preload="auto"` — only when its chapter comes into range. The totals above are what sits on disk, not what a visit downloads. The heaviest images are the campaign frames: `p03-hero` 1.51 MB, `p06-hero` 1.35 MB, `bespoke-bride` 1.22 MB and `wall-campaign` 1.21 MB — all at 2880 px except `bespoke-bride`, which is 2250 px. The rest of the product, world and heritage frames run 73 kB – 1.09 MB; the video stills are 16 – 81 kB. next/image re-encodes each of these down to the requested candidate width, so the on-disk figure is an upper bound.
 

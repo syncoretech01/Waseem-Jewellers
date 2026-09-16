@@ -14,7 +14,7 @@ Each tier is encoded twice; a visit downloads one tier of one codec. AV1 where s
 | bridal-cinema | Bridal cinema (CH05) | 34.0s | 5.57 MB / 3.76 MB | 1.67 MB / 1.20 MB | 1.83 MB / 1.33 MB | /assets/waseem/video/bridal-cinema-poster.webp |
 | bridal-opening | /collections/bridal opening + chapter II interlude | 12.0s | 1.85 MB / 1.15 MB | 561 kB / 398 kB | 538 kB / 386 kB | /assets/waseem/video/bridal-opening-poster.webp |
 | menu-ambient | Menu ambient, DEWAN world | 26.0s | 4.09 MB / 2.88 MB | 1.27 MB / 1.03 MB | 1.09 MB / 936 kB | /assets/waseem/video/menu-ambient-poster.webp |
-| diamond-studio | CH08 diamond side, menu DIAMOND | 20.3s | 2.59 MB / 2.26 MB | 783 kB / 503 kB | 988 kB / 569 kB | /assets/waseem/video/diamond-studio-poster.webp |
+| diamond-studio | menu DIAMOND | 20.3s | 2.59 MB / 2.26 MB | 783 kB / 503 kB | 988 kB / 569 kB | /assets/waseem/video/diamond-studio-poster.webp |
 
 Originals (untouched): `media-originals/royal-wedding.mp4`, `media-originals/naqsh-e-gul.mp4`, `media-originals/dewaan.mp4`; the studio clip is fetched from the current site.
 

@@ -193,15 +193,15 @@ The custom cursor (`CursorLayer`) is the one consumer with its own listener, bec
 
 **The fixed-pin ancestor rule.** A pinned ScrollTrigger positions the pinned element `fixed`. Any ancestor carrying `transform`, `filter`, `perspective`, `will-change`, `contain`, `backdrop-filter` or `container-type` becomes its containing block, and the pin silently detaches. So none of those properties appear on `body`, `#page-root`, a chapter `<section>`, or anything between them. When the menu overlay recedes the page it does not scale `#page-root`; it selects the at most two in-view `#page-root .recede` leaves and scales those.
 
-Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=100%` for the hero (no spacing), `+=200%` for the craft stage (160% on a phone), `+=150%` for the worlds, `+=155%` for the bridal stage, `N × 22%` for the slider, and `100 + 25 × holds` % for bespoke (175% for its three) — or, for CH03's horizontal track, as a function of the measured track width. The craft and bridal chapters pin an inner stage rather than their section, so the coda and the suite beneath them scroll in when the pin releases. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
+Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=100%` for the hero (no spacing), `+=155%` for the craft stage (140% on a phone), `+=110%` for the worlds, and `80 + 22 × holds` % for bespoke (146% for its three). Only four chapters pin; the window, the departments, bridal, men and kids, heritage and the concierge invitation are read at the pace of a page. The craft chapter pins an inner stage rather than its section, so the coda beneath it scrolls in when the pin releases. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
 
-Every chapter's scroll animation lives inside its own `useGSAP` scope — and, where it branches by viewport, its own `gsap.matchMedia` context — and reverts itself. Tickers that live outside a GSAP context (CH01, CH06, CH08) are removed in their effect cleanup. Nothing kills triggers globally.
+Every chapter's scroll animation lives inside its own `useGSAP` scope — and, where it branches by viewport, its own `gsap.matchMedia` context — and reverts itself. The one ticker that lives outside a GSAP context (the hero's pointer drift) is removed in its effect cleanup. Nothing kills triggers globally.
 
 ## Reduced motion
 
 There are two independent layers, because one of them has to work before any JavaScript has run.
 
-**1. Pre-hydration CSS.** An inline script in `src/app/layout.tsx` stamps `data-rm="1"` on `<html>` when `(prefers-reduced-motion: reduce)` matches, alongside `data-visited` and `data-coarse`. Chapters whose composition is only traversable by scroll would be unreachable if the pin were never built, so `globals.css` gives them a stacked reading order under `html[data-rm="1"]` — no JavaScript involved, and no hydration mismatch possible. The heritage track becomes a vertical column with its panels full-width and unclipped; `#ch07` and `#ch09` lose their fixed height and overflow; the vitrine and bespoke stages are hidden while the slider rail and bespoke stack become the visible layout; `#page-root` drops its `100svh` bottom margin and the footer stops being fixed.
+**1. Pre-hydration CSS.** An inline script in `src/app/layout.tsx` stamps `data-rm="1"` on `<html>` when `(prefers-reduced-motion: reduce)` matches, alongside `data-visited` and `data-coarse`. A chapter whose composition is only traversable by scroll would be unreachable if the pin were never built, so `globals.css` gives it a stacked reading order under `html[data-rm="1"]` — no JavaScript involved, and no hydration mismatch possible. Bespoke (`#ch09`) loses its fixed height and overflow and its stage is hidden while its stack becomes the visible layout; `#page-root` drops its `100svh` bottom margin and the footer stops being fixed.
 
 **2. Per-chapter GSAP.** Every pinned chapter's `mm.add()` carries a `reduce: '(prefers-reduced-motion: reduce)'` condition alongside `desktop` and `mobile`, combined with the store's tier:
 
@@ -209,11 +209,9 @@ There are two independent layers, because one of them has to work before any Jav
 const still = reduce || reduced;
 ```
 
-The media query is the source of truth — GSAP reverts the other branch when it flips — and the store covers the case where the tier was reduced for another reason. The `still` branch builds no pin, no scrub and no timeline. It sets the composed end state (`Ch02Craft`: the object lit, every label named, one closing note; `Ch03Heritage`: the paper up, the numeral in ink, the masks open, the facade in colour; `Ch05Bridal`: the film full-bleed behind the words, no pre-roll frame) and calls `ready()`.
+The media query is the source of truth — GSAP reverts the other branch when it flips — and the store covers the case where the tier was reduced for another reason. The `still` branch builds no pin, no scrub and no timeline. It sets the composed end state (`Ch02Craft`: the object lit, every label named, one closing note; `Ch04Worlds`: the columns in place, the paper gone) and calls `ready()`. The unpinned chapters have no such branch: the reveal hooks set their targets to the finished state, and the heritage facade's monochrome-to-colour scrub is simply not built.
 
-The two unpinned chapters, CH06 and CH08, have no such branch: they read the store's tier directly — CH08 sets its mask and divider to the centre and stops there, CH06 skips its pointer ticker and leaves the pieces to the reveal hooks.
-
-Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, the reveal hooks set their targets to the finished state, WebGL does not mount (`orbRenderer` is forced to `static` and `CraftScene` is gated on `HIGH` / `MEDIUM`), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
+Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`orbRenderer` is forced to `static`; `CraftScene` gives way to a still of the same object, rendered once by `scripts/assets/craft-poster.mjs`), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
 
 ## Traps we hit
 
@@ -247,11 +245,11 @@ enforces it alongside the "House" rules.
 
 | Family | What it does | What it claims | Where |
 |---|---|---|---|
-| `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph | the Close Look (CH02, Pearl Blossom Choker); PDPs |
-| `composition` | the same mechanism at the scale of a suite — tikka, earrings, choker, haar named in place | the same, one scale up | the bridal suite after the film (CH05, Rang-e-Jamal emerald suite) |
-| `goldwork` | the scale ladder — collar, pendant, earring, nearer each time | this is the same picture, nearer | the wall's scene slot (CH06, the gold Rang-e-Jamal set); PDPs |
-| `setting` | the anatomy of one setting as photographed — stone, halo, shank | these are the parts of this setting, where they sit | the craft coda (CH02, Lavender Halo Ring) |
-| `pair` | the two of a pair across one frame — crowns, bells, drops — and the pull-back side by side | the right earring is the right earring; nothing is mirrored | Bespoke (CH09, Emerald Tassel Earrings) |
+| `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph | Bridal, the choker beside the suite (Pearl Blossom Choker); PDPs |
+| `composition` | the same mechanism at the scale of a suite — tikka, earrings, choker, haar named in place | the same, one scale up | Bridal, the suite that opens the chapter (Rang-e-Jamal emerald suite) |
+| `goldwork` | the scale ladder — collar, pendant, earring, nearer each time | this is the same picture, nearer | Gold, closely — the figure that closes the gold chapter (the gold Rang-e-Jamal set); PDPs |
+| `setting` | the anatomy of one setting as photographed — stone, halo, shank | these are the parts of this setting, where they sit | the craft coda (Lavender Halo Ring) |
+| `pair` | the two of a pair across one frame — crowns, bells, drops — and the pull-back side by side | the right earring is the right earring; nothing is mirrored | Bespoke (Emerald Tassel Earrings) |
 
 Five families, one mechanism. Ring anatomy from teardown photography, layering compositors and
 loose-stone setting sequences were all considered and all rejected for the same reason: each
