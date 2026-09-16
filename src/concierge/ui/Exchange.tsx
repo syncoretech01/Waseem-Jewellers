@@ -30,7 +30,9 @@ export function langOf(language: string | null): string | undefined {
 /** The transcript as an editorial script: the visitor's lines set small, the concierge's set large. */
 export function ExchangeList({ latestOnly = false }: { latestOnly?: boolean }) {
   const allTurns = useConciergeStore((s) => s.turns);
-  const turns = latestOnly ? latestExchange(allTurns) : allTurns;
+  // a reply the visitor spoke over before it had a word — nothing said, nothing done — leaves no empty line
+  const settled = allTurns.filter((t) => t.role === 'visitor' || t.streaming || t.text || t.tools?.length || t.result);
+  const turns = latestOnly ? latestExchange(settled) : settled;
   const error = useConciergeStore((s) => s.error);
   const state = useConciergeStore((s) => s.state);
   const language = useConciergeStore((s) => s.memory.language);
