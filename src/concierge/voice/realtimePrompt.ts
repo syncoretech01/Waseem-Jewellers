@@ -51,6 +51,13 @@ export const TRANSCRIPTION_PROMPT =
 /** The same vocabulary as literal terms, for the transcription models that take keywords. */
 export const TRANSCRIPTION_KEYWORDS = ['Waseem Jewellers', 'haar', 'satlada', 'raani haar', 'choker', 'tikka', 'jhumka', 'kangan', 'bangle', 'angoothi', 'nath', 'polki', 'kundan', 'jadau', 'heera', 'sona', 'tola', 'lakh', 'crore', 'baraat', 'walima', 'mehndi', 'dulhan', 'Rang-e-Jamal', 'Aks-e-Noor', 'Naqsh-e-Gul', 'Dewan', 'Rukh-e-Jana', 'dikhao', 'kholo', 'chahiye', 'halka', 'bhaari', 'ehde varga', 'doosra', 'hor dikhao', 'save karo', 'thora simple wala'];
 
+/**
+ * The one tool whose registry name carries a phrase the visitor must never read: the session
+ * knows it by the name the concierge uses, and the adapter maps it back before validating.
+ */
+export const REALTIME_TOOL_ALIASES: Record<string, string> = { bookAppointment: 'openPrivateConsultation' };
+const ALIAS_OF: Record<string, string> = Object.fromEntries(Object.entries(REALTIME_TOOL_ALIASES).map(([alias, name]) => [name, alias]));
+
 /** Only what the concierge can act on from a browser; the aliases and the server-side tools stay out. */
 const EXCLUDED = new Set<ToolDef['name']>(['showBridal', 'showGold', 'showDiamond', 'getCurrentContext', 'navigate']);
 
@@ -72,7 +79,7 @@ function cleanProperty(p: JsonSchemaProperty): Record<string, unknown> {
 export function realtimeTools() {
   return TOOL_DEFS.filter((t) => t.runtime === 'browser' && !EXCLUDED.has(t.name)).map((t) => ({
     type: 'function' as const,
-    name: t.name,
+    name: ALIAS_OF[t.name] ?? t.name,
     description: t.description,
     parameters: {
       type: 'object',

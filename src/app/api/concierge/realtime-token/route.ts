@@ -1,4 +1,6 @@
 import { realtimeEnv } from '@/server/env';
+import { getRepository } from '@/data/repository';
+import { priceLabelOf, specLineOf } from '@/data/clientIndex';
 import { clientIp, sameOrigin, takeToken, type Limit } from '@/server/concierge/limits';
 import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
 
@@ -14,27 +16,45 @@ import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_IN
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const TOKEN_LIMIT: Limit = { perMinute: 6, perHour: 40 };
+/** Sessions, not sentences: a conversation reconnects only after four minutes of silence or a closed panel. */
+const TOKEN_LIMIT: Limit = { perMinute: 4, perHour: 24 };
 const UPSTREAM_TIMEOUT_MS = 12_000;
-/** Ten minutes is only the window for the handshake; the call itself outlives it. */
-const SECRET_SECONDS = 600;
+/** The window for the handshake, which takes about two seconds; the call itself outlives it. A shorter secret is a smaller thing to lose. */
+const SECRET_SECONDS = 120;
 
 const VOICE_SET = new Set<string>(REALTIME_VOICES);
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/[<>]/g, '').slice(0, max) : '');
 
-/** Only the shapes the browser is allowed to describe; a slug it invents costs it nothing here because the tools validate. */
-function sanitiseContext(raw: unknown): VoiceContextInput {
+/**
+ * Only slugs are believed. The browser names the pieces it is looking at; their names and
+ * published facts come from the repository here, exactly as the text path does it — a
+ * visitor's request body cannot put words into the session's instructions beyond a route
+ * shape and the standing request, which is theirs anyway.
+ */
+const ROUTE = /^\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+){0,2})?$/;
+async function sanitiseContext(raw: unknown): Promise<VoiceContextInput> {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const rows = await getRepository().rows();
+  const bySlug = new Map(rows.map((row) => [row.s, row]));
+  const factsOf = (slug: string) => {
+    const row = bySlug.get(slug);
+    return row ? { name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null;
+  };
   const piece = r.pieceInView && typeof r.pieceInView === 'object' ? (r.pieceInView as Record<string, unknown>) : null;
-  const recent = Array.isArray(r.recent) ? r.recent.slice(0, 6) : [];
+  const pieceSlug = piece ? str(piece.slug, 120) : '';
+  const known = pieceSlug ? factsOf(pieceSlug) : null;
+  const recent = (Array.isArray(r.recent) ? r.recent.slice(0, 6) : [])
+    .map((x) => (x && typeof x === 'object' ? str((x as Record<string, unknown>).slug, 120) : ''))
+    .filter(Boolean)
+    .map((slug, i) => ({ slug, resolved: factsOf(slug), ordinal: i + 1 }))
+    .filter((x) => x.resolved)
+    .map((x) => ({ ordinal: x.ordinal, slug: x.slug, name: x.resolved!.name, facts: x.resolved!.facts }));
+  const route = str(r.route, 120);
   return {
-    route: str(r.route, 120) || '/',
-    pieceInView: piece && str(piece.slug, 120) ? { slug: str(piece.slug, 120), name: str(piece.name, 120), facts: str(piece.facts, 160) } : null,
-    recent: recent
-      .map((x) => (x && typeof x === 'object' ? (x as Record<string, unknown>) : {}))
-      .map((x, i) => ({ ordinal: i + 1, slug: str(x.slug, 120), name: str(x.name, 120), facts: str(x.facts, 160) }))
-      .filter((x) => x.slug && x.name),
+    route: ROUTE.test(route) ? route : '/',
+    pieceInView: known ? { slug: pieceSlug, ...known } : null,
+    recent,
     wishlistCount: Math.max(0, Math.min(40, Number(r.wishlistCount) || 0)),
     standing: str(r.standing, 160),
   };
@@ -57,7 +77,7 @@ export async function POST(request: Request) {
   }
   /** An audition may ask for another voice from the fixed list; anything else is the configured one. */
   const voice = typeof body.voice === 'string' && VOICE_SET.has(body.voice) ? body.voice : env.voice;
-  const instructions = withContext(VOICE_INSTRUCTIONS, renderVoiceContext(sanitiseContext(body.context)));
+  const instructions = withContext(VOICE_INSTRUCTIONS, renderVoiceContext(await sanitiseContext(body.context)));
 
   /**
    * What the visitor's words are written down with. The live transcription model takes the

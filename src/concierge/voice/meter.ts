@@ -19,12 +19,13 @@ let generation = 0;
 export async function startMeter(existing?: MediaStream, opts: { own?: boolean } = {}) {
   stopMeter();
   const mine = generation;
-  ownsStream = opts.own ?? !existing;
+  const own = opts.own ?? !existing;
+  ownsStream = own;
   try {
     const granted = existing ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
     if (mine !== generation) {
       // the session closed while the visitor was answering the permission prompt
-      if (ownsStream) granted.getTracks().forEach((t) => t.stop());
+      if (own) granted.getTracks().forEach((t) => t.stop());
       return false;
     }
     stream = granted;

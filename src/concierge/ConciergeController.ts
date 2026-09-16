@@ -59,6 +59,8 @@ export class ConciergeController {
   private draftListeners = new Set<(draft: string) => void>();
   /** The visitor rested the microphone of a live session; it does not reopen by itself. */
   private micPaused = false;
+  /** The rung the ladder settled on for this session, so a reply's resume does not climb back and wait again. */
+  private rung: VoiceTier = 'auto';
 
   constructor() {
     this.provider = createProvider();
@@ -158,7 +160,9 @@ export class ConciergeController {
     void loadIndex();
     // what this deployment is allowed to be: model or keyless, and which engine hears
     void probeCapabilities().then(() => this.refreshVoiceSupport());
-    const mode = opts.mode ?? s.mode;
+    // a voice stage with nothing to hear with is an apology; the composer is the honest opening
+    const wanted = opts.mode ?? s.mode;
+    const mode = wanted === 'voice' && !hearingAvailable() ? 'chat' : wanted;
     s.setMode(mode);
     if (s.state === 'IDLE' || s.state === 'HOVER') {
       s.transition('OPENING', 'open');
@@ -207,6 +211,7 @@ export class ConciergeController {
     s.setTranscript({ interim: '', final: '', active: false });
     s.setVoice({ sessionLive: false, preparing: false, fallback: null });
     this.micPaused = false;
+    this.rung = 'auto';
     s.transition('IDLE', 'close');
     // back to the orb, or the ENQUIRE button, or wherever it was — not to <body>
     const opener = this.opener;
@@ -248,7 +253,8 @@ export class ConciergeController {
     this.adapter?.abort();
     this.saidNoVoice = false;
     this.micPaused = false;
-    this.store.setVoice({ sessionLive: false, fallback: null });
+    this.rung = 'auto';
+    this.store.setVoice({ sessionLive: false, fallback: null, denied: false });
     this.store.forget();
   }
 
@@ -436,7 +442,7 @@ export class ConciergeController {
       }
       case 'text.ready': {
         // a session speaks for itself; nothing here reads its words aloud a second time
-        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && this.adapter?.kind !== 'realtime') {
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && !(this.adapter?.kind === 'realtime' && this.adapter.isLive?.())) {
           /**
            * "No voice for this language" is a modifier on SPEAKING, not a tenth state — the
            * nine states are unchanged. The concierge still answers; it simply says once that
@@ -473,7 +479,7 @@ export class ConciergeController {
          * from text.ready and used to stop there — a two-sentence answer, the register's whole
          * allowance, was written in full and voiced in half. The remainder is said from here.
          */
-        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && e.text && this.adapter?.kind !== 'realtime') {
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && e.text && !(this.adapter?.kind === 'realtime' && this.adapter.isLive?.())) {
           const rest = this.spokenText && e.text.startsWith(this.spokenText) ? e.text.slice(this.spokenText.length).trim() : this.spokenText ? '' : e.text;
           if (rest) {
             this.spokenText = e.text;
@@ -574,6 +580,8 @@ export class ConciergeController {
       if (!this.micPaused && this.adapter?.isLive?.() && this.store.state === 'VOICE_READY') this.store.transition('LISTENING', 'native');
       return;
     }
+    // the rung this session settled on, not the top of the ladder again
+    const resume = () => this.startListening(this.rung);
     // only after the visitor actually spoke through the microphone — never after a scripted example
     if (s.voice.adapter !== 'webspeech' && s.voice.adapter !== 'server') return;
     const check = () => {
@@ -582,7 +590,7 @@ export class ConciergeController {
         this.later(300, check);
         return;
       }
-      this.startListening();
+      resume();
     };
     this.later(400, check);
   }
@@ -682,6 +690,8 @@ export class ConciergeController {
   startListening(tier: VoiceTier = 'auto') {
     const s = this.store;
     this.micPaused = false;
+    // a tap on the ring returns to the rung the session settled on; only a fresh session climbs again
+    if (tier === 'auto' && this.rung !== 'auto') tier = this.rung;
     // a mic opened over the concierge's own sentence is an interruption, and the stage says so
     const interrupted = s.state === 'SPEAKING' || this.speaking;
     if (s.mode !== 'voice') s.setMode('voice');
@@ -743,7 +753,10 @@ export class ConciergeController {
         if (this.store.state === 'LISTENING') this.store.transition('VOICE_READY', 'end');
       },
       onError: ({ code }) => {
+        // an adapter that has been replaced or aborted has no say over the stage any more
+        if (this.adapter !== adapter) return;
         const st = this.store;
+        const sentenceLost = st.voice.transcribing;
         st.setTranscript({ active: false });
         st.setVoice({ preparing: false, transcribing: false });
         if (code === 'NO_SPEECH') {
@@ -759,12 +772,16 @@ export class ConciergeController {
            * hearing. The stage says which — in the visitor's words, not the engine's.
            */
           if (adapter.kind === 'realtime' && tier === 'auto') {
+            this.rung = 'server';
             st.setVoice({ fallback: 'server' });
             this.later(150, () => this.startListening('server'));
             return;
           }
           if (adapter.kind === 'server' && tier !== 'browser' && recognitionSupported()) {
+            this.rung = 'browser';
             st.setVoice({ fallback: 'browser' });
+            // a sentence that was already spoken is lost with the rung; the visitor is asked, not left guessing
+            if (sentenceLost) st.setError({ code: 'NO_SPEECH', message: CONCIERGE.voice.couldNotHear });
             this.later(150, () => this.startListening('browser'));
             return;
           }

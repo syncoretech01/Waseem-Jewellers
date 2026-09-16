@@ -39,9 +39,11 @@ export async function POST(request: Request) {
   } catch {
     return fail('BAD_REQUEST', 'unreadable body', 400);
   }
-  // an audition may name another voice from the fixed list; the harness may ask for a visitor's voice
-  const voice = typeof body.voice === 'string' && VOICE_SET.has(body.voice) ? body.voice : env.ttsVoice;
-  const visitor = body.style === 'visitor';
+  // an audition may name another voice from the fixed list and the harness a visitor's voice — only on a
+  // deployment that says so; a public one speaks in one voice, as the concierge, and nothing else
+  const audition = process.env.CONCIERGE_AUDITION === '1';
+  const voice = audition && typeof body.voice === 'string' && VOICE_SET.has(body.voice) ? body.voice : env.ttsVoice;
+  const visitor = audition && body.style === 'visitor';
   const text = String(body.text ?? '')
     .replace(/\s+/g, ' ')
     .trim()

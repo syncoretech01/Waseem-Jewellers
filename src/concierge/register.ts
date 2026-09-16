@@ -83,6 +83,13 @@ function sentences(text: string): string[] {
   return out.filter(Boolean);
 }
 
+/** The phrase guarantee alone — no sentence cap — for a spoken reply's written transcript. */
+export function stripBannedPhrases(raw: string): string {
+  let text = raw;
+  for (const [re, to] of STRIP) text = text.replace(re, to);
+  return text;
+}
+
 export function enforceBrandRegister(raw: string): string {
   let text = raw;
   for (const [re, to] of STRIP) text = text.replace(re, to);

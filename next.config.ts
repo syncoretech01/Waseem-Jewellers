@@ -33,12 +33,11 @@ const config: NextConfig = {
     qualities: [70, 82],
     minimumCacheTTL: 60 * 60 * 24 * 30,
     /**
-     * The long tail of the catalogue is resized from the shop's own CDN rather than
-     * localised — 656 products at Stage 1's quality would be 150 MB+ in git. The browser
-     * still only ever talks to this domain: the origin is /_next/image, nothing is
-     * hotlinked into the page, and the optimiser's output is cached at the edge.
+     * The long tail of the catalogue is resized by the shop's own CDN rather than localised —
+     * 656 products at Stage 1's quality would be 150 MB+ in git. The browser fetches those
+     * frames from cdn.shopify.com at the width the page asks for; the loader is the only
+     * place that writes such a URL.
      */
-    remotePatterns: [{ protocol: 'https', hostname: 'cdn.shopify.com', pathname: '/s/files/**' }],
   },
   /**
    * Stage 1 had one collection and two curated "edits" of it, reached by `?edit=`. Those

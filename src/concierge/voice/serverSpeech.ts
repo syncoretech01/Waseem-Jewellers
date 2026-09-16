@@ -109,7 +109,8 @@ async function fetchSpeech(text: string): Promise<string> {
 
 export const serverSpeechEngine: SpeechEngine = {
   kind: 'server',
-  isSupported: () => typeof window !== 'undefined' && capabilities().voice === 'server' && typeof Audio !== 'undefined',
+  // the same credential powers the native tier, so the middle rung speaks through the server there too
+  isSupported: () => typeof window !== 'undefined' && (capabilities().voice === 'server' || capabilities().voice === 'native') && typeof Audio !== 'undefined',
   /** The server voice speaks every language the concierge writes in; nothing is ever voiceless. */
   plan: (text: string): SpeechPlan => ({ parts: [{ text, voice: null, lang: 'auto', rate: 1 }], missingAVoice: false }),
   speak(text: string, handlers: SpeechHandlers) {

@@ -18,8 +18,8 @@ export const dynamic = 'force-dynamic';
 
 /** A sentence a second is generous; the hourly figure allows an afternoon of trying pieces on. */
 const TRANSCRIBE_LIMIT: Limit = { perMinute: 20, perHour: 160 };
-/** Fifteen seconds of Opus at 24 kbps is ~45 KB; the cap is a fence, not a budget. */
-const MAX_AUDIO_BYTES = 2_500_000;
+/** Fifteen seconds of Opus at 24 kbps is ~45 KB, of 128 kbps webm ~250 KB; the cap is the fence, and it is billed by the minute. */
+const MAX_AUDIO_BYTES = 600_000;
 const UPSTREAM_TIMEOUT_MS = 20_000;
 
 /** The words this shop deals in, so a transcription model spells them as the visitor did. */

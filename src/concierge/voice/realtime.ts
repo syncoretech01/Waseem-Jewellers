@@ -6,6 +6,8 @@ import { renderVoiceContext, withContext } from './realtimePrompt';
 import type { VoiceAdapter, VoiceHandlers, VoiceSessionRuntime } from './adapters';
 import type { ToolName } from '../types';
 import { romaniseDevanagari } from '@/lib/romanise';
+import { stripBannedPhrases } from '../register';
+import { REALTIME_TOOL_ALIASES } from './realtimePrompt';
 
 /**
  * The realtime tier: one model that hears, understands and speaks.
@@ -72,7 +74,7 @@ function scriptOf(text: string): 'ur' | 'pa-Guru' | null {
 }
 
 /** The written form of what was said: no markdown, no exclamation, one space. */
-const tidy = (s: string) => s.replace(/[*_#`]+/g, '').replace(/!+/g, '.').replace(/\s+/g, ' ').trim();
+const tidy = (s: string) => stripBannedPhrases(s.replace(/[*_#`]+/g, '').replace(/!+/g, '.')).replace(/\s+/g, ' ').trim();
 
 export class RealtimeVoiceAdapter implements VoiceAdapter {
   readonly kind = 'realtime' as const;
@@ -86,6 +88,12 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private meterRaf = 0;
   private live = false;
   private connecting: Promise<void> | null = null;
+  /** Bumped by every teardown; a connect() that was cancelled mid-handshake sees it and lets go. */
+  private generation = 0;
+  private settleOpen: ((err: Error) => void) | null = null;
+  private rounds = 0;
+  /** A sentence has been sent and no reply has finished for it yet. */
+  private outstanding = false;
   private baseInstructions = '';
   private lastContext = '';
   private contextTimer: number | null = null;
@@ -174,6 +182,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   sendText(text: string): boolean {
     if (!this.live || !this.dc || this.dc.readyState !== 'open') return false;
     this.interrupt();
+    this.armIdle();
+    this.outstanding = true;
     this.note('text.sent', text.slice(0, 60));
     this.send({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] } });
     this.send({ type: 'response.create' });
@@ -186,12 +196,20 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       h.onError({ code: 'UNSUPPORTED', message: 'no runtime' });
       return;
     }
+    // an abort during the handshake bumps the generation; every step below checks it and lets go
+    const gen = ++this.generation;
+    const cancelled = () => gen !== this.generation;
     let mic: MediaStream;
     try {
       mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     } catch (e) {
+      if (cancelled()) return;
       const name = e instanceof Error ? e.name : '';
       h.onError({ code: name === 'NotAllowedError' || name === 'SecurityError' ? 'MIC_DENIED' : 'UNSUPPORTED', message: name });
+      return;
+    }
+    if (cancelled()) {
+      mic.getTracks().forEach((t) => t.stop());
       return;
     }
     this.mic = mic;
@@ -202,12 +220,18 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ context: this.runtime.context() }),
+        signal: AbortSignal.timeout(12_000),
       });
       if (!res.ok) throw new Error(`token ${res.status}`);
       token = (await res.json()) as TokenResponse;
     } catch (e) {
+      if (cancelled()) return;
       this.releaseMic();
       h.onError({ code: 'UNSUPPORTED', message: e instanceof Error ? e.message : 'token' });
+      return;
+    }
+    if (cancelled()) {
+      this.releaseMic();
       return;
     }
     this.baseInstructions = token.instructions;
@@ -244,28 +268,38 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       };
 
       const offer = await pc.createOffer();
+      if (cancelled()) throw new Error('aborted');
       await pc.setLocalDescription(offer);
       const sdp = await fetch(token.callsUrl, {
         method: 'POST',
         body: offer.sdp,
         headers: { authorization: `Bearer ${token.token}`, 'content-type': 'application/sdp' },
+        signal: AbortSignal.timeout(12_000),
       });
+      if (cancelled()) throw new Error('aborted');
       if (!sdp.ok) throw new Error(`calls ${sdp.status}`);
       await pc.setRemoteDescription({ type: 'answer', sdp: await sdp.text() });
+      if (cancelled()) throw new Error('aborted');
 
       await new Promise<void>((resolve, reject) => {
         if (dc.readyState === 'open') return resolve();
         const timer = window.setTimeout(() => reject(new Error('channel timeout')), 12_000);
-        dc.onopen = () => {
+        const settle = (err?: Error) => {
           window.clearTimeout(timer);
-          resolve();
+          this.settleOpen = null;
+          if (err) reject(err);
+          else resolve();
         };
-        dc.onerror = () => {
-          window.clearTimeout(timer);
-          reject(new Error('channel error'));
-        };
+        this.settleOpen = settle;
+        dc.onopen = () => settle();
+        dc.onerror = () => settle(new Error('channel error'));
       });
     } catch (e) {
+      if (cancelled() || (e instanceof Error && e.message === 'aborted')) {
+        // let go quietly: the visitor moved on, and no error belongs to them
+        if (!cancelled()) this.teardown('connect');
+        return;
+      }
       this.teardown('connect');
       h.onError({ code: 'NETWORK', message: e instanceof Error ? e.message : 'connect' });
       return;
@@ -284,6 +318,10 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private teardown(reason: string) {
     const wasLive = this.live;
     this.live = false;
+    this.generation += 1;
+    this.connecting = null;
+    this.settleOpen?.(new Error('aborted'));
+    this.settleOpen = null;
     this.note('teardown', reason);
     if (this.contextTimer) window.clearTimeout(this.contextTimer);
     if (this.idleTimer) window.clearTimeout(this.idleTimer);
@@ -291,6 +329,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     this.idleTimer = null;
     for (const off of this.unsubscribe) off();
     this.unsubscribe = [];
+    if (this.dc) this.dc.onopen = this.dc.onclose = this.dc.onerror = this.dc.onmessage = null;
+    if (this.pc) this.pc.ontrack = this.pc.onconnectionstatechange = null;
     try {
       this.dc?.close();
     } catch {
@@ -318,7 +358,22 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       this.speaking = false;
       this.runtime?.emit({ type: 'voice.speaking', active: false });
     }
+    // a sentence the session was answering when it ended is failed, not forgotten: the stage
+    // must not stay at "A moment." for a reply that is not coming
+    const openTurn = this.turnId;
+    const lost = this.outstanding;
+    this.turnId = null;
+    this.replyText = '';
+    this.utteranceId = null;
+    this.interim = '';
+    this.utterances.clear();
+    this.callsThisTurn = 0;
+    this.rounds = 0;
+    this.turnHadTool = false;
+    this.outstanding = false;
+    this.lastContext = '';
     if (wasLive) {
+      if (openTurn || lost) this.runtime?.emit({ type: 'turn.error', turnId: openTurn ?? uid('t'), message: reason, recoverable: true });
       this.runtime?.emit({ type: 'voice.session', status: 'ended' });
       this.handlers?.onEnd();
     }
@@ -342,6 +397,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   }
 
   private armIdle() {
+    if (!this.live) return;
     if (this.idleTimer) window.clearTimeout(this.idleTimer);
     this.idleTimer = window.setTimeout(() => this.teardown('idle'), IDLE_MS);
   }
@@ -432,6 +488,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
 
       case 'input_audio_buffer.speech_stopped': {
         this.note('speech.stopped');
+        this.outstanding = true;
+        this.armIdle();
         this.utteranceId = uid('v');
         if (typeof e.item_id === 'string') this.utterances.set(e.item_id, this.utteranceId);
         if (this.utterances.size > 12) this.utterances.delete(this.utterances.keys().next().value!);
@@ -478,11 +536,14 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
 
       case 'response.created': {
         this.responseOpen = true;
+        this.outstanding = false;
+        this.armIdle();
         if (!this.turnId) {
           this.turnId = uid('t');
           this.replyText = '';
           this.turnHadTool = false;
           this.callsThisTurn = 0;
+          this.rounds = 0;
           rt.emit({ type: 'turn.start', turnId: this.turnId });
         }
         this.note('response.created');
@@ -492,7 +553,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       case 'response.output_audio_transcript.delta':
       case 'response.output_text.delta': {
         if (!this.turnId) break;
-        const delta = String(e.delta ?? '');
+        const delta = stripBannedPhrases(String(e.delta ?? ''));
         if (!this.replyText) this.note('first.delta');
         this.replyText += delta;
         rt.emit({ type: 'text.delta', turnId: this.turnId, delta });
@@ -532,6 +593,17 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         this.responseOpen = false;
         const response = (e.response ?? {}) as Record<string, unknown>;
         this.note('response.done', String(response.status ?? ''));
+        if (response.status === 'failed') {
+          // the provider could not answer: said as an error the stage recovers from, never as an empty line
+          const details = (response.status_details ?? {}) as Record<string, unknown>;
+          this.note('response.failed', JSON.stringify(details).slice(0, 120));
+          const turnId = this.turnId ?? uid('t');
+          this.turnId = null;
+          this.replyText = '';
+          this.pending.clear();
+          rt.emit({ type: 'turn.error', turnId, message: 'response failed', recoverable: true });
+          break;
+        }
         // calls queued from this response are answered first; the next response continues the turn
         void this.drainCalls().then(() => {
           if (this.pending.size === 0 && this.running === 0 && !this.responseOpen) this.finishTurn();
@@ -551,7 +623,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private static readonly CALLS_PER_TURN = 4;
   private callsThisTurn = 0;
 
-  private queueCall(callId: string, name: string, args: string) {
+  private queueCall(callId: string, rawName: string, args: string) {
+    const name = REALTIME_TOOL_ALIASES[rawName] ?? rawName;
     if (!callId || !name || this.answered.has(callId) || this.pending.has(callId)) return;
     this.pending.set(callId, { callId, name, args });
     this.note('tool.queued', name);
@@ -600,8 +673,10 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       }
     }
     if (answered && this.live) {
+      this.rounds += 1;
       this.responseOpen = true;
-      this.send({ type: 'response.create' });
+      // after three rounds of actions the model answers with what it has; it may not act again
+      this.send(this.rounds >= 3 || this.callsThisTurn >= RealtimeVoiceAdapter.CALLS_PER_TURN ? { type: 'response.create', response: { tool_choice: 'none' } } : { type: 'response.create' });
       this.pushContext(true);
     }
   }
@@ -609,7 +684,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private finishTurn() {
     const rt = this.runtime;
     const turnId = this.turnId;
-    if (!rt || !turnId) return;
+    if (!rt || !turnId || !this.live) return;
     const text = tidy(this.replyText);
     rt.emit({ type: 'text.done', turnId, text });
     rt.emit({ type: 'turn.done', turnId });

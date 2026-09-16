@@ -11,8 +11,8 @@ interface ImgProps {
   id?: string;
   /**
    * A product image of either tier. A flagship piece resolves to a localised asset with a
-   * blur placeholder; a long-tail piece is resized from the shop's CDN by the optimiser, so
-   * the browser still only ever talks to our own domain.
+   * blur placeholder and build-time width variants; a long-tail piece is resized by the shop's
+   * own CDN at the width the page asks for (see src/lib/imageLoader.ts).
    */
   image?: ProductImage | ImageRef;
   /** Required: how wide the image renders, e.g. "(min-width:1280px) 62vw, 100vw". */

@@ -156,7 +156,7 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
             type="button"
             aria-pressed={listening}
             aria-label={micLabel}
-            disabled={preparing || denied || working}
+            disabled={preparing || working}
             onClick={() => (listening ? controller?.stopListening() : controller?.startListening())}
             className={cn(
               'relative inline-flex h-12 w-12 items-center justify-center rounded-full border transition-colors duration-500',
