@@ -205,8 +205,8 @@ export function SemanticFigure({ descriptor, fallback, className, sizes, driven 
             style={{ background: 'linear-gradient(to top, rgba(11,10,9,0.82), rgba(11,10,9,0.45) 45%, transparent)' }}
           />
 
-          {/* labels are lit by an attribute and faded by CSS; GSAP never touches them */}
-          <div className="pointer-events-none absolute inset-0">
+          {/* labels are lit by an attribute and faded by CSS; GSAP never touches them — and they are a visual annotation, not part of the link's name */}
+          <div className="pointer-events-none absolute inset-0" aria-hidden>
             {resolved.regions.map((r) => (
               <p
                 key={r.key}

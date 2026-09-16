@@ -281,7 +281,7 @@ class SnapshotRepository implements CatalogueRepository {
    * stones. Authored rank leads within a kind, then how much is published about the piece.
    */
   async showcase(): Promise<Showcase> {
-    const shown = (p: Product) => p.media.hero.role === 'packshot' && Boolean(p.spec.grossWeightGrams || p.spec.purity) && (p.media.hero.ref.kind === 'local' || (p.media.hero.ref.width ?? 0) >= 1800);
+    const shown = (p: Product) => p.media.hero.role === 'packshot' && Boolean(p.spec.grossWeightGrams && p.spec.purity) && (p.media.hero.ref.kind === 'local' || (p.media.hero.ref.width ?? 0) >= 1800);
     const pool = order(LISTABLE_PRODUCTS.filter(shown), 'featured');
     const byKind = new Map<Category, Product[]>();
     for (const p of pool) if (p.category) byKind.set(p.category, [...(byKind.get(p.category) ?? []), p]);
@@ -291,7 +291,6 @@ class SnapshotRepository implements CatalogueRepository {
       ['necklace', 'gold'],
       ['ring', 'diamond'],
       ['earrings', 'gold'],
-      ['bridal-set', undefined],
       ['pendant', 'diamond'],
       ['bracelet', 'gold'],
       ['chain', 'gold'],
@@ -314,11 +313,13 @@ class SnapshotRepository implements CatalogueRepository {
     // a kind's door and its face come from the first department, in the order the shop is
     // walked, that has a page for it: rings are fronted by a gold ring, not a child's
     const WALK: Department[] = ['gold', 'diamond', 'men', 'kids'];
-    for (const [category, total] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
+    for (const [category] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
       const home = WALK.find((department) => perDepartment.find((d) => d.department === department)?.categories.some((c) => c.category === category));
       const hero = byKind.get(category as Category)?.find((p) => !home || p.departments.includes(home));
       if (!hero || !home) continue;
-      categories.push({ category, label: CATEGORY_PLURAL[category as Category], total, href: `/${home}/${category}`, hero: rowOf(hero) });
+      // the number beside the kind is the number behind its door, not the catalogue's
+      const behind = perDepartment.find((d) => d.department === home)?.categories.find((c) => c.category === category)?.count ?? 0;
+      categories.push({ category, label: CATEGORY_PLURAL[category as Category], total: behind, href: `/${home}/${category}`, hero: rowOf(hero) });
     }
 
     // the kind that leads each tray: what reads largest on a plate, then the rest in the order a

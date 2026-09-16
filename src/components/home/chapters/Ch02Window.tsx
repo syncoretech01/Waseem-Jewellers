@@ -20,8 +20,13 @@ export function tagOf(r: PieceRow): string {
   return [r.k, grams, r.ct !== undefined ? `${r.ct}\u00a0ct` : undefined, r.rf].filter(Boolean).join(' · ');
 }
 
-/** The piece's kind, for the line above its name. */
-export const kindOf = (r: PieceRow) => (r.c ? CATEGORY_LABEL[r.c as Category] : 'Jewellery');
+/** The piece's kind, for the line above its name — empty where the name already says it (a "Baby Bangle" filed as a bracelet is not captioned "Bracelet"). */
+export function kindOf(r: PieceRow): string {
+  const kind = r.c ? CATEGORY_LABEL[r.c as Category] : 'Jewellery';
+  const name = r.t.toLowerCase();
+  const named = [...Object.values(CATEGORY_LABEL), 'bangle', 'bracelet', 'suite', 'set'].some((k) => name.includes(k.toLowerCase()));
+  return named ? '' : kind;
+}
 
 /**
  * Nine positions in a twelve-column window, read left to right and down in three rows: one
@@ -85,7 +90,7 @@ export function Ch02Window({ pieces, kinds, total }: { pieces: PieceRow[]; kinds
               <li key={row.s} className={cn('col-span-1', slot.col, slot.offset, i === 0 && 'col-span-2')} data-rise>
                 <PieceLink product={pieceRefOf(row)} sizes={SIZES[slot.size]!} aspect={slot.aspect} cursor="view">
                   <div className="mt-4 flex flex-col gap-1">
-                    <p className="micro text-ink/50">{kindOf(row)}</p>
+                    {kindOf(row) && <p className="micro text-ink/50">{kindOf(row)}</p>}
                     <p className={cn('font-display leading-tight text-ink', slot.size === 'lg' ? 'text-[1.375rem]' : 'text-[1.0625rem]')} style={{ fontVariationSettings: slot.size === 'lg' ? '"opsz" 22' : '"opsz" 16' }}>
                       {row.t}
                     </p>
@@ -100,18 +105,16 @@ export function Ch02Window({ pieces, kinds, total }: { pieces: PieceRow[]; kinds
           })}
         </ul>
 
-        {/* the kinds: every category with a page, counted across the whole collection */}
+        {/* the kinds: every category with a page, each a door into the department that carries it */}
         {kinds.length > 0 && (
           <nav className="mt-[10svh] border-t border-ink/10 pt-8 md:mt-[12svh] md:pt-10" aria-label={COPY.window.kinds} data-rise>
             <p className="micro text-ink/50">{COPY.window.kinds}</p>
-            <ul className="mt-5 flex flex-wrap gap-x-9 gap-y-4 md:grid md:grid-cols-5 md:gap-x-8 md:gap-y-5">
+            <ul className="mt-5 flex flex-wrap gap-x-9 gap-y-4 lg:grid lg:grid-cols-5 lg:gap-x-8 lg:gap-y-5">
               {kinds.map((k) => (
                 <li key={k.category}>
+                  {/* the kind alone: a count here would be one department's number under the whole shop's word — the departments count their own kinds */}
                   <TransitionLink href={k.href} className="group/kind flex items-baseline gap-3 py-2" data-cursor="explore">
                     <span className="display text-[clamp(1.375rem,2vw,2rem)] leading-none text-ink transition-colors group-hover/kind:text-gold-deep">{k.label}</span>
-                    <span className="font-display text-[0.8125rem] text-ink/45" style={{ fontVariationSettings: '"opsz" 12' }}>
-                      {k.total}
-                    </span>
                   </TransitionLink>
                 </li>
               ))}

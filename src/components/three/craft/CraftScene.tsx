@@ -143,8 +143,8 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
     const together = 1 - win(p, 0.82, 0.96);
     const target = {
       lift: win(p, 0.12, 0.3) * 0.62 * together,
-      bezelDrop: win(p, 0.3, 0.48) * 0.42 * together,
-      bandDrop: win(p, 0.48, 0.64) * 0.95 * together,
+      bezelDrop: (win(p, 0.3, 0.48) * 0.42 * together) / far,
+      bandDrop: (win(p, 0.48, 0.64) * 0.95 * together) / far,
       claw: win(p, 0.64, 0.82) * together,
       finish: win(p, 0.64, 0.82),
       pull: win(p, 0.82, 1),

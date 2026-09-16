@@ -90,6 +90,7 @@ export function Ch03Heritage() {
                       {s.name}
                     </span>
                     <span className="micro max-w-[22em] text-right text-ink/50 transition-colors group-hover/room:text-ink">{s.address}</span>
+                    <span className="sr-only"> — opens in Google Maps in a new tab</span>
                   </a>
                 </li>
               ))}

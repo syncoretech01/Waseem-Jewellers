@@ -170,7 +170,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
           <h2 className="display text-[2.4rem] leading-[1.02] text-ivory">{COPY.bespoke.title}</h2>
           <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.bespoke.line}</p>
         </div>
-        {figureFor(false)}
+        {!desktop && figureFor(false)}
         <div className="pt-2">
           <Button variant="bracket" onClick={() => openConsultation({ topic: 'bespoke', source: 'cta' })}>
             {COPY.bespoke.cta}

@@ -29,6 +29,8 @@ interface VideoProps {
   revealAfter?: number;
   /** Paint the clip's own poster beneath the film. Set false when the caller already shows the same frame. */
   showStill?: boolean;
+  /** Always the 720 file: for an inset that never renders wider than a third of the screen. */
+  lightFile?: boolean;
 }
 
 /**
@@ -36,13 +38,15 @@ interface VideoProps {
  * (playback is started from an effect once the tier is known), portrait source for phones,
  * paused when off-screen, never played under reduced motion or when the visitor paused media.
  */
-export function Video({ id, className, style, autoPlayInView = true, preload = 'none', onFirstFrame, ref, ariaLabel, portrait = true, revealAfter = 0, showStill = true }: VideoProps) {
+export function Video({ id, className, style, autoPlayInView = true, preload = 'none', onFirstFrame, ref, ariaLabel, portrait = true, revealAfter = 0, showStill = true, lightFile = false }: VideoProps) {
   const asset = getVideo(id);
   const el = useRef<HTMLVideoElement>(null);
   const tier = useQualityStore((s) => s.tier);
   // a small screen or a visitor saving data takes the light film; a desktop keeps the full one
   // even on a weak tier, because a full-bleed clip is where compression shows
-  const light = useQualityStore((s) => s.coarse || s.saveData);
+  const lightDevice = useQualityStore((s) => s.coarse || s.saveData);
+  // an inset a third of the screen wide never needs the full film
+  const light = lightDevice || Boolean(lightFile);
   const paused = useSiteStore((s) => s.videoPaused);
   const firstFrameSent = useRef(false);
   const [revealed, setRevealed] = useState(false);
@@ -175,8 +179,8 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
    * Choosing the file with matchMedia and rendering a plain <source> is the whole fix.
    */
 
-  const landscape = tier === 'LOW' && light ? asset.src720 : asset.src1280;
-  const landscapeAv1 = tier === 'LOW' && light ? asset.src720Av1 : asset.src1280Av1;
+  const landscape = (tier === 'LOW' && light) || lightFile ? asset.src720 : asset.src1280;
+  const landscapeAv1 = (tier === 'LOW' && light) || lightFile ? asset.src720Av1 : asset.src1280Av1;
   const src = isPortraitPhone ? asset.srcPortrait : landscape;
   const srcAv1 = isPortraitPhone ? asset.srcPortraitAv1 : landscapeAv1;
   const subject = `${Math.round(asset.subject[0] * 100)}% ${Math.round(asset.subject[1] * 100)}%`;

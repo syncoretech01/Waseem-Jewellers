@@ -37,7 +37,7 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
           </div>
 
           {/* the words, the kinds, the door — on a phone the title leads, the pieces follow, the kinds close */}
-          <div className="contents md:sticky md:top-[calc(var(--nav-h)+4svh)] md:order-2 md:col-span-4 md:flex md:flex-col md:gap-9 md:pl-[2vw]">
+          <div className="contents md:top-[calc(var(--nav-h)+4svh)] md:order-2 md:col-span-4 md:flex md:flex-col md:gap-9 md:pl-[2vw] md:[@media(min-height:800px)]:sticky">
             <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-champagne">{COPY.departments.diamond.eyebrow}</Eyebrow>
               <h2 id="diamond-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ivory opacity-0 [text-wrap:balance]">
@@ -77,7 +77,7 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
             <div className="flex flex-col gap-4 md:col-span-4 md:col-start-8 md:pb-[10svh]" data-rise>
               <p className="micro text-champagne">{COPY.departments.diamond.suite.eyebrow}</p>
               <p className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ivory">{COPY.departments.diamond.suite.title}</p>
-              <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70">{COPY.departments.diamond.suite.line}</p>
+              <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70">{COPY.departments.diamond.suite.line(suite)}</p>
             </div>
           </div>
         )}

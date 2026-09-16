@@ -54,7 +54,7 @@ export function PieceLink({ product, imageId, sizes, className, aspect = '4 / 5'
     <a
       ref={ref}
       href={href}
-      className={cn('group/piece relative block outline-none', className)}
+      className={cn('group/piece relative block', className)}
       data-cursor={cursor}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -76,7 +76,8 @@ export function PieceLink({ product, imageId, sizes, className, aspect = '4 / 5'
           <div className="absolute inset-0">{figure}</div>
         ) : (
           <div className="absolute inset-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/piece:scale-[1.03] group-focus-visible/piece:scale-[1.03]" data-reveal-inner>
-            <Img {...(imageId ? { id: imageId } : { image: product.media.hero })} sizes={sizes} priority={priority} plain data={{ 'flip-source': product.slug }} />
+            {/* a caption beneath names the piece; the photograph is then decorative, so the link is not named twice */}
+            <Img {...(imageId ? { id: imageId } : { image: product.media.hero })} sizes={sizes} priority={priority} plain alt={children ? '' : undefined} data={{ 'flip-source': product.slug }} />
           </div>
         )}
         <span

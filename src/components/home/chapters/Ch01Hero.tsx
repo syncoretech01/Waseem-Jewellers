@@ -140,7 +140,8 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
           type: 'chars',
           mask: 'chars',
           aria: 'auto',
-          onSplit: (self) => gsap.from(self.chars, { yPercent: 110, duration: 1.2, stagger: 0.03, ease: 'wj.out', delay: 0.35 }),
+          // the split is undone once the intro has played, so its inline styles do not outlive it
+          onSplit: (self) => gsap.from(self.chars, { yPercent: 110, duration: 1.2, stagger: 0.03, ease: 'wj.out', delay: 0.35, onComplete: () => self.revert() }),
         });
       }
     },
@@ -206,8 +207,9 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
           <h1 id="hero-title" className="intro-title display text-[clamp(2.5rem,11.5vw,8.75rem)] leading-[0.92] tracking-[inherit] text-ivory opacity-0 md:whitespace-nowrap md:text-[clamp(3rem,7.4vw,8.75rem)]">
             {/* two words on a phone, one line on a desk — never a word broken across lines */}
             {COPY.hero.name.map((word, i) => (
-              <span key={word} className={i === 0 ? 'block md:mr-[0.22em] md:inline' : 'block md:inline'}>
-                {word}
+              <span key={word}>
+                {i > 0 && ' '}
+                <span className="block md:inline">{word}</span>
               </span>
             ))}
           </h1>
@@ -219,7 +221,7 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
         </div>
         {/* the departments: what is sold, and how much of it — the first doors on the page */}
         {departments.length > 0 && (
-          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
+          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments and their piece counts">
             <ul className="intro-tail flex flex-wrap items-baseline gap-x-7 gap-y-1 opacity-0 md:gap-x-9">
               {departments.map(({ department, count }) => (
                 <li key={department}>

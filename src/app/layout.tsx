@@ -74,6 +74,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${display.variable} ${sans.variable} ${urdu.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* the long tail of the catalogue is resized by the shop's own CDN; the connection is opened before the first tile asks */}
+        <link rel="preconnect" href="https://cdn.shopify.com" />
+      </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: STAMP_SCRIPT }} />
         <Providers>{children}</Providers>

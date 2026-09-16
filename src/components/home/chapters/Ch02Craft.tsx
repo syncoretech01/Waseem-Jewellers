@@ -10,7 +10,8 @@ import { Img } from '@/components/media/Img';
 import { LoaderStone } from '@/components/loader/LoaderStone';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
-import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { pieceRefOf } from '@/data/clientIndex';
+import { tagOf } from './Ch02Window';
 import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import { craftProgress, CRAFT_WINDOWS, stageAt } from './craftProgress';
@@ -98,7 +99,8 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           // composed still: the object lit, every label named, and one closing note
           // (the notes share one absolute box, so only the last may show)
           setReveal(1);
-          gsap.set([labels, closing, eyebrow], { autoAlpha: 1 });
+          gsap.set([labels, eyebrow], { autoAlpha: 1 });
+          gsap.set(closing, { autoAlpha: 0 });
           gsap.set(notes, { autoAlpha: 0 });
           const lastNote = notes[notes.length - 1];
           if (lastNote) gsap.set(lastNote, { autoAlpha: 1 });
@@ -268,7 +270,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
                     <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
                       {coda.t}
                     </p>
-                    <p className="micro text-ivory/55">{specLineOf(coda) || priceLabelOf(coda)}</p>
+                    <p className="micro text-ivory/55">{tagOf(coda)}</p>
                   </div>
                   <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.craft.coda.view}</span>
                 </div>

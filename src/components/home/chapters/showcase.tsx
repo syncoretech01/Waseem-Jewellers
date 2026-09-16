@@ -20,7 +20,7 @@ export function PieceCluster({ rows, tone = 'ink', reverse = false }: { rows: Pi
   const hover = tone === 'ink' ? 'group-hover/piece:text-ink' : 'group-hover/piece:text-ivory';
   const label = (row: PieceRow, size: 'lg' | 'sm') => (
     <div className="mt-3 flex flex-col gap-1 md:mt-4">
-      <p className={cn('micro', muted)}>{kindOf(row)}</p>
+      {kindOf(row) && <p className={cn('micro', muted)}>{kindOf(row)}</p>}
       <p className={cn('font-display leading-tight', fg, size === 'lg' ? 'text-[1.25rem] md:text-[1.375rem]' : 'text-[1rem]')} style={{ fontVariationSettings: size === 'lg' ? '"opsz" 22' : '"opsz" 14' }}>
         {row.t}
       </p>

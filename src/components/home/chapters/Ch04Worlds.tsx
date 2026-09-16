@@ -160,9 +160,9 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                 {[w.imagery.piece, w.imagery.hero].map((id, k) => {
                   const isHero = k === 1;
                   const tile = (
-                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero')} style={{ aspectRatio: isHero ? '4 / 5' : '1 / 1' }}>
+                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero')} style={{ aspectRatio: isHero ? '4 / 5' : '4 / 3' }}>
                       <div className={cn('absolute inset-0 transition-transform duration-1000 ease-[var(--ease-out-expo)]', active === i && 'scale-[1.06]')}>
-                        <Img id={id} sizes="18vw" plain eager className="h-full w-full object-cover" style={!isHero && w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} data={isHero ? { world: w.slug } : undefined} />
+                        <Img id={id} sizes="18vw" plain className="h-full w-full object-cover" style={!isHero && w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} data={isHero ? { world: w.slug } : undefined} />
                       </div>
                       {isHero && <span className={cn('pointer-events-none absolute inset-0 border border-gold-hi/40 transition-opacity duration-700', active === i ? 'opacity-100' : 'opacity-0')} />}
                     </div>
@@ -214,7 +214,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
             </div>
           ))}
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10svh] bg-gradient-to-t from-ink to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[6svh] bg-gradient-to-t from-ink to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[calc(var(--nav-h)+2.5rem)] bg-gradient-to-b from-ink via-ink/60 to-transparent" />
       </div>
 

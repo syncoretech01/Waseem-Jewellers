@@ -38,7 +38,7 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
       <div ref={scope}>
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
           {/* the words, the kinds, the door — on a phone the title leads, the pieces follow, the kinds close */}
-          <div className="contents md:sticky md:top-[calc(var(--nav-h)+4svh)] md:col-span-4 md:flex md:flex-col md:gap-9">
+          <div className="contents md:top-[calc(var(--nav-h)+4svh)] md:col-span-4 md:flex md:flex-col md:gap-9 md:[@media(min-height:800px)]:sticky">
             <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-ink/60">{COPY.departments.gold.eyebrow}</Eyebrow>
               <h2 id="gold-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ink opacity-0 [text-wrap:balance]">

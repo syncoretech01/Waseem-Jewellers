@@ -13,7 +13,7 @@ export const WORLDS: CollectionWorld[] = [
     numeral: 'I',
     mood: 'Velvet, candlelight and gold.',
     palette: { bg: '#1a0f12', accent: '#5a1f2b' },
-    imagery: { column: ['p02-hero', 'p02-third', 'w-rukh-3'], hero: 'p02-third', piece: 'p02-third', pieceFocus: '50% 62%' },
+    imagery: { column: ['p02-hero', 'p02-third', 'w-rukh-3'], hero: 'p02-third', piece: 'p02-second', pieceFocus: '50% 70%' },
     href: '/collections/bridal?world=rukh-e-jana',
     pieces: ['rukh-e-jana-pleated-collar'],
   },

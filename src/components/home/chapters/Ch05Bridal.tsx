@@ -150,8 +150,8 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
         <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] border-t border-ink/10 pt-[8svh] md:mt-[12svh] md:grid-cols-12 md:items-center md:pt-[9svh]">
           <div className="md:col-span-6" data-rise>
             {/* the film is letterboxed inside its own frame; the inset crops to the picture */}
-            <div className="relative overflow-hidden bg-ink" style={{ aspectRatio: '2.2 / 1' }}>
-              <Video id="bridal-cinema" ariaLabel="Naqsh-e-Gul — the bridal film" className="absolute inset-0" portrait={false} />
+            <div className="relative overflow-hidden bg-ink" style={{ aspectRatio: '2.35 / 1' }}>
+              <Video id="bridal-cinema" ariaLabel="Naqsh-e-Gul — the bridal film" className="absolute inset-0" portrait={false} lightFile />
               <div className="grain pointer-events-none absolute inset-0" />
             </div>
             <p className="micro mt-4 text-ink/55">{COPY.bridal.credit}</p>

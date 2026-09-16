@@ -17,7 +17,7 @@ function Half({ department, copy, href, align }: { department: ShowcaseDepartmen
   const [lead, ...rest] = department.rows;
   const label = (row: PieceRow, size: 'lg' | 'sm') => (
     <div className="mt-3 flex flex-col gap-1">
-      <p className="micro text-ink/50">{kindOf(row)}</p>
+      {kindOf(row) && <p className="micro text-ink/50">{kindOf(row)}</p>}
       <p className={cn('font-display leading-tight text-ink', size === 'lg' ? 'text-[1.1875rem]' : 'text-[0.9375rem]')} style={{ fontVariationSettings: size === 'lg' ? '"opsz" 20' : '"opsz" 14' }}>
         {row.t}
       </p>
@@ -80,7 +80,10 @@ export function Ch07MenKids({ men, kids }: { men?: ShowcaseDepartment; kids?: Sh
   if (!men && !kids) return null;
 
   return (
-    <section ref={ref} id="ch07-menkids" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-label="Men and Kids">
+    <section ref={ref} id="ch07-menkids" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="menkids-title">
+      <h2 id="menkids-title" className="sr-only">
+        Men and Kids
+      </h2>
       <div ref={scope} className="grid grid-cols-1 gap-y-[12svh] md:grid-cols-2 md:gap-x-[4vw]">
         {men && <Half department={men} copy={COPY.departments.men} href="/men" align="left" />}
         {kids && <Half department={kids} copy={COPY.departments.kids} href="/kids" align="right" />}

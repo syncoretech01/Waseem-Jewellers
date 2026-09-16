@@ -140,9 +140,9 @@ export interface WallCut {
 export interface ShowcaseCategory {
   category: string;
   label: string;
-  /** every listable piece of the kind, across departments */
+  /** the pieces of the kind behind the door — the count the page it opens will show */
   total: number;
-  /** the department page where the kind is largest — the door */
+  /** the department page the kind opens on: the first, in the order the shop is walked, that has a page for it */
   href: string;
   /** the piece that fronts the kind */
   hero: PieceRow;
