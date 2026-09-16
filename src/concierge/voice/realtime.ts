@@ -108,6 +108,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private utterances = new Map<string, string>();
   private interim = '';
   private replyText = '';
+  /** A reply continued after an action joins the transcript with a space, not mid-word. */
+  private joinReply = false;
   private pending = new Map<string, PendingCall>();
   private running = 0;
   /** Bumped whenever the visitor moves on; an action still running finds it changed and stays out of the room. */
@@ -560,7 +562,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
           this.callsThisTurn = 0;
           this.rounds = 0;
           rt.emit({ type: 'turn.start', turnId: this.turnId });
-        }
+        } else this.joinReply = Boolean(this.replyText) && !/\s$/.test(this.replyText);
         this.note('response.created');
         break;
       }
@@ -568,7 +570,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       case 'response.output_audio_transcript.delta':
       case 'response.output_text.delta': {
         if (!this.turnId) break;
-        const delta = stripBannedPhrases(String(e.delta ?? ''));
+        const delta = (this.joinReply ? ' ' : '') + stripBannedPhrases(String(e.delta ?? ''));
+        this.joinReply = false;
         if (!this.replyText) this.note('first.delta');
         this.replyText += delta;
         rt.emit({ type: 'text.delta', turnId: this.turnId, delta });
@@ -716,6 +719,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     this.note('turn.done', text.slice(0, 80));
     this.turnId = null;
     this.replyText = '';
+    this.joinReply = false;
     this.utteranceId = null;
     this.armIdle();
   }
