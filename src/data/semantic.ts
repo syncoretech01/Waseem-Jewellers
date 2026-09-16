@@ -170,7 +170,7 @@ export const SEMANTIC: Record<string, SemanticDescriptor> = {
       {
         key: 'drops',
         label: 'The drops',
-        note: 'Fine gold chains falling to pink stones, matched drop for drop across the pair. Reference T06768 — 21K gold, 16.452 grams.',
+        note: 'Fine gold chains falling to pink stones, matched drop for drop across the pair.',
         rect: [0.25, 0.1, 0.5, 0.6],
         reviewed: true,
       },

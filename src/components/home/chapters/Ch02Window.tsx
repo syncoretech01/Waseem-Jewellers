@@ -37,7 +37,7 @@ const SLOTS = [
   { col: 'md:col-start-1 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[8svh]', size: 'md' },
   { col: 'md:col-start-6 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[2svh]', size: 'sm' },
   { col: 'md:col-start-9 md:col-span-4', aspect: '4 / 5', offset: 'md:-mt-[6svh]', size: 'md' },
-  { col: 'md:col-start-4 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[4svh]', size: 'sm' },
+  { col: 'md:col-start-9 md:col-span-3', aspect: '1 / 1', offset: 'md:-mt-[2svh]', size: 'sm' },
 ];
 
 const SIZES: Record<string, string> = {

@@ -81,6 +81,9 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  // a narrow stage stands further back, so the band never runs behind the labels on a phone
+  const width = useThree((s) => s.size.width);
+  const far = width < 640 ? 1.42 : width < 900 ? 1.18 : 1;
   const ready = useRef(false);
 
   // damped state
@@ -185,8 +188,8 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
       keyLight.current.position.set(2.2 + c.px * 0.8, 3.6 + c.finish * 0.8, 3 - c.py * 0.5);
     }
     camera.position.x = c.px * 0.3;
-    camera.position.y = 2.6 - c.py * 0.15 + c.pull * 0.9;
-    camera.position.z = 8.6 + c.pull * 2.2;
+    camera.position.y = (2.6 - c.py * 0.15 + c.pull * 0.9) * far;
+    camera.position.z = (8.6 + c.pull * 2.2) * far;
     camera.lookAt(0, -0.25, 0);
   });
 

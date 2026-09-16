@@ -191,7 +191,7 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
           <Video id="hero-royal" ref={video} onFirstFrame={heroPainted} preload="auto" revealAfter={0.55} showStill={false} ariaLabel="Royal Wedding — the Waseem film" />
         </div>
         <div className="hero-vignette pointer-events-none absolute inset-0 opacity-45" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 via-transparent to-ink/30" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/85 via-transparent to-ink/30" />
         <div className="grain pointer-events-none absolute inset-0" />
         <div className="letterbox absolute inset-x-0 top-0 h-[12svh] origin-top scale-y-[0.15] bg-ink" />
         <div className="letterbox absolute inset-x-0 bottom-0 h-[12svh] origin-bottom scale-y-[0.15] bg-ink" />
@@ -228,7 +228,7 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
                       {DEPARTMENT_LABEL[department]}
                       <span aria-hidden className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100" />
                     </span>
-                    <span className="micro text-ivory/50 transition-colors group-hover/dept:text-champagne">{COPY.hero.pieces(count)}</span>
+                    <span className="micro text-ivory/80 transition-colors group-hover/dept:text-champagne">{COPY.hero.pieces(count)}</span>
                   </TransitionLink>
                 </li>
               ))}

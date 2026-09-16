@@ -29,15 +29,15 @@ export function PieceCluster({ rows, tone = 'ink', reverse = false }: { rows: Pi
   );
   return (
     <div className="grid grid-cols-2 gap-x-[4vw] gap-y-8 md:grid-cols-12 md:gap-x-[2vw] md:gap-y-[5svh]">
-      <div className={cn('col-span-2 md:col-span-7 md:row-start-1', reverse ? 'md:col-start-6' : 'md:col-start-1')} data-rise>
-        <PieceLink product={pieceRefOf(lead)} sizes="(min-width: 768px) 34vw, 92vw" aspect="4 / 5" cursor="view">
+      <div className={cn('col-span-2 md:col-span-6 md:row-start-1', reverse ? 'md:col-start-7' : 'md:col-start-1')} data-rise>
+        <PieceLink product={pieceRefOf(lead)} sizes="(min-width: 768px) 30vw, 92vw" aspect="4 / 5" cursor="view">
           {label(lead, 'lg')}
         </PieceLink>
       </div>
-      <ul className={cn('col-span-2 grid grid-cols-2 gap-x-[4vw] gap-y-8 md:col-span-5 md:row-start-1 md:gap-x-[2vw] md:gap-y-[4svh]', reverse ? 'md:col-start-1' : 'md:col-start-8')} aria-label="More pieces">
+      <ul className={cn('col-span-2 grid grid-cols-2 gap-x-[4vw] gap-y-8 md:col-span-6 md:row-start-1 md:gap-x-[2vw] md:gap-y-[4svh]', reverse ? 'md:col-start-1' : 'md:col-start-7')} aria-label="More pieces">
         {rest.slice(0, 4).map((row, i) => (
           <li key={row.s} className={cn(i % 2 === 1 && 'md:mt-[8svh]')} data-rise>
-            <PieceLink product={pieceRefOf(row)} sizes="(min-width: 768px) 14vw, 44vw" aspect="1 / 1" cursor="view">
+            <PieceLink product={pieceRefOf(row)} sizes="(min-width: 768px) 16vw, 44vw" aspect="1 / 1" cursor="view">
               {label(row, 'sm')}
             </PieceLink>
           </li>

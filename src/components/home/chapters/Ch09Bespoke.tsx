@@ -68,7 +68,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: `+=${Math.min(150, 80 + 22 * regions.length)}%`,
+            end: `+=${Math.min(110, 50 + 20 * regions.length)}%`,
             pin: true,
             scrub: 0.5,
             anticipatePin: 1,

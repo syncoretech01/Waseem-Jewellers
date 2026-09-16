@@ -8,7 +8,6 @@ import { Video } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
 import { Eyebrow } from '@/components/ui/primitives';
-import { TransitionLink } from '@/components/motion/TransitionLink';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
 import { pieceRefOf } from '@/data/clientIndex';
@@ -172,9 +171,6 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
               <Button variant="hairline" onClick={() => openConsultation({ topic: 'bridal', source: 'cta' })}>
                 {COPY.bridal.ctaConsult}
               </Button>
-              <TransitionLink href="/collections/bridal" className="micro text-ink/55 underline-offset-4 transition-colors hover:text-ink hover:underline" data-cursor="explore">
-                {COPY.collections.eyebrow}
-              </TransitionLink>
             </div>
           </div>
         </div>

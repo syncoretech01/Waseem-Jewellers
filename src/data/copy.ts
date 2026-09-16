@@ -19,7 +19,7 @@ export const COPY = {
   },
   window: {
     eyebrow: 'The Window',
-    title: 'Photographed as they are.',
+    title: 'The pieces themselves.',
     /** {total} is the live count of listable pieces. */
     line: (total: number) => `${total} pieces, each with its weight and purity published. Priced on request, shown by appointment in Lahore.`,
     kinds: 'By kind',
@@ -61,7 +61,7 @@ export const COPY = {
     coda: {
       eyebrow: 'The same anatomy, in one piece',
       title: 'Stone, halo, shank.',
-      line: 'The object above is a drawing. This is a ring you can see in Lahore: the same parts, photographed once, named where they sit.',
+      line: 'The same anatomy on a ring you can see in Lahore — stone, halo and shank, photographed once and named where they sit.',
       view: 'View the piece',
     },
     labels: [

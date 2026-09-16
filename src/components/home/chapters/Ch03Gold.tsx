@@ -56,8 +56,8 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
             </div>
           </div>
 
-          {/* the pieces */}
-          <div className="md:col-span-8">
+          {/* the pieces — first on a phone, beside the words on a desk */}
+          <div className="order-first md:order-none md:col-span-8">
             <PieceCluster rows={department.rows} />
           </div>
         </div>

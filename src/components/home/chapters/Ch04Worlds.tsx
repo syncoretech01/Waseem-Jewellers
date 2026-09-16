@@ -51,9 +51,11 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
         const columnsWrap = root.querySelector<HTMLElement>('.worlds-columns');
         if (!paper || !columnsWrap) return;
 
+        // the columns stand from the first frame: a screen of blank paper before a collection
+        // is a screen a visitor scrolls past
+        gsap.set(paper, { autoAlpha: 0 });
+        gsap.set(columnsWrap, { clipPath: 'inset(0% 0 0 0)' });
         if (mobile || still) {
-          gsap.set(paper, { autoAlpha: 0 });
-          gsap.set(columnsWrap, { clipPath: 'inset(0% 0 0 0)' });
           if (!still) {
             root.querySelectorAll<HTMLElement>('.world-row').forEach((row) => {
               gsap.fromTo(row.querySelectorAll('.world-tile'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 1, stagger: 0.08, ease: 'wj.out', scrollTrigger: { trigger: row, start: 'top 85%', once: true } });
@@ -65,12 +67,12 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
 
         const proxy = { progress: 0 };
         const setters = [...cols].map((c) => gsap.quickSetter(c, 'y', 'px'));
-        const travel = () => window.innerHeight * 0.22;
+        const travel = () => window.innerHeight * 0.16;
         const tick = () => {
           const t = travel();
           cols.forEach((_, i) => {
-            const base = -t * 0.5 * SPEEDS[i]!;
-            setters[i]!(base + proxy.progress * SPEEDS[i]! * t + (drift.current[`d${i}`] ?? 0));
+            // no head start: every column begins in place, so no tile starts clipped above the stage
+            setters[i]!(proxy.progress * SPEEDS[i]! * t + (drift.current[`d${i}`] ?? 0));
           });
         };
         gsap.ticker.add(tick);
@@ -80,7 +82,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: '+=110%',
+            end: '+=70%',
             pin: true,
             scrub: true,
             anticipatePin: 1,
@@ -91,15 +93,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
             },
           },
         });
-        // seam from the paper: the columns rise beneath it while it darkens (first 20%)
-        tl.fromTo(columnsWrap, { clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)', ease: 'none', duration: 0.2 }, 0)
-          // the paper darkens like light leaving it: ivory → champagne → deep gold → ink
-          .fromTo(paper, { backgroundColor: '#F4EFE6' }, { backgroundColor: '#D8C3A5', ease: 'none', duration: 0.07 }, 0)
-          .to(paper, { backgroundColor: '#5a4520', ease: 'none', duration: 0.07 }, 0.07)
-          .to(paper, { backgroundColor: '#0B0A09', ease: 'none', duration: 0.06 }, 0.14)
-          .to(paper, { autoAlpha: 0, ease: 'none', duration: 0.02 }, 0.2)
-          .fromTo(lights, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.05)
-          .to(proxy, { progress: 1, ease: 'none', duration: 1 }, 0);
+        tl.fromTo(lights, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.3 }, 0).to(proxy, { progress: 1, ease: 'none', duration: 1 }, 0);
         ready();
       });
     },
@@ -149,12 +143,12 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
         <h2 id="worlds-title" className="sr-only">
           Signature Collections
         </h2>
-        <p className="micro hidden text-ivory/50 md:block">{activeWorld ? activeWorld.mood : 'Five worlds'}</p>
+        <p className="micro hidden text-ivory/50 md:block">{activeWorld ? activeWorld.mood : 'Five collections'}</p>
       </div>
 
       {/* desktop columns */}
       <div className="worlds-columns absolute inset-0 z-[5] hidden md:block">
-        <div className="absolute inset-x-[3vw] top-0 flex h-full gap-[2vw]">
+        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+3rem)] flex h-full gap-[2vw]">
           {WORLDS.map((w, i) => (
             <div key={w.slug} className="relative flex-1">
               <span className="world-toplight hairline absolute inset-x-0 top-0 z-10" />
@@ -220,8 +214,8 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
             </div>
           ))}
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18svh] bg-gradient-to-t from-ink to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[22svh] bg-gradient-to-b from-ink via-ink/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10svh] bg-gradient-to-t from-ink to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[calc(var(--nav-h)+2.5rem)] bg-gradient-to-b from-ink via-ink/60 to-transparent" />
       </div>
 
       {/* mobile: rows headed by names */}
