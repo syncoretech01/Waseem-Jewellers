@@ -28,6 +28,8 @@ function statusLine(v: { state: string; preparing: boolean; transcribing: boolea
   if (v.transcribing && (v.state === 'LISTENING' || v.state === 'THINKING' || v.state === 'VOICE_READY')) return CONCIERGE.voice.hearing;
   if (v.denied && atRest) return CONCIERGE.micDenied;
   if (v.error && v.state !== 'LISTENING') return v.error;
+  // the sentence that was lost with a rung is asked for again on the microphone that just opened
+  if (v.error && v.state === 'LISTENING' && v.fallback) return v.error;
   if (!v.recognition && atRest) return CONCIERGE.voice.unavailable;
   if (v.state === 'LISTENING' && v.interrupted) return CONCIERGE.voice.interrupted;
   if (v.state === 'LISTENING' && v.adapter === 'scripted') return CONCIERGE.youMightSay.replace(/ —$/, '');
@@ -48,11 +50,14 @@ function VoiceRing({ state, size, active }: { state: ConciergeState; size: numbe
   const breath = useRef<HTMLSpanElement>(null);
   const thinking = state === 'THINKING' || state === 'EXECUTING_ACTION';
 
+  // the effect owns the breath's opacity in every state — React re-applies an inline style only
+  // when its value changes, so a value cleared here would otherwise stay cleared through the next states
   useEffect(() => {
     const el = breath.current;
     if (!el) return;
+    const rest = state === 'RESULT' ? 0.6 : 0.28;
     if (state !== 'LISTENING' && state !== 'SPEAKING') {
-      gsap.set(el, { clearProps: 'transform,opacity' });
+      gsap.set(el, { clearProps: 'transform', opacity: rest });
       return;
     }
     const setScale = gsap.quickSetter(el, 'scale');
@@ -65,7 +70,7 @@ function VoiceRing({ state, size, active }: { state: ConciergeState; size: numbe
     gsap.ticker.add(tick);
     return () => {
       gsap.ticker.remove(tick);
-      gsap.set(el, { clearProps: 'transform,opacity' });
+      gsap.set(el, { clearProps: 'transform', opacity: rest });
     };
   }, [state]);
 
@@ -78,7 +83,7 @@ function VoiceRing({ state, size, active }: { state: ConciergeState; size: numbe
       <span
         ref={breath}
         className="absolute inset-[16%] rounded-full border border-gold-hi"
-        style={{ opacity: state === 'RESULT' ? 0.6 : 0.28, animation: thinking ? 'breathe 1.6s ease-in-out infinite' : undefined }}
+        style={{ animation: thinking ? 'breathe 1.6s ease-in-out infinite' : undefined }}
       />
       <WaseemMark variant="crest" tone="current" title={null} className="h-[36%] w-auto text-fg" />
     </span>

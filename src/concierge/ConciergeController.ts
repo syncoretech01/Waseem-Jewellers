@@ -57,6 +57,8 @@ export class ConciergeController {
   private saidNoVoice = false;
   private afterOpen: (() => void) | null = null;
   private draftListeners = new Set<(draft: string) => void>();
+  /** Words for a composer that has not mounted yet — "Correct it" switches to chat and the field arrives a render later. */
+  private pendingDraft: string | null = null;
   /** The visitor rested the microphone of a live session; it does not reopen by itself. */
   private micPaused = false;
   /** The rung the ladder settled on for this session, so a reply's resume does not climb back and wait again. */
@@ -133,9 +135,19 @@ export class ConciergeController {
 
   onDraft(fn: (draft: string) => void) {
     this.draftListeners.add(fn);
+    const held = this.pendingDraft;
+    if (held) {
+      this.pendingDraft = null;
+      fn(held);
+    }
     return () => {
       this.draftListeners.delete(fn);
     };
+  }
+
+  private draft(text: string) {
+    if (this.draftListeners.size === 0) this.pendingDraft = text;
+    else this.draftListeners.forEach((fn) => fn(text));
   }
 
   // ── lifecycle ─────────────────────────────────────────────────────────────
@@ -176,7 +188,7 @@ export class ConciergeController {
       s.setGreeted(true);
     }
     const after = () => {
-      if (opts.prefill) this.draftListeners.forEach((fn) => fn(opts.prefill!));
+      if (opts.prefill) this.draft(opts.prefill);
       if (opts.submit) this.submitText(opts.submit, 'text');
       else if (opts.example) this.runExample();
       else if (opts.autoListen && mode === 'voice') this.startListening();
@@ -224,8 +236,8 @@ export class ConciergeController {
     if (s.mode === mode) return;
     // "Write" mid-sentence discards the half sentence rather than sending it — and a live
     // session rests its microphone rather than ending: the typed sentence joins the same conversation
+    const session = Boolean(this.adapter?.kind === 'realtime' && this.adapter.isLive?.());
     if (s.state === 'LISTENING' || s.voice.preparing) {
-      const session = this.adapter?.kind === 'realtime' && this.adapter.isLive?.();
       if (session) {
         this.adapter?.stop();
         this.micPaused = true;
@@ -233,6 +245,11 @@ export class ConciergeController {
       s.setVoice({ preparing: false, transcribing: false, sessionLive: session ? s.voice.sessionLive : false });
       s.setTranscript({ interim: '', final: '', active: false });
       if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'mode');
+    } else if (session && mode === 'chat') {
+      // the keyboard has the floor in every state, not only mid-sentence: a microphone the
+      // visitor cannot see must not keep hearing the room from behind the composer
+      this.adapter?.stop();
+      this.micPaused = true;
     }
     s.setMode(mode);
     const cur = this.store.state;
@@ -341,11 +358,13 @@ export class ConciergeController {
    * difference, which is the point.
    */
   tapCard(slug: string, name: string) {
+    // a tap has the floor: a reply still being said, spoken or streamed, stops here
+    this.cancelTurn();
+    cancelSpeech();
     const turnId = uid('t');
     const callId = uid('c');
     this.activeTurn = turnId;
     this.pendingResult = false;
-    this.spokenText = '';
     this.store.setError(null);
     this.onEvent({ type: 'turn.start', turnId });
     this.onEvent({ type: 'tool.call', turnId, callId, name: 'openProduct', args: { slug } });
@@ -362,11 +381,12 @@ export class ConciergeController {
 
   /** Two or three pieces side by side — dispatched directly, exactly as a tap on a card is. */
   comparePieces(slugs: string[]) {
+    this.cancelTurn();
+    cancelSpeech();
     const turnId = uid('t');
     const callId = uid('c');
     this.activeTurn = turnId;
     this.pendingResult = false;
-    this.spokenText = '';
     this.store.setError(null);
     this.onEvent({ type: 'turn.start', turnId });
     this.onEvent({ type: 'tool.call', turnId, callId, name: 'comparePieces', args: { slugs } });
@@ -384,6 +404,7 @@ export class ConciergeController {
 
   cancelTurn() {
     this.spokenText = '';
+    this.pendingResult = false;
     // a live session's reply is cut on both ends; a text turn is cancelled at the provider
     this.adapter?.interrupt?.();
     if (this.activeTurn) this.provider.cancelTurn(this.activeTurn);
@@ -504,7 +525,10 @@ export class ConciergeController {
           if (this.speaking) this.afterSpeech = finish;
           else finish();
         };
-        if (this.pendingResult && s.transition('RESULT', 'turn.done')) this.later(hold, settle);
+        // the result belongs to this turn alone; the next one earns its own hold
+        const showResult = this.pendingResult;
+        this.pendingResult = false;
+        if (showResult && s.transition('RESULT', 'turn.done')) this.later(hold, settle);
         else settle();
         if (s.turns.length && s.turns[s.turns.length - 1]?.text === CONCIERGE.close) this.later(900, () => this.close());
         break;
@@ -533,7 +557,8 @@ export class ConciergeController {
       case 'voice.utterance':
         if (!e.final) s.appendTurn({ id: e.id, role: 'visitor', text: e.text, source: 'voice', createdAt: Date.now() });
         else s.patchTurn(e.id, { text: e.text });
-        if (e.final) s.setLastVisitorText(e.text);
+        // a line the transcript could not write is not a sentence to retry or correct
+        if (e.final && !e.lost) s.setLastVisitorText(e.text);
         break;
       case 'voice.thinking': {
         this.clearTimers();
@@ -550,7 +575,9 @@ export class ConciergeController {
         break;
       }
       case 'voice.listening':
-        if (e.active) s.transition('LISTENING', 'native');
+        if (e.active) {
+          if (s.state !== 'LISTENING') s.transition('LISTENING', 'native');
+        }
         else if (s.state === 'LISTENING') s.transition('VOICE_READY', 'native');
         break;
       case 'voice.transcript':
@@ -705,6 +732,10 @@ export class ConciergeController {
     if (this.adapter !== adapter || adapter.kind !== 'realtime') {
       this.cancelTurn();
       this.adapter?.abort();
+    } else if (interrupted) {
+      // "Tap to interrupt" over the session's own sentence: the reply is cut on the server and
+      // in the room, and the conversation goes on from the visitor's next words
+      this.cancelTurn();
     }
     this.adapter = adapter;
     if (tier === 'auto') s.setVoice({ fallback: null });
@@ -735,7 +766,7 @@ export class ConciergeController {
       onStart: () => {
         this.store.setVoice({ preparing: false, denied: false });
         this.store.setTranscript({ active: true });
-        this.store.transition('LISTENING', 'mic');
+        if (this.store.state !== 'LISTENING') this.store.transition('LISTENING', 'mic');
       },
       onInterim: (text) => this.store.setTranscript({ interim: text, active: true }),
       onTranscribing: () => this.store.setVoice({ transcribing: true }),
@@ -780,9 +811,12 @@ export class ConciergeController {
           if (adapter.kind === 'server' && tier !== 'browser' && recognitionSupported()) {
             this.rung = 'browser';
             st.setVoice({ fallback: 'browser' });
-            // a sentence that was already spoken is lost with the rung; the visitor is asked, not left guessing
-            if (sentenceLost) st.setError({ code: 'NO_SPEECH', message: CONCIERGE.voice.couldNotHear });
-            this.later(150, () => this.startListening('browser'));
+            this.later(150, () => {
+              this.startListening('browser');
+              // a sentence already spoken is lost with the rung; the visitor is asked again, on the
+              // open microphone, rather than left to wonder — set after the rung opens, which clears errors
+              if (sentenceLost) this.store.setError({ code: 'NO_SPEECH', message: CONCIERGE.voice.couldNotHear });
+            });
             return;
           }
           // never a silent example in the visitor's name: say so, and leave the offer standing
@@ -826,7 +860,7 @@ export class ConciergeController {
     this.cancelTurn();
     cancelSpeech();
     this.setMode('chat');
-    this.draftListeners.forEach((fn) => fn(text));
+    this.draft(text);
   }
 
   /** Once more: the last words are cleared and the microphone is open again. */

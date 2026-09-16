@@ -244,6 +244,56 @@ try {
     await page.evaluate(() => window.__wjConcierge.stopListening());
     r = await waitFor(page, ['SPEAKING', 'RESULT', 'VOICE_READY'], 12000);
     ok(transcribeCalls === 1, `the recording went to the transcription route (${transcribeCalls})`);
+    // "Not quite? Correct it": the heard words land in a composer that mounts only after the switch
+    await page.evaluate(() => window.__wjConcierge.editHeard());
+    await settle(page, 500);
+    const corrected = await page.evaluate(() => ({ mode: window.__wjConcierge.store.mode, value: document.querySelector('form input')?.value ?? null }));
+    ok(corrected.mode === 'chat' && corrected.value === 'ab bracelets dikhao', `"Correct it" opens the composer with the heard words ("${corrected.value}")`);
+    ok(errors.length === 0, `no page errors (${errors.length})`);
+    await ctx.close();
+  }
+
+  // ── server tier, the transcription fails after the sentence: the browser rung opens and asks again ──
+  {
+    console.log('\nserver tier, transcription refused after the sentence (falls to the browser rung, asks again)');
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'] });
+    await ctx.addInitScript(FAKES);
+    await ctx.addInitScript(() => { try { sessionStorage.removeItem('wj:concierge:capabilities:v1'); } catch {} });
+    await ctx.route('**/api/concierge/capabilities', (route) => route.fulfill({ json: { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'server', enquiry: 'local', privacy: null } }));
+    await ctx.route('**/api/concierge/transcribe', (route) => route.fulfill({ status: 503, json: { error: { code: 'CONCIERGE_VOICE_OFFLINE', message: 'refused for the test' } } }));
+    await ctx.route('**/api/concierge/speak', (route) => route.fulfill({ status: 200, contentType: 'audio/mpeg', body: fs.readFileSync(TONE) }));
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto(`${BASE}/diamond`, { waitUntil: 'load', timeout: 120000 });
+    await settle(page, 3500);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } })));
+    let r = await waitFor(page, ['VOICE_READY']);
+    await settle(page, 600);
+    await page.evaluate(() => window.__wjConcierge.startListening());
+    r = await waitFor(page, ['LISTENING'], 6000);
+    await settle(page, 1200);
+    await page.evaluate(() => window.__wjConcierge.stopListening());
+    // the recording is refused; the rung below opens on its own and the sentence is asked for again
+    const after = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const started = performance.now();
+          const tick = () => {
+            const st = window.__wjConcierge.store;
+            const read = () => {
+              const now = window.__wjConcierge.store;
+              return { state: now.state, adapter: now.voice.adapter, fallback: now.voice.fallback, status: document.querySelector('[aria-live="polite"]')?.textContent?.trim() ?? '' };
+            };
+            if (st.state === 'LISTENING' && st.voice.adapter === 'webspeech') return setTimeout(() => resolve(read()), 120);
+            if (performance.now() - started > 8000) return resolve(read());
+            setTimeout(tick, 25);
+          };
+          tick();
+        }),
+    );
+    ok(after.adapter === 'webspeech' && after.fallback === 'browser', `the browser's own hearing took over (${after.adapter}/${after.fallback})`);
+    ok(/could not hear that clearly/i.test(after.status) && !/WebSpeech|API|provider|model error/i.test(after.status), `the lost sentence is asked for again in the visitor's words ("${after.status}")`);
     ok(errors.length === 0, `no page errors (${errors.length})`);
     await ctx.close();
   }

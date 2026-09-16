@@ -8,6 +8,7 @@ import type { ToolName } from '../types';
 import { romaniseDevanagari } from '@/lib/romanise';
 import { stripBannedPhrases } from '../register';
 import { REALTIME_TOOL_ALIASES } from './realtimePrompt';
+import { CONCIERGE } from '../copy';
 
 /**
  * The realtime tier: one model that hears, understands and speaks.
@@ -109,6 +110,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private replyText = '';
   private pending = new Map<string, PendingCall>();
   private running = 0;
+  /** Bumped whenever the visitor moves on; an action still running finds it changed and stays out of the room. */
+  private epoch = 0;
   private answered = new Set<string>();
   private responseOpen = false;
   private speaking = false;
@@ -166,9 +169,21 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   /** The reply stops here — on the server, which cancels the response, and on the page, which clears the audio. */
   interrupt() {
     if (!this.live) return;
+    this.supersede('interrupt');
+  }
+
+  /**
+   * Whatever was in flight is over. The response is cancelled on the server and its audio
+   * cleared on the page; the actions still queued are dropped and one still running answers
+   * into the conversation but no longer onto the stage; the turn is closed so the next
+   * sentence — spoken, typed, or a tap — opens its own.
+   */
+  private supersede(reason: string) {
+    this.epoch += 1;
+    this.pending.clear();
     if (this.responseOpen || this.speaking) {
-      this.send({ type: 'response.cancel' });
       this.send({ type: 'output_audio_buffer.clear' });
+      this.send({ type: 'response.cancel' });
     }
     this.responseOpen = false;
     if (this.speaking) {
@@ -176,7 +191,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       stopSpeechEnvelope();
       this.runtime?.emit({ type: 'voice.speaking', active: false });
     }
-    this.note('interrupt');
+    this.note(reason);
+    this.finishTurn();
   }
 
   sendText(text: string): boolean {
@@ -473,12 +489,9 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       case 'input_audio_buffer.speech_started': {
         this.note('speech.started');
         this.armIdle();
-        // the visitor speaks over the reply: the server cancels it, the page cuts the audio now
-        if (this.speaking || this.responseOpen) {
-          this.send({ type: 'output_audio_buffer.clear' });
-          this.send({ type: 'response.cancel' });
-          this.speaking = false;
-          rt.emit({ type: 'voice.speaking', active: false });
+        // the visitor speaks over the reply, or over an action still running: what was in flight is over
+        if (this.speaking || this.responseOpen || this.running > 0 || this.turnId) {
+          this.supersede('barge-in');
           rt.emit({ type: 'voice.transcript', text: '', final: false });
           rt.emit({ type: 'voice.listening', active: true });
         }
@@ -527,10 +540,12 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
 
       case 'conversation.item.input_audio_transcription.failed': {
         this.note('heard.failed');
-        // the stage must not wait for words that are not coming
-        h.onFinal(this.interim || '…', {});
+        // the words are not coming, though the model heard the sentence and answers it: the stage
+        // stops waiting, and the visitor's line says so rather than standing as three dots to "correct"
+        const partial = this.interim;
         this.interim = '';
-        if (this.utteranceId) rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: '…', final: true });
+        h.onFinal(partial, {});
+        if (this.utteranceId) rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: partial || CONCIERGE.voice.unheard, final: true, lost: !partial });
         break;
       }
 
@@ -634,6 +649,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private async drainCalls() {
     const rt = this.runtime;
     if (!rt || this.pending.size === 0) return;
+    const epoch = this.epoch;
     const calls = [...this.pending.values()];
     this.pending.clear();
     let answered = false;
@@ -643,6 +659,11 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       if (this.callsThisTurn > RealtimeVoiceAdapter.CALLS_PER_TURN) {
         this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_BUDGET', message: 'no more actions for this sentence; answer with what you have' }) } });
         answered = true;
+        continue;
+      }
+      // the visitor moved on while an earlier action ran: this one never touches the page
+      if (this.epoch !== epoch) {
+        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'CANCELLED', message: 'the visitor moved on before this ran' }) } });
         continue;
       }
       this.running += 1;
@@ -659,19 +680,23 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       rt.emit({ type: 'tool.call', turnId, callId: call.callId, name: call.name as ToolName, args });
       try {
         const outcome = await rt.executeTool(call.name as ToolName, args);
-        rt.emit({ type: 'tool.result', turnId, callId: call.callId, outcome });
-        this.note('tool.done', `${call.name}${outcome.label ? ` — ${outcome.label}` : ''}`);
+        // an action that finished after the visitor moved on reaches the conversation, not the stage
+        const stale = this.epoch !== epoch;
+        if (!stale) rt.emit({ type: 'tool.result', turnId, callId: call.callId, outcome });
+        this.note(stale ? 'tool.stale' : 'tool.done', `${call.name}${outcome.label ? ` — ${outcome.label}` : ''}`);
         const output = JSON.stringify(outcome.result ?? {}).slice(0, 4000);
         this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output } });
         answered = true;
       } catch (err) {
-        rt.emit({ type: 'tool.error', turnId, callId: call.callId, message: err instanceof Error ? err.message : 'tool' });
+        if (this.epoch === epoch) rt.emit({ type: 'tool.error', turnId, callId: call.callId, message: err instanceof Error ? err.message : 'tool' });
         this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_FAILED' }) } });
         answered = true;
       } finally {
         this.running -= 1;
       }
     }
+    // the sentence these answered is over; the next one has the floor and asks for its own reply
+    if (this.epoch !== epoch) return;
     if (answered && this.live) {
       this.rounds += 1;
       this.responseOpen = true;

@@ -27,7 +27,7 @@ const G_VOWELS: Record<string, string> = { ਅ: 'a', ਆ: 'aa', ਇ: 'i', ਈ: '
 const G_SIGNS: Record<string, string> = { 'ਾ': 'a', 'ਿ': 'i', 'ੀ': 'i', 'ੁ': 'u', 'ੂ': 'u', 'ੇ': 'e', 'ੈ': 'ai', 'ੋ': 'o', 'ੌ': 'au' };
 const G_CONSONANTS: Record<string, string> = {
   ਕ: 'k', ਖ: 'kh', ਗ: 'g', ਘ: 'gh', ਙ: 'n', ਚ: 'ch', ਛ: 'chh', ਜ: 'j', ਝ: 'jh', ਞ: 'n', ਟ: 't', ਠ: 'th', ਡ: 'd', ਢ: 'dh', ਣ: 'n',
-  ਤ: 't', ਥ: 'th', ਦ: 'd', ਧ: 'dh', ਨ: 'n', ਪ: 'p', ਫ: 'ph', ਬ: 'b', ਭ: 'bh', ਮ: 'm', ਯ: 'y', ਰ: 'r', ਲ: 'l', ਵ: 'w', ਸ: 's', ਹ: 'h',
+  ਤ: 't', ਥ: 'th', ਦ: 'd', ਧ: 'dh', ਨ: 'n', ਪ: 'p', ਫ: 'ph', ਬ: 'b', ਭ: 'bh', ਮ: 'm', ਯ: 'y', ਰ: 'r', ਲ: 'l', ਵ: 'w', ਸ: 's', ਹ: 'h', ੜ: 'r',
   ਸ਼: 'sh', ਖ਼: 'kh', ਗ਼: 'gh', ਜ਼: 'z', ਫ਼: 'f', ਲ਼: 'l',
 };
 const G_NUKTA: Record<string, string> = { ਸ: 'sh', ਖ: 'kh', ਗ: 'gh', ਜ: 'z', ਫ: 'f', ਲ: 'l' };
@@ -58,7 +58,13 @@ function romaniseGurmukhiRun(run: string): string {
     if (ch === G_VIRAMA || ch === G_NUKTA_MARK || ch === G_ADDAK || G_SIGNS[ch]) continue;
     let latin = G_CONSONANTS[ch];
     if (latin === undefined) {
+      // a letter outside the table is copied as it is, and keeps the vowel written after it
       out += ch;
+      const sign = chars[i + 1];
+      if (sign && G_SIGNS[sign]) {
+        out += G_SIGNS[sign];
+        i += 1;
+      }
       continue;
     }
     let next = chars[i + 1];
@@ -109,6 +115,11 @@ function romaniseRun(run: string): string {
     let latin = CONSONANTS[ch];
     if (latin === undefined) {
       out += ch;
+      const sign = chars[i + 1];
+      if (sign && SIGNS[sign]) {
+        out += SIGNS[sign];
+        i += 1;
+      }
       continue;
     }
     let next = chars[i + 1];

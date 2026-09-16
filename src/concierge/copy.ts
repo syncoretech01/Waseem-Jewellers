@@ -43,6 +43,8 @@ export const CONCIERGE = {
     editHeard: 'Correct it',
     retry: 'Once more',
     couldNotHear: 'I could not hear that clearly. You can try once more or write to me.',
+    /** The visitor's own line in the exchange when the transcript did not come; the answer still does. */
+    unheard: 'Not caught in writing.',
     interrupted: 'Go on — I am listening.',
     write: 'Write instead',
     heardHeading: 'Heard',
