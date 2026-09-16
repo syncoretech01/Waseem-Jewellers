@@ -1,180 +1,65 @@
 'use client';
 
-import { useRef } from 'react';
-import { gsap, useGSAP } from '@/lib/motion/gsap';
+import { useRef, useState } from 'react';
 import { useChapter } from '@/motion/hooks/useChapter';
-import { useRise } from '@/motion/hooks/useReveals';
-import { useQualityStore } from '@/state/qualityStore';
+import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useSiteStore } from '@/state/siteStore';
 import { Video } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/ui/primitives';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
-import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { pieceRefOf } from '@/data/clientIndex';
 import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import type { PieceRow } from '@/lib/facets';
+import { tagOf } from './Ch02Window';
 
-/** The portrait window and the closing frame share these proportions with the wall's first tile. */
+/** The portrait window's proportions, shared with the collection page's opening frame. */
 export const BRIDAL_FRAME = { widthVw: 28, ratio: 1.25 };
 
-function portraitInset(vw: number, vh: number, widthVw: number) {
-  const w = (vw * widthVw) / 100;
-  const h = w * BRIDAL_FRAME.ratio;
-  const x = (vw - w) / 2;
-  const y = (vh - h) / 2;
-  return `inset(${Math.max(0, y)}px ${x}px ${Math.max(0, y)}px ${x}px)`;
-}
-
 /**
- * CH05 — bridal cinema, and then the suite.
+ * CH05 — Bridal.
  *
- * A portrait window on the Naqsh-e-Gul film opens into full cinema, the room darkens around
- * the words, and at the close the frame contracts to a portrait as ivory rises. The film's
- * credit names the listed piece from its collection, so the cinema has a door.
- *
- * Then, on the ivory the film left behind, a bridal suite is looked at as a jeweller would:
- * tikka, earrings, choker and haar named where they sit in one photograph — and the figure
- * is the door to the suite. It is its own registered section, so the chrome follows the paper.
+ * The bridal department is the one place a photograph of a bride is the right photograph:
+ * a suite is made to be worn together, and only on a person does a tikka, a choker, a haar
+ * and a pair of earrings read as one piece. So the chapter opens on the suite itself, looked
+ * at as a jeweller would — each of the four named where it sits in one frame — with a second
+ * figure beside it on the choker Waseem lists, the film as an inset rather than a screen, and
+ * the count, the doors and the appointment beneath. No pin: it is read at the pace of a page.
  */
-export function Ch05Bridal({ suite, credit }: { suite?: PieceRow; credit?: PieceRow }) {
-  const { ref, ready } = useChapter({ id: 'bridal', theme: 'dark', pinned: true });
-  const { ref: closeRef } = useChapter({ id: 'bridal-close', theme: 'ivory' });
-  const closeScope = useRef<HTMLDivElement>(null);
-  const reduced = useQualityStore((s) => s.tier === 'REDUCED');
+export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; choker?: PieceRow; count?: number }) {
+  const { ref } = useChapter({ id: 'bridal', theme: 'ivory' });
+  const scope = useRef<HTMLDivElement>(null);
   const openConsultation = useSiteStore((s) => s.openConsultation);
-  const descriptor = suite ? semanticFor(suite.s) : undefined;
-  useRise(closeScope);
-
-  useGSAP(
-    () => {
-      const root = ref.current;
-      if (!root) return;
-      const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
-        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
-        // the media query is the source of truth: gsap reverts the other branch when it flips
-        const still = reduce || reduced;
-        const stage = root.querySelector<HTMLElement>('.bridal-stage');
-        const film = root.querySelector<HTMLElement>('.bridal-film');
-        const frame = root.querySelector<HTMLElement>('.bridal-frame');
-        const ambient = root.querySelector<HTMLElement>('.bridal-ambient');
-        const paper = root.querySelector<HTMLElement>('.bridal-paper');
-        const words = root.querySelectorAll<HTMLElement>('.bridal-word');
-        const tail = root.querySelectorAll<HTMLElement>('.bridal-tail');
-        const opening = root.querySelector<HTMLElement>('.bridal-opening');
-        if (!stage || !film || !frame || !ambient || !paper) return;
-
-        if (still) {
-          // composed still: the film full-bleed behind the words; no pre-roll caption, no frame
-          gsap.set(film, { clipPath: 'inset(0px)' });
-          gsap.set([words, tail], { autoAlpha: 1 });
-          gsap.set([opening, frame], { autoAlpha: 0 });
-          gsap.set(ambient, { opacity: 0.45 });
-          ready();
-          return;
-        }
-        if (mobile) {
-          gsap.set(film, { clipPath: 'inset(0px)' });
-          gsap.fromTo(words, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 1, stagger: 0.12, ease: 'wj.out', scrollTrigger: { trigger: stage, start: 'top 40%', once: true } });
-          gsap.fromTo(tail, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'wj.out', scrollTrigger: { trigger: stage, start: 'top 30%', once: true } });
-          gsap.set(opening, { autoAlpha: 1 });
-          ready();
-          return;
-        }
-
-        const openInset = () => portraitInset(window.innerWidth, window.innerHeight, 34);
-        const closeInset = () => portraitInset(window.innerWidth, window.innerHeight, BRIDAL_FRAME.widthVw);
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            // the stage pins, not the section: the suite beneath it scrolls in when the pin releases
-            trigger: stage,
-            start: 'top top',
-            end: '+=155%',
-            pin: true,
-            scrub: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
-        });
-        tl.fromTo(film, { clipPath: openInset }, { clipPath: 'inset(0px 0px 0px 0px)', ease: 'power1.inOut', duration: 0.35 }, 0)
-          .fromTo(frame, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.35)
-          .fromTo(opening, { autoAlpha: 1 }, { autoAlpha: 0, ease: 'none', duration: 0.15 }, 0.2)
-          .fromTo(ambient, { opacity: 0 }, { opacity: 0.6, ease: 'none', duration: 0.25 }, 0.55)
-          .fromTo(words, { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.16, stagger: 0.04 }, 0.62)
-          .fromTo(tail, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.1, stagger: 0.03 }, 0.74)
-          // the close: words fade, the frame contracts to the portrait, ivory rises, film → still
-          .to([words, tail], { autoAlpha: 0, y: -12, ease: 'none', duration: 0.08 }, 0.83)
-          .to(ambient, { opacity: 0, ease: 'none', duration: 0.1 }, 0.83)
-          .to(film, { clipPath: closeInset, ease: 'power1.inOut', duration: 0.17 }, 0.83)
-          .fromTo(paper, { clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)', ease: 'none', duration: 0.15 }, 0.85);
-        ready();
-      });
-    },
-    { scope: ref, dependencies: [reduced] },
-  );
-
-  const suiteSizes = '(min-width: 768px) 56vw, 92vw';
+  const [lit, setLit] = useState<string | null>(null);
+  useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
+  useRise(scope);
+  const suiteDescriptor = suite ? semanticFor(suite.s) : undefined;
+  const chokerDescriptor = choker ? semanticFor(choker.s) : undefined;
+  const suiteSizes = '(min-width: 768px) 50vw, 92vw';
+  const chokerSizes = '(min-width: 768px) 30vw, 92vw';
 
   return (
-    <>
-      <section ref={ref} id="ch05" className="relative bg-ink text-ivory" aria-labelledby="bridal-title">
-        <div className="bridal-stage relative h-[160svh] overflow-hidden md:h-svh">
-          <div className="bridal-paper pointer-events-none absolute inset-0 bg-ivory" style={{ clipPath: 'inset(100% 0 0 0)' }} />
-          <div className="bridal-film absolute inset-0 overflow-hidden" style={{ clipPath: 'inset(0px)' }}>
-            <Video id="bridal-cinema" ariaLabel="Naqsh-e-Gul — the bridal film" />
-            <div className="grain pointer-events-none absolute inset-0" />
-            <div className="bridal-frame pointer-events-none absolute inset-0 hidden md:block">
-              <div className="absolute left-1/2 top-1/2 h-[calc(34vw*1.25-48px)] w-[calc(34vw-48px)] -translate-x-1/2 -translate-y-1/2 border border-gold-hi/70" />
-            </div>
-          </div>
-          <div className="bridal-ambient pointer-events-none absolute inset-0 bg-ink opacity-0" />
-
-          {/* opening caption beneath the portrait window */}
-          <div className="bridal-opening pointer-events-none absolute inset-x-0 bottom-[8svh] hidden flex-col items-center gap-3 md:flex">
-            <p className="micro text-champagne">{COPY.bridal.eyebrow}</p>
-            <p className="font-display italic text-[1.125rem] text-ivory/80" style={{ fontVariationSettings: '"opsz" 18' }}>
-              {COPY.bridal.opening}
-            </p>
-          </div>
-
-          {/* the words */}
-          <div className="absolute inset-0 flex flex-col justify-end px-gutter pb-[10svh] md:justify-center md:pb-0">
-            <h2 id="bridal-title" className="display text-[clamp(3rem,8.5vw,9.5rem)] leading-[0.95] text-ivory">
-              {COPY.bridal.closing.map((line, i) => (
-                <span key={line} className={i === 2 ? 'bridal-word block italic text-champagne' : 'bridal-word block'}>
-                  {line}
-                </span>
-              ))}
+    <section ref={ref} id="ch05-bridal" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="bridal-title">
+      <div ref={scope}>
+        <div className="grid grid-cols-1 gap-x-[4vw] gap-y-6 md:grid-cols-12 md:items-end">
+          <div className="flex flex-col gap-4 md:col-span-7">
+            <Eyebrow className="text-ink/60">{COPY.bridal.eyebrow}</Eyebrow>
+            <h2 id="bridal-title" data-split className="display max-w-[11em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0">
+              {COPY.bridal.title(count)}
             </h2>
-            {/* the film's credit: the collection, and the listed piece from it */}
-            <p className="bridal-tail mt-8 flex flex-wrap items-baseline gap-x-5 gap-y-1">
-              <span className="micro text-champagne">{COPY.bridal.credit}</span>
-              {credit && (
-                <TransitionLink href={`/jewellery/${credit.s}`} className="group/credit font-display italic text-[1.0625rem] text-ivory/85 transition-colors hover:text-ivory" data-cursor="view">
-                  {credit.t}
-                  <span className="micro ml-3 not-italic text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
-                </TransitionLink>
-              )}
-            </p>
-            <div className="bridal-tail mt-6 flex flex-wrap items-center gap-x-10 gap-y-4">
-              <Button variant="bracket" href="/collections/bridal" cursor="explore">
-                {COPY.bridal.ctaDiscover}
-              </Button>
-              <Button variant="hairline" onClick={() => openConsultation({ topic: 'bridal', source: 'cta' })}>
-                {COPY.bridal.ctaConsult}
-              </Button>
-            </div>
           </div>
+          <p className="max-w-[30em] text-[0.9375rem] leading-relaxed text-ink/70 md:col-span-4 md:col-start-9 md:pb-2" data-rise>
+            {COPY.bridal.line}
+          </p>
         </div>
-      </section>
 
-      {/* the suite, on the ivory the film left behind */}
-      {suite && descriptor && (
-        <section ref={closeRef} id="ch05-suite" data-theme="ivory" className="relative bg-ivory px-gutter py-[12svh] text-ink md:py-[13svh]" aria-label={COPY.bridal.close.title}>
-          <div ref={closeScope} className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
+        <div className="mt-[8svh] grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:mt-[10svh] md:grid-cols-12 md:items-start">
+          {/* the suite, named in place */}
+          {suite && suiteDescriptor && (
             <div className="md:col-span-7" data-rise>
               <PieceLink
                 product={pieceRefOf(suite)}
@@ -183,9 +68,10 @@ export function Ch05Bridal({ suite, credit }: { suite?: PieceRow; credit?: Piece
                 cursor="view"
                 figure={
                   <SemanticFigure
-                    descriptor={descriptor}
+                    descriptor={suiteDescriptor}
                     sizes={suiteSizes}
                     flipSource={suite.s}
+                    onLit={setLit}
                     fallback={
                       <div className="absolute inset-0 bg-pearl">
                         <Img image={pieceRefOf(suite).media.hero} sizes={suiteSizes} plain data={{ 'flip-source': suite.s }} />
@@ -199,30 +85,100 @@ export function Ch05Bridal({ suite, credit }: { suite?: PieceRow; credit?: Piece
                     <p className="font-display text-[1.375rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 22' }}>
                       {suite.t}
                     </p>
-                    <p className="micro text-ink/55">{specLineOf(suite) || priceLabelOf(suite)}</p>
+                    <p className="micro text-ink/55">{tagOf(suite)}</p>
                   </div>
                   <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.bridal.close.view}</span>
                 </div>
               </PieceLink>
             </div>
-            <div className="flex flex-col gap-5 md:col-span-5 md:pt-[2svh]" data-rise>
-              <p className="micro text-ink/60">{COPY.bridal.close.eyebrow}</p>
-              <p className="display max-w-[10em] text-[clamp(1.75rem,2.8vw,3rem)] leading-tight text-ink">{COPY.bridal.close.title}</p>
-              <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ink/70">{COPY.bridal.close.line}</p>
-              <ol className="mt-2 flex flex-col gap-2 border-t border-ink/10 pt-5">
-                {descriptor.regions.map((r, i) => (
-                  <li key={r.key} className="flex items-baseline gap-4">
-                    <span className="font-display text-[0.75rem] text-ink/50" style={{ fontVariationSettings: '"opsz" 12' }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="micro text-ink/80">{r.label}</span>
-                  </li>
-                ))}
-              </ol>
+          )}
+
+          <div className="flex flex-col gap-8 md:col-span-4 md:col-start-9 md:gap-10">
+            {/* the index of the suite's four, lit in step with the figure */}
+            {suiteDescriptor && (
+              <div className="flex flex-col gap-4" data-rise>
+                <p className="micro text-ink/55">{COPY.bridal.close.eyebrow}</p>
+                <ol className="flex flex-col gap-2.5 border-t border-ink/10 pt-5">
+                  {suiteDescriptor.regions.map((r, i) => (
+                    <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-45 transition-opacity duration-500 data-[lit=1]:opacity-100">
+                      <span className="font-display text-[0.75rem] text-ink/50" style={{ fontVariationSettings: '"opsz" 12' }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span className="micro text-ink">{r.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {/* the choker, looked at closely — a second listed piece, a second door */}
+            {choker && chokerDescriptor && (
+              <div data-rise>
+                <PieceLink
+                  product={pieceRefOf(choker)}
+                  sizes={chokerSizes}
+                  aspect="4 / 5"
+                  cursor="view"
+                  figure={
+                    <SemanticFigure
+                      descriptor={chokerDescriptor}
+                      sizes={chokerSizes}
+                      flipSource={choker.s}
+                      fallback={
+                        <div className="absolute inset-0 bg-pearl">
+                          <Img image={pieceRefOf(choker).media.hero} sizes={chokerSizes} plain data={{ 'flip-source': choker.s }} />
+                        </div>
+                      }
+                    />
+                  }
+                >
+                  <div className="mt-4 flex items-baseline justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <p className="font-display text-[1.0625rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 16' }}>
+                        {choker.t}
+                      </p>
+                      <p className="micro text-ink/55">{tagOf(choker) || COPY.bridal.credit}</p>
+                    </div>
+                    <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.hero.view}</span>
+                  </div>
+                </PieceLink>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* the film, as an inset — and the doors */}
+        <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] border-t border-ink/10 pt-[8svh] md:mt-[12svh] md:grid-cols-12 md:items-center md:pt-[9svh]">
+          <div className="md:col-span-6" data-rise>
+            {/* the film is letterboxed inside its own frame; the inset crops to the picture */}
+            <div className="relative overflow-hidden bg-ink" style={{ aspectRatio: '2.2 / 1' }}>
+              <Video id="bridal-cinema" ariaLabel="Naqsh-e-Gul — the bridal film" className="absolute inset-0" portrait={false} />
+              <div className="grain pointer-events-none absolute inset-0" />
+            </div>
+            <p className="micro mt-4 text-ink/55">{COPY.bridal.credit}</p>
+          </div>
+          <div className="flex flex-col gap-6 md:col-span-5 md:col-start-8" data-rise>
+            <p className="display text-[clamp(2rem,4vw,4.25rem)] leading-[0.98] text-ink">
+              {COPY.bridal.closing.map((line, i) => (
+                <span key={line} className={i === 2 ? 'block italic text-gold-deep' : 'block'}>
+                  {line}
+                </span>
+              ))}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-10 gap-y-4">
+              <Button variant="bracket" href="/bridal" cursor="explore">
+                {COPY.bridal.ctaDiscover}
+              </Button>
+              <Button variant="hairline" onClick={() => openConsultation({ topic: 'bridal', source: 'cta' })}>
+                {COPY.bridal.ctaConsult}
+              </Button>
+              <TransitionLink href="/collections/bridal" className="micro text-ink/55 underline-offset-4 transition-colors hover:text-ink hover:underline" data-cursor="explore">
+                {COPY.collections.eyebrow}
+              </TransitionLink>
             </div>
           </div>
-        </section>
-      )}
-    </>
+        </div>
+      </div>
+    </section>
   );
 }

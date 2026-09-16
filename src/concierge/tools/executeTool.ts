@@ -283,11 +283,9 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       const department = name === 'showGold' ? 'gold' : name === 'showDiamond' ? 'diamond' : (asDepartment(args.department) ?? 'gold');
       const results = searchRows({ department, limit: 4 });
       const label = DEPARTMENT_LABEL[department];
-      // on the homepage the duality chapter *is* the door to gold and diamond: set the side
-      // it should open on, then bring the visitor to it
-      if (ctx.routeKind === 'home' && (department === 'gold' || department === 'diamond')) {
-        site.setDualityBias(department);
-        const el = sectionElement('duality');
+      // on the homepage every department has a chapter of its own pieces: bring the visitor to it
+      if (ctx.routeKind === 'home') {
+        const el = sectionElement(department === 'gold' || department === 'diamond' ? department : department === 'bridal' ? 'bridal' : 'menkids');
         if (el) scrollTo(el, { duration: 1.6 });
       } else if (ctx.route.split('?')[0] === `/${department}`) {
         const el = sectionElement('pieces');

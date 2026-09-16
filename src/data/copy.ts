@@ -5,21 +5,55 @@
  */
 export const COPY = {
   hero: {
-    eyebrow: 'Waseem Jewellers · Lahore · Since 1952',
-    collection: 'Rukh-e-Jana',
-    line: 'A celebration of heritage, devotion and eternal beauty.',
+    eyebrow: 'Lahore · Since 1952',
+    /** The name is the headline: a jeweller's shop says whose it is before it says anything else. */
+    name: ['Waseem', 'Jewellers'],
+    /** {total} is the live count of listable pieces. */
+    line: (total: number) => `Gold, diamond and bridal jewellery — ${total} pieces, every weight and purity published.`,
     cta: 'Discover the collection',
     /** The film's credit: the collection it was shot for, and the listed piece from it. */
     credit: 'In the film',
     view: 'View the piece',
+    /** Beside a department's name: how many pieces stand behind the door. */
+    pieces: (n: number) => `${n} pieces`,
   },
-  closeLook: {
-    eyebrow: 'The Close Look',
+  window: {
+    eyebrow: 'The Window',
+    title: 'Photographed as they are.',
     /** {total} is the live count of listable pieces. */
-    title: (total: number) => `${total} pieces are in the collection. Look closely at one.`,
-    line: 'One photograph, and the parts of it named in place. Nothing is rendered — it is the same frame, looked at from the distance a jeweller looks from.',
+    line: (total: number) => `${total} pieces, each with its weight and purity published. Priced on request, shown by appointment in Lahore.`,
+    kinds: 'By kind',
     view: 'View the piece',
-    more: 'Two more to begin with',
+    all: 'The whole collection',
+  },
+  departments: {
+    gold: {
+      eyebrow: 'Gold',
+      title: (n: number) => `${n} pieces in gold, mostly 21 karat.`,
+      line: 'Pendants, chains, bangles, rings, earrings — weighed and marked, and worn every day in Lahore.',
+      cta: 'Explore Gold',
+      /** The figure: gold looked at closely, then the door to the set it belongs to. */
+      figure: { eyebrow: 'Gold, closely', view: 'View the set' },
+    },
+    diamond: {
+      eyebrow: 'Diamond',
+      title: (n: number) => `${n} pieces set with diamonds.`,
+      line: 'Set in 18 to 21 karat gold, graded as published — colour, clarity and carat where Waseem has them.',
+      cta: 'Explore Diamond',
+      /** The suite the studio shot: a listed piece with its published grading, closing the chapter. */
+      suite: { eyebrow: 'Graded as published', title: 'A sapphire, in a pavé surround.', line: 'The one diamond suite Waseem photographed as a campaign — and publishes at 21K, 94.68 grams, with 13.26 carats of diamonds graded H and VVS1.' },
+    },
+    men: { eyebrow: 'Men', title: (n: number) => `${n} pieces for men.`, line: 'Rings, bracelets and cufflinks — weight, in the hand.', cta: 'Explore Men' },
+    kids: { eyebrow: 'Kids', title: (n: number) => `${n} pieces for children.`, line: 'Small, and made properly.', cta: 'Explore Kids' },
+    kinds: 'By kind',
+  },
+  invitation: {
+    eyebrow: 'Waseem Concierge',
+    title: 'Ask for what you have in mind.',
+    line: 'Speak or write — in English, Urdu or Punjabi. The concierge knows every piece, its weight and its purity, and brings a tray to you.',
+    examples: ['Show me something elegant for walima', 'Mujhe baraat ke liye kuch heavy gold mein dikhao', 'menu ehde varga par thora halka dikhao'],
+    speak: 'Speak to the concierge',
+    write: 'Write instead',
   },
   craft: {
     eyebrow: 'The Craft',
@@ -41,7 +75,11 @@ export const COPY = {
   },
   heritage: {
     eyebrow: 'Since 1952',
+    title: 'Three generations. Three showrooms.',
+    line: 'Waseem Jewellers has made and sold gold in Lahore since 1952 — the same family, the same workshop, three showrooms today.',
+    showrooms: 'Showrooms',
     closing: 'CRAFTED ACROSS GENERATIONS.',
+    cta: 'Book an appointment',
   },
   collections: {
     eyebrow: 'Signature Collections',
@@ -50,6 +88,9 @@ export const COPY = {
   bridal: {
     eyebrow: 'Bridal',
     opening: 'For the day that becomes forever',
+    /** {n} is the live count of bridal pieces. */
+    title: (n: number) => `${n} bridal pieces, shown by appointment.`,
+    line: 'Complete suites in polki, kundan, gold and diamond — choker, haar, tikka and earrings made to be worn together.',
     closing: ['FOR THE DAY', 'THAT BECOMES', 'FOREVER.'],
     /** The film's credit — the collection it was shot for, and the piece from it that is listed. */
     credit: 'From the Naqsh-e-Gul collection',
@@ -61,23 +102,6 @@ export const COPY = {
       line: 'Tikka, earrings, choker and haar, as they were worn for the shoot — the figure travels between them and says what each one is.',
       view: 'View the suite',
     },
-  },
-  wall: {
-    eyebrow: 'Selected Pieces',
-    title: 'Chosen at MM Alam Road.',
-    cursor: 'View piece',
-    /** The scene slot: gold looked at closely, then the door to the set it belongs to. */
-    figure: { eyebrow: 'Gold, closely', view: 'View the set' },
-  },
-  slider: {
-    eyebrow: 'The Collection',
-    hint: 'Drag',
-  },
-  duality: {
-    // the giant word names the material; the line beneath names the department it opens
-    heading: 'Gold and Diamond',
-    gold: { word: 'Gold', title: 'Gold', line: 'Pendants, chains, bangles, rings — mostly 21 karat' },
-    diamond: { word: 'Diamond', title: 'Diamond', line: 'Set in gold, graded as published' },
   },
   product: {
     specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed when you see it in Lahore.',

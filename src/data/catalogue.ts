@@ -58,7 +58,7 @@ export function assertCatalogue() {
     }
   }
   for (const w of WORLDS) {
-    for (const id of [...w.imagery.column, w.imagery.hero]) {
+    for (const id of [...w.imagery.column, w.imagery.hero, w.imagery.piece]) {
       if (!(IMAGES as Record<string, ImageAsset>)[id]) problems.push(`world ${w.slug}: unknown image ${id}`);
     }
   }

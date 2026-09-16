@@ -5,25 +5,29 @@ import { useSiteStore } from '@/state/siteStore';
 import { runtime, scrollTo } from '@/state/runtime';
 import { sectionElement, sectionsReady } from '@/state/sections';
 import { Ch01Hero } from './chapters/Ch01Hero';
-import { Ch02Vitrine } from './chapters/Ch02Vitrine';
+import { Ch02Window } from './chapters/Ch02Window';
 import { Ch02Craft } from './chapters/Ch02Craft';
-import { Ch03Heritage } from './chapters/Ch03Heritage';
-import { Ch04Worlds } from './chapters/Ch04Worlds';
+import { Ch03Gold } from './chapters/Ch03Gold';
+import { Ch04Diamond } from './chapters/Ch04Diamond';
 import { Ch05Bridal } from './chapters/Ch05Bridal';
-import { Ch06Wall } from './chapters/Ch06Wall';
-import { Ch07Slider } from './chapters/Ch07Slider';
-import { Ch08Duality } from './chapters/Ch08Duality';
+import { Ch04Worlds } from './chapters/Ch04Worlds';
+import { Ch07MenKids } from './chapters/Ch07MenKids';
+import { Ch03Heritage } from './chapters/Ch03Heritage';
 import { Ch09Bespoke } from './chapters/Ch09Bespoke';
+import { Ch10Invitation } from './chapters/Ch10Invitation';
 import { Arrive } from '@/components/motion/Arrive';
 
 import type { Department } from '@/data/types';
-import type { PieceRow, WallCut } from '@/lib/facets';
+import type { PieceRow, Showcase } from '@/lib/facets';
 
 /**
- * The homepage: ten chapters in one continuous scroll. The loading ritual (CH00) lives in
- * Providers and the footer (CH10) sits fixed beneath the page root.
+ * The homepage: eleven chapters in one continuous scroll, in the order a shop is walked —
+ * the name over the door, the window, the craft, then the departments one after another
+ * (gold, diamond, bridal), the campaigns, men and kids, the history and the showrooms, the
+ * bespoke room, and the concierge. Dark and ivory alternate so the chapters read as rooms.
+ * The loading ritual (CH00) lives in Providers and the footer sits fixed beneath the page root.
  */
-export function Home({ wallCuts, departments, vitrine, total, slider, doors }: { wallCuts: WallCut[]; departments: { department: Department; count: number }[]; vitrine: PieceRow[]; total: number; slider: PieceRow[]; doors: Record<string, PieceRow> }) {
+export function Home({ showcase, departments, total, doors }: { showcase: Showcase; departments: { department: Department; count: number }[]; total: number; doors: Record<string, PieceRow> }) {
   const setPendingSection = useSiteStore((s) => s.setPendingSection);
 
   // arriving from the menu or the concierge with a chapter in mind
@@ -44,19 +48,23 @@ export function Home({ wallCuts, departments, vitrine, total, slider, doors }: {
     };
   }, [setPendingSection]);
 
+  const dept = (d: Department) => showcase.departments.find((x) => x.department === d);
+  const bridalCount = departments.find((d) => d.department === 'bridal')?.count ?? 0;
+
   return (
     <main id="home">
       <Arrive />
-      <Ch01Hero credit={doors['royal-wedding-polki-raani-haar']} />
-      <Ch02Vitrine pieces={vitrine} total={total} />
+      <Ch01Hero credit={doors['royal-wedding-polki-raani-haar']} departments={departments} total={total} />
+      <Ch02Window pieces={showcase.window} kinds={showcase.categories} total={total} />
       <Ch02Craft coda={doors['lavender-halo-ring-r11912']} />
-      <Ch03Heritage />
+      <Ch03Gold department={dept('gold')} figure={doors['gold-bridal-set-2']} />
+      <Ch04Diamond department={dept('diamond')} suite={doors['diamond-bridal-sapphire-suite']} />
+      <Ch05Bridal suite={doors['rang-e-jamal-emerald-suite']} choker={doors['naqsh-e-gul-pearl-blossom-choker']} count={bridalCount} />
       <Ch04Worlds doors={doors} />
-      <Ch05Bridal suite={doors['rang-e-jamal-emerald-suite']} credit={doors['naqsh-e-gul-pearl-blossom-choker']} />
-      <Ch06Wall cuts={wallCuts} departments={departments} figure={doors['gold-bridal-set-2']} />
-      <Ch07Slider rows={slider} />
-      <Ch08Duality />
+      <Ch07MenKids men={dept('men')} kids={dept('kids')} />
+      <Ch03Heritage />
       <Ch09Bespoke pair={doors['emerald-tassel-earrings-t06768']} />
+      <Ch10Invitation />
     </main>
   );
 }

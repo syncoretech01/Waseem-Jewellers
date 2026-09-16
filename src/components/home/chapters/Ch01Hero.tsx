@@ -7,8 +7,9 @@ import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { Video, type VideoHandle } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
-import { Button } from '@/components/ui/Button';
 import { TransitionLink } from '@/components/motion/TransitionLink';
+import { DEPARTMENT_LABEL } from '@/data/labels';
+import type { Department } from '@/data/types';
 import type { PieceRow } from '@/lib/facets';
 import { ConciergeInvitation } from '@/concierge/ui/ConciergeInvitation';
 import { markHeroReady } from '@/components/loader/readiness';
@@ -16,11 +17,13 @@ import { bindPointer, pointer } from '@/lib/motion/pointer';
 import { COPY } from '@/data/copy';
 
 /**
- * CH01 — the cinematic hero. Royal Wedding, candlelit. Pinned for one viewport with no
- * spacing so the craft chapter rises over its end state. The type stack ends with the
- * typographic concierge invitation; as it fades on scroll, the jewel takes over.
+ * CH01 — the cinematic hero. Royal Wedding, candlelit, and the shop's own name across it:
+ * a jeweller says whose window this is before it says anything else. Beneath the name, what
+ * is sold and how much of it — the five departments with their real counts are the first
+ * doors on the page — then the piece worn in the film, and the concierge's line. Pinned for
+ * one viewport with no spacing so the window rises over its end state.
  */
-export function Ch01Hero({ credit }: { credit?: PieceRow }) {
+export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: PieceRow; departments?: { department: Department; count: number }[]; total?: number }) {
   const { ref, ready } = useChapter({ id: 'hero', theme: 'dark', pinned: true });
   const video = useRef<VideoHandle>(null);
   const loaderDone = useSiteStore((s) => s.loaderDone);
@@ -200,16 +203,39 @@ export function Ch01Hero({ credit }: { credit?: PieceRow }) {
           <span className="intro-hairline hairline block w-16 origin-left" />
         </div>
         <div className="hero-title-wrap mt-4 tracking-[0.02em]">
-          <h1 id="hero-title" className="intro-title display text-[clamp(3.5rem,11vw,12.5rem)] leading-[0.92] tracking-[inherit] text-ivory opacity-0">
-            {COPY.hero.collection}
+          <h1 id="hero-title" className="intro-title display text-[clamp(2.5rem,11.5vw,8.75rem)] leading-[0.92] tracking-[inherit] text-ivory opacity-0 md:whitespace-nowrap md:text-[clamp(3rem,7.4vw,8.75rem)]">
+            {/* two words on a phone, one line on a desk — never a word broken across lines */}
+            {COPY.hero.name.map((word, i) => (
+              <span key={word} className={i === 0 ? 'block md:mr-[0.22em] md:inline' : 'block md:inline'}>
+                {word}
+              </span>
+            ))}
           </h1>
         </div>
         <div className="hero-sub mt-5 max-w-[34rem]">
-          <p className="intro-line font-display italic text-[clamp(1.125rem,1.6vw,1.5rem)] leading-snug text-ivory/85 opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
-            {COPY.hero.line}
+          <p className="intro-line font-display italic text-[clamp(1.0625rem,1.45vw,1.375rem)] leading-snug text-ivory/85 opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
+            {COPY.hero.line(total)}
           </p>
         </div>
-        <div className="hero-tail mt-8">
+        {/* the departments: what is sold, and how much of it — the first doors on the page */}
+        {departments.length > 0 && (
+          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
+            <ul className="intro-tail flex flex-wrap items-baseline gap-x-7 gap-y-3 opacity-0 md:gap-x-9">
+              {departments.map(({ department, count }) => (
+                <li key={department}>
+                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline gap-2.5" data-cursor="explore">
+                    <span className="relative font-display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+                      {DEPARTMENT_LABEL[department]}
+                      <span aria-hidden className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100" />
+                    </span>
+                    <span className="micro text-ivory/50 transition-colors group-hover/dept:text-champagne">{COPY.hero.pieces(count)}</span>
+                  </TransitionLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        <div className="hero-tail mt-6 md:mt-7">
           <div className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-3 opacity-0">
             {/* the film's credit: the listed piece worn in it, and the door to it */}
             {credit && (
@@ -221,12 +247,9 @@ export function Ch01Hero({ credit }: { credit?: PieceRow }) {
                 <span className="micro text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
               </TransitionLink>
             )}
-            <Button variant="hairline" href="/collections/bridal" cursor="explore" size="sm">
-              {COPY.hero.cta}
-            </Button>
           </div>
         </div>
-        <div className="hero-tail mt-10 md:mt-12">
+        <div className="hero-tail mt-8 md:mt-10">
           <div className="intro-tail opacity-0">
             <ConciergeInvitation />
           </div>

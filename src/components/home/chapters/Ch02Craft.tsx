@@ -23,11 +23,10 @@ const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), 
 /**
  * CH02 — the signature craft object, and then the real thing.
  *
- * The stage is pinned for two viewports: the hero's end frame dissolves as the stone
- * condenses out of the dark, then stone, setting, metal and hand finishing separate beneath
- * fixed editorial labels. The WebGL object mounts in `.craft-scene` on tiers that can carry
- * it; elsewhere the stage carries the drawn stone in SVG, filling with light as the visitor
- * scrolls.
+ * The stage is pinned while the stone condenses out of the dark, then stone, setting, metal
+ * and hand finishing separate beneath fixed editorial labels. The WebGL object mounts in
+ * `.craft-scene` on every tier that has WebGL at all; only a browser without it keeps the
+ * drawn stone in SVG, filling with light as the visitor scrolls.
  *
  * Then the pin releases and the coda answers the drawing with a photograph: a ring Waseem
  * actually sells, its stone, halo and shank named where they sit in the one frame. The
@@ -45,7 +44,16 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   const [sceneReady, setSceneReady] = useState(false);
   const [lostOnce, setLostOnce] = useState(0);
   const [lit, setLit] = useState<string | null>(null);
-  const wantsScene = webgl && (tier === 'HIGH' || tier === 'MEDIUM') && loaderDone && near && lostOnce < 2;
+  /**
+   * The ring is for everyone. It used to mount only on HIGH and MEDIUM, which left every
+   * phone, every 4 GB laptop, every touch-first device and every reduced-motion visitor with
+   * the drawn stone — a diagram where the client had been promised the object. LOW gets the
+   * same geometry at DPR 1 with the non-refractive stone; REDUCED gets it settled and still.
+   * Only a browser with no WebGL at all keeps the drawing.
+   */
+  const wantsScene = webgl && !reduced && loaderDone && near && lostOnce < 2;
+  // no WebGL, or a request for stillness: the same object, rendered once from the same scene
+  const poster = !webgl || reduced;
   const descriptor = coda ? semanticFor(coda.s) : undefined;
   useRise(codaScope);
 
@@ -74,7 +82,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         // the media query is the source of truth: gsap reverts the other branch when it flips
         const still = reduce || reduced;
         const wrap = root.querySelector<HTMLElement>('.craft-stage-wrap');
-        const backdrop = root.querySelector<HTMLElement>('.craft-backdrop');
         const stone = root.querySelector<HTMLElement>('.craft-stone');
         const halo = root.querySelector<HTMLElement>('.craft-halo');
         const ring = root.querySelector<HTMLElement>('.craft-ring');
@@ -83,13 +90,12 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         const notes = root.querySelectorAll<HTMLElement>('.craft-note');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
         const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
-        if (!stone || !backdrop || !wrap) return;
+        if (!stone || !wrap) return;
         const setReveal = gsap.quickSetter(stone, '--reveal');
 
         if (still) {
           // composed still: the object lit, every label named, and one closing note
           // (the notes share one absolute box, so only the last may show)
-          gsap.set(backdrop, { opacity: 0 });
           setReveal(1);
           gsap.set([labels, closing, eyebrow], { autoAlpha: 1 });
           gsap.set(notes, { autoAlpha: 0 });
@@ -113,7 +119,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
             // the stage pins, not the section: the coda beneath it scrolls in when the pin releases
             trigger: wrap,
             start: 'top top',
-            end: mobile ? '+=160%' : '+=200%',
+            end: mobile ? '+=140%' : '+=155%',
             pin: true,
             scrub: 0.6,
             anticipatePin: 1,
@@ -127,9 +133,8 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           },
         });
 
-        // 0 – .16: the hero frame dissolves; the stone condenses
-        tl.to(backdrop, { opacity: 0, ease: 'none', duration: 0.08 }, 0.08)
-          .fromTo(stone, { scale: 0.72, opacity: 0.35 }, { scale: 1, opacity: 1, ease: 'none', duration: 0.16 }, 0)
+        // 0 – .16: the stone condenses out of the dark
+        tl.fromTo(stone, { scale: 0.72, opacity: 0.35 }, { scale: 1, opacity: 1, ease: 'none', duration: 0.16 }, 0)
           .to(proxy, { p: 1, ease: 'none', duration: 0.64, onUpdate: () => setReveal(proxy.p) }, 0.04)
           .fromTo(halo, { opacity: 0, scale: 0.8 }, { opacity: 0.55, scale: 1.1, ease: 'none', duration: 0.3 }, 0.1)
           .fromTo(eyebrow, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: 0.06 }, 0.1)
@@ -148,6 +153,8 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           .to([stone, ring, band, halo], { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
           .to([ring, band], { opacity: 0.12, ease: 'none', duration: 0.12 }, 0.86)
           .to(halo, { opacity: 0.35, ease: 'none', duration: 0.12 }, 0.86)
+          // the closing line takes the index's place rather than printing over it
+          .to([labels, notes], { autoAlpha: 0, ease: 'none', duration: 0.06 }, 0.84)
           .fromTo(closing, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.12 }, 0.86);
         ready();
       });
@@ -160,18 +167,24 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   return (
     <section ref={ref} id="ch02-craft" className="relative bg-ink text-ivory" aria-labelledby="craft-title">
       <div className="craft-stage-wrap relative h-svh overflow-hidden">
-        {/* hero end-state backdrop, dissolving */}
-        <div className="craft-backdrop pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 origin-center scale-[0.84] -translate-y-[4svh]">
-            <Img id="still-royal-13" sizes="100vw" alt="" className="object-cover" />
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(11,10,9,0.55) 78%, rgba(11,10,9,0.9) 100%)' }} />
-            <div className="absolute inset-x-0 top-0 h-[12svh] origin-top scale-y-[0.7] bg-ink" />
-            <div className="absolute inset-x-0 bottom-0 h-[12svh] origin-bottom scale-y-[0.7] bg-ink" />
-          </div>
-        </div>
-
         {/* the stage */}
-        <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady ? '1' : '0'}>
+        <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady || poster ? '1' : '0'} data-tier={tier}>
+          {poster && (
+            <div className="craft-poster pointer-events-none absolute left-1/2 top-1/2 h-[min(64vw,64svh)] w-[min(64vw,64svh)] -translate-x-1/2 -translate-y-1/2">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a still of the scene, cut by scripts/assets/craft-poster.mjs; it is not in the asset map because it is not a photograph */}
+              <img
+                src="/assets/waseem/images/craft/ring-1080w.webp"
+                srcSet="/assets/waseem/images/craft/ring-640w.webp 640w, /assets/waseem/images/craft/ring-1080w.webp 1080w, /assets/waseem/images/craft/ring-1600w.webp 1600w"
+                sizes="(min-width: 768px) 64vh, 64vw"
+                alt="An emerald-cut stone in a closed gold bezel with four claws, on a comfort-fit band — the object the chapter takes apart"
+                width={1243}
+                height={1243}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          )}
           {wantsScene && (
             <div className={cn('absolute inset-0 transition-opacity duration-700', sceneReady ? 'opacity-100' : 'opacity-0')}>
               <CraftScene key={lostOnce} onReady={onSceneReady} onLost={onSceneLost} />

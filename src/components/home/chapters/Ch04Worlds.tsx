@@ -14,13 +14,16 @@ import type { PieceRow } from '@/lib/facets';
 import { WORLDS } from '@/data/worlds';
 import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
+import { tagOf } from './Ch02Window';
 
 const SPEEDS = [1.0, -0.55, 0.8, -0.65, 1.1];
 
 /**
- * CH04 — signature collection worlds. Five columns of three tiles moving at opposing
- * speeds; at rest only the eyebrow and numerals speak. Hover or focus raises the world's
- * name behind the columns; choosing one flies its middle tile into the Bridal House.
+ * CH04 — signature collection worlds. Five columns of two tiles moving at opposing speeds:
+ * the jewellery first — a macro of the collection's piece wherever one was cut — and the
+ * portrait beneath it, which is the door and the FLIP source. Every world is named at rest,
+ * with the listed piece from it and that piece's published facts. Hover raises the name
+ * behind the columns; choosing one flies its portrait into the collection page.
  */
 export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> }) {
   const { ref, ready } = useChapter({ id: 'collections', theme: 'dark', pinned: true });
@@ -62,7 +65,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
 
         const proxy = { progress: 0 };
         const setters = [...cols].map((c) => gsap.quickSetter(c, 'y', 'px'));
-        const travel = () => window.innerHeight * 0.66;
+        const travel = () => window.innerHeight * 0.22;
         const tick = () => {
           const t = travel();
           cols.forEach((_, i) => {
@@ -77,7 +80,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: '+=150%',
+            end: '+=110%',
             pin: true,
             scrub: true,
             anticipatePin: 1,
@@ -160,12 +163,12 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                 onPointerEnter={() => !coarse && hover(i)}
                 onPointerLeave={() => !coarse && hover(null)}
               >
-                {w.imagery.column.map((id, k) => {
-                  const isHero = id === w.imagery.hero;
+                {[w.imagery.piece, w.imagery.hero].map((id, k) => {
+                  const isHero = k === 1;
                   const tile = (
-                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero')} style={{ aspectRatio: '4 / 5' }}>
+                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero')} style={{ aspectRatio: isHero ? '4 / 5' : '1 / 1' }}>
                       <div className={cn('absolute inset-0 transition-transform duration-1000 ease-[var(--ease-out-expo)]', active === i && 'scale-[1.06]')}>
-                        <Img id={id} sizes="18vw" plain eager className="h-full w-full object-cover" data={isHero ? { world: w.slug } : undefined} />
+                        <Img id={id} sizes="18vw" plain eager className="h-full w-full object-cover" style={!isHero && w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} data={isHero ? { world: w.slug } : undefined} />
                       </div>
                       {isHero && <span className={cn('pointer-events-none absolute inset-0 border border-gold-hi/40 transition-opacity duration-700', active === i ? 'opacity-100' : 'opacity-0')} />}
                     </div>
@@ -193,9 +196,8 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                     </div>
                   );
                 })}
-              </div>
-              {/* the world is named at rest, and the listed piece from it is a door — no hover required */}
-              <div className="absolute bottom-[5svh] left-0 right-0 z-10 flex flex-col gap-1.5">
+                {/* the world is named at rest, and the listed piece from it is a door — no hover required */}
+                <div className="flex flex-col gap-1.5 pt-1">
                 <p className="flex items-baseline gap-3">
                   <span className="font-display text-[0.875rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 14' }}>
                     {w.numeral}
@@ -206,10 +208,14 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                   {w.mood}
                 </p>
                 {doors[w.pieces[0] ?? ''] && (
-                  <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="micro w-fit text-champagne/70 transition-colors hover:text-ivory" data-cursor="view">
-                    {doors[w.pieces[0] ?? '']!.t}
+                  <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door flex w-fit flex-col gap-0.5" data-cursor="view">
+                    <span className="font-display text-[0.9375rem] leading-tight text-ivory/85 transition-colors group-hover/door:text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
+                      {doors[w.pieces[0] ?? '']!.t}
+                    </span>
+                    <span className="micro text-champagne/60">{tagOf(doors[w.pieces[0] ?? '']!) || COPY.hero.view}</span>
                   </TransitionLink>
                 )}
+                </div>
               </div>
             </div>
           ))}
@@ -240,7 +246,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                 <Img id={w.imagery.hero} sizes="45vw" plain className="h-full w-full object-cover" />
               </a>
               <div className="world-tile relative overflow-hidden bg-charcoal" style={{ aspectRatio: '4 / 5' }} aria-hidden>
-                <Img id={w.imagery.column[2]} sizes="45vw" plain className="h-full w-full object-cover" />
+                <Img id={w.imagery.piece} sizes="45vw" plain className="h-full w-full object-cover" style={w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} />
               </div>
             </div>
             <p className="mt-3 font-display italic text-[0.9375rem] text-ivory/60" style={{ fontVariationSettings: '"opsz" 14' }}>

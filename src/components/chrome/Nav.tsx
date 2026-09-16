@@ -8,12 +8,14 @@ import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { requestConcierge } from '@/concierge/bridge';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { WaseemMark } from '@/components/brand/WaseemMark';
+import { MENU } from '@/data/menu';
+import { usePathname } from 'next/navigation';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
 /**
- * Text only at the top of a page: WASEEM (→ the crest after the hero), SELECTION · 02, ASK,
- * MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
+ * Text only at the top of a page: WASEEM (→ the crest after the hero), the five departments
+ * on a wide screen — a jeweller's header names what it sells — SELECTION · 02, ASK, MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
  * when it returns over content it brings a surface with it, in the chapter's own paper or
  * ink, so the mark is never floating over a photograph.
  *
@@ -34,6 +36,7 @@ export function Nav() {
   const videoPaused = useSiteStore((s) => s.videoPaused);
   const setVideoPaused = useSiteStore((s) => s.setVideoPaused);
   const conciergeOpen = useConciergeStore((s) => OPEN_STATES.includes(s.state));
+  const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -94,6 +97,19 @@ export function Nav() {
         </AnimatePresence>
       </TransitionLink>
 
+      {/* the departments, with the one the visitor is standing in underlined */}
+      <nav aria-label="Departments" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 xl:flex">
+        {MENU.map((item) => {
+          const here = pathname === item.target || pathname.startsWith(`${item.target}/`);
+          return (
+            <TransitionLink key={item.id} href={item.target} className="micro group/sel relative flex h-11 items-center text-fg" aria-current={here ? 'page' : undefined} data-cursor="explore">
+              {item.label}
+              <Underline held={here} />
+            </TransitionLink>
+          );
+        })}
+      </nav>
+
       <nav className="flex items-center gap-8 md:gap-10">
         {hydrated && count > 0 && (
           <button type="button" onClick={openLedger} className="micro group/sel relative flex h-11 items-center gap-2 text-fg" aria-label={count === 1 ? 'Your selection, one piece' : `Your selection, ${count} pieces`}>
@@ -140,8 +156,8 @@ export function Nav() {
   );
 }
 
-function Underline() {
+function Underline({ held = false }: { held?: boolean }) {
   return (
-    <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-2 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/sel:scale-x-100 group-focus-visible/sel:scale-x-100')} />
+    <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-2 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/sel:scale-x-100 group-focus-visible/sel:scale-x-100', held ? 'scale-x-100' : 'scale-x-0')} />
   );
 }

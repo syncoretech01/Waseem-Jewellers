@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure, type SemanticFigureHandle } from '@/semantic/SemanticFigure';
 import { beatsFor } from '@/semantic/resolve';
-import { pieceRefOf, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { pieceRefOf } from '@/data/clientIndex';
+import { tagOf } from './Ch02Window';
 import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import type { PieceRow } from '@/lib/facets';
@@ -67,7 +68,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
           scrollTrigger: {
             trigger: root,
             start: 'top top',
-            end: `+=${Math.min(190, 100 + 25 * regions.length)}%`,
+            end: `+=${Math.min(150, 80 + 22 * regions.length)}%`,
             pin: true,
             scrub: 0.5,
             anticipatePin: 1,
@@ -82,7 +83,8 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
           tl.fromTo(w, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: Math.min(0.05, (b.until - b.at) * 0.4) }, b.at);
           if (i < beats.length - 1) tl.to(w, { autoAlpha: 0, y: -10, ease: 'none', duration: 0.035 }, b.until - 0.035);
         });
-        if (cta) tl.fromTo(cta, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, ease: 'none', duration: 0.06 }, 0.86);
+        // the door is open from the first frame: a visitor who leaves during the holds still saw it
+        if (cta) gsap.set(cta, { autoAlpha: 1 });
         // the timeline spans exactly the pin, so the beats' fractions are scroll fractions
         tl.set({}, {}, 1);
         ready();
@@ -117,7 +119,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
             <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
               {pair.t}
             </p>
-            <p className="micro text-ivory/55">{specLineOf(pair) || priceLabelOf(pair)}</p>
+            <p className="micro text-ivory/55">{tagOf(pair)}</p>
           </div>
           <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.bespoke.view}</span>
         </div>
@@ -151,7 +153,7 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
               </p>
             ))}
           </div>
-          <div className="bespoke-cta opacity-0">
+          <div className="bespoke-cta">
             <Button variant="bracket" onClick={() => openConsultation({ topic: 'bespoke', source: 'cta' })} cursor="open">
               {COPY.bespoke.cta}
             </Button>

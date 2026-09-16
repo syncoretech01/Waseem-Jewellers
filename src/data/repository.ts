@@ -2,8 +2,8 @@ import type { Category, Department, Product } from './types';
 import { PRODUCTS, LISTABLE_PRODUCTS, CATALOGUE_DATE } from './products';
 import { searchCatalogue, similarTo, type SearchQuery } from './search';
 import { complementsOf } from '@/lib/relations';
-import { nameOf, DEPARTMENT_LABEL } from './labels';
-import { bandOf, matchesFacets, type Facetable, type PieceRow, type SortKey, type WallCut } from '@/lib/facets';
+import { nameOf, CATEGORY_PLURAL, DEPARTMENT_LABEL } from './labels';
+import { bandOf, matchesFacets, type Facetable, type PieceRow, type Showcase, type ShowcaseCategory, type ShowcaseDepartment, type SortKey, type WallCut } from '@/lib/facets';
 
 /**
  * The seam every page, route and tool reads the catalogue through.
@@ -61,6 +61,8 @@ export interface CatalogueRepository {
   rows(department?: Department): Promise<PieceRow[]>;
   /** The homepage wall's cuts — a fixed layout, a changing set of pieces. */
   wallCuts(perCut?: number): Promise<WallCut[]>;
+  /** The homepage's product surfaces: pieces photographed as pieces, with facts, of every kind. */
+  showcase(): Promise<Showcase>;
 }
 
 /**
@@ -270,6 +272,93 @@ class SnapshotRepository implements CatalogueRepository {
      * happened to come first in the catalogue.
      */
     return order(from, 'featured').map(rowOf);
+  }
+
+  /**
+   * What a window shows: the piece, not the model. A photograph of a piece on a plain ground
+   * with its purity and weight published is the only thing that qualifies, and one of every
+   * kind is chosen in the order a jeweller lays a window — the heavy gold first, then the
+   * stones. Authored rank leads within a kind, then how much is published about the piece.
+   */
+  async showcase(): Promise<Showcase> {
+    const shown = (p: Product) => p.media.hero.role === 'packshot' && Boolean(p.spec.grossWeightGrams || p.spec.purity) && (p.media.hero.ref.kind === 'local' || (p.media.hero.ref.width ?? 0) >= 1800);
+    const pool = order(LISTABLE_PRODUCTS.filter(shown), 'featured');
+    const byKind = new Map<Category, Product[]>();
+    for (const p of pool) if (p.category) byKind.set(p.category, [...(byKind.get(p.category) ?? []), p]);
+
+    const WINDOW: [Category, Department | undefined][] = [
+      ['bangle', 'gold'],
+      ['necklace', 'gold'],
+      ['ring', 'diamond'],
+      ['earrings', 'gold'],
+      ['bridal-set', undefined],
+      ['pendant', 'diamond'],
+      ['bracelet', 'gold'],
+      ['chain', 'gold'],
+      ['ring', 'gold'],
+      ['cufflink', 'men'],
+      ['pendant', 'gold'],
+    ];
+    const used = new Set<string>();
+    const take = (category: Category, department?: Department) => {
+      const p = (byKind.get(category) ?? []).find((x) => !used.has(x.slug) && (!department || x.departments.includes(department)));
+      if (p) used.add(p.slug);
+      return p;
+    };
+    const window = WINDOW.map(([c, d]) => take(c, d)).filter((p): p is Product => Boolean(p)).map(rowOf);
+
+    // a kind's door is the department page where it is largest; the count is the whole catalogue's
+    const departments = await this.departments();
+    const perDepartment = await Promise.all(departments.map(async ({ department }) => ({ department, categories: await this.categories(department) })));
+    const categories: ShowcaseCategory[] = [];
+    const totals = tally(LISTABLE_PRODUCTS, (p) => p.category);
+    // a kind's door and its face come from the first department, in the order the shop is
+    // walked, that has a page for it: rings are fronted by a gold ring, not a child's
+    const WALK: Department[] = ['gold', 'diamond', 'men', 'kids'];
+    for (const [category, total] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
+      const home = WALK.find((department) => perDepartment.find((d) => d.department === department)?.categories.some((c) => c.category === category));
+      const hero = byKind.get(category as Category)?.find((p) => !home || p.departments.includes(home));
+      if (!hero || !home) continue;
+      categories.push({ category, label: CATEGORY_PLURAL[category as Category], total, href: `/${home}/${category}`, hero: rowOf(hero) });
+    }
+
+    // the kind that leads each tray: what reads largest on a plate, then the rest in the order a
+    // counter is laid — the department's own kinds follow in size order after these
+    const LEAD: Record<Department, Category[]> = {
+      gold: ['bangle', 'necklace', 'bracelet', 'earrings', 'pendant', 'chain', 'ring'],
+      diamond: ['ring', 'necklace', 'pendant', 'earrings', 'bracelet', 'bangle', 'nose-pin', 'chain'],
+      bridal: ['bridal-set', 'necklace', 'earrings'],
+      men: ['bracelet', 'ring', 'cufflink'],
+      kids: ['bracelet', 'ring'],
+    };
+    const showcaseDepartments: ShowcaseDepartment[] = perDepartment.map(({ department, categories: cats }) => {
+      const inD = pool.filter((p) => p.departments.includes(department));
+      // one kind after another, so six pieces are six kinds where the department has them
+      const lanes = new Map<string, Product[]>();
+      for (const p of inD) lanes.set(p.category ?? '', [...(lanes.get(p.category ?? '') ?? []), p]);
+      const rows: Product[] = [];
+      const lead = LEAD[department];
+      const order_ = [...lanes.keys()].sort((a, b) => {
+        const ia = lead.indexOf(a as Category);
+        const ib = lead.indexOf(b as Category);
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        return (lanes.get(b)?.length ?? 0) - (lanes.get(a)?.length ?? 0);
+      });
+      for (let i = 0; rows.length < 8 && i < 8; i++) for (const k of order_) {
+        const p = lanes.get(k)?.[i];
+        if (p && rows.length < 8) rows.push(p);
+      }
+      const count = this.inDepartment(department).length;
+      return {
+        department,
+        label: DEPARTMENT_LABEL[department],
+        count,
+        rows: rows.map(rowOf),
+        categories: cats.map((c) => ({ category: c.category, label: CATEGORY_PLURAL[c.category], count: c.count, href: `/${department}/${c.category}` })),
+      };
+    });
+
+    return { window, categories, departments: showcaseDepartments };
   }
 
   async wallCuts(perCut = 10) {

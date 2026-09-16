@@ -71,10 +71,10 @@ export type SectionId =
   | 'heritage'
   | 'collections'
   | 'bridal'
-  | 'bridal-close'
-  | 'wall'
-  | 'slider'
-  | 'duality'
+  | 'gold'
+  | 'diamond'
+  | 'menkids'
+  | 'invitation'
   | 'bespoke'
   | 'footer'
   | 'collection-opening'
@@ -122,7 +122,6 @@ export interface SiteState {
   ledgerOpen: boolean;
   consultation: ConsultationContext;
   spotlight: { slug: string; token: number } | null;
-  dualityBias: 'gold' | 'diamond' | null;
   pendingSection: SectionId | null;
   pendingSpotlight: string | null;
   videoPaused: boolean;
@@ -151,7 +150,6 @@ export interface SiteState {
   closeConsultation: () => void;
   requestSpotlight: (slug: string) => void;
   clearSpotlight: () => void;
-  setDualityBias: (bias: 'gold' | 'diamond' | null) => void;
   setPendingSection: (id: SectionId | null) => void;
   setPendingSpotlight: (slug: string | null) => void;
   setVideoPaused: (paused: boolean) => void;
@@ -196,7 +194,6 @@ export const useSiteStore = create<SiteState>()(
       ledgerOpen: false,
       consultation: { open: false },
       spotlight: null,
-      dualityBias: null,
       pendingSection: null,
       pendingSpotlight: null,
       videoPaused: false,
@@ -271,7 +268,6 @@ export const useSiteStore = create<SiteState>()(
       closeConsultation: () => set({ consultation: { ...get().consultation, open: false } }),
       requestSpotlight: (slug) => set({ spotlight: { slug, token: (get().spotlight?.token ?? 0) + 1 } }),
       clearSpotlight: () => set({ spotlight: null }),
-      setDualityBias: (bias) => set({ dualityBias: bias }),
       setPendingSection: (id) => set({ pendingSection: id }),
       setPendingSpotlight: (slug) => set({ pendingSpotlight: slug }),
       setVideoPaused: (paused) => set({ videoPaused: paused }),

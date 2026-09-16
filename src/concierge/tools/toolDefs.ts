@@ -1,6 +1,6 @@
 import type { ToolDef } from '../types';
 
-const SECTIONS = ['hero', 'craft', 'heritage', 'collections', 'bridal', 'wall', 'slider', 'duality', 'bespoke', 'footer', 'department', 'pieces', 'related'];
+const SECTIONS = ['hero', 'vitrine', 'craft', 'gold', 'diamond', 'bridal', 'collections', 'heritage', 'menkids', 'bespoke', 'footer', 'department', 'pieces', 'related'];
 const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dewan', 'royal-wedding'];
 const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
 

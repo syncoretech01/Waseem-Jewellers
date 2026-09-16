@@ -210,7 +210,8 @@ export interface CollectionWorld {
   urdu?: string;
   mood: string;
   palette: { bg: string; accent: string };
-  imagery: { column: [string, string, string]; hero: string };
+  /** `piece` is the frame of the jewellery itself (a macro where one exists); `hero` is the portrait the collection page opens on, so the FLIP lands on the same photograph. */
+  imagery: { column: [string, string, string]; hero: string; piece: string; pieceFocus?: string };
   href: string;
   pieces: string[];
   numeral: string;

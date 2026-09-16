@@ -131,6 +131,36 @@ export interface WallCut {
   rows: PieceRow[];
 }
 
+/**
+ * The homepage's product surfaces, chosen the way a jeweller dresses a window: pieces
+ * photographed as pieces (never a portrait), each with its purity and weight published, one
+ * of every kind. Every count is the site's own — the number a visitor finds when they walk
+ * through the door.
+ */
+export interface ShowcaseCategory {
+  category: string;
+  label: string;
+  /** every listable piece of the kind, across departments */
+  total: number;
+  /** the department page where the kind is largest — the door */
+  href: string;
+  /** the piece that fronts the kind */
+  hero: PieceRow;
+}
+export interface ShowcaseDepartment {
+  department: string;
+  label: string;
+  count: number;
+  /** pieces photographed as pieces, one kind after another */
+  rows: PieceRow[];
+  categories: { category: string; label: string; count: number; href: string }[];
+}
+export interface Showcase {
+  window: PieceRow[];
+  categories: ShowcaseCategory[];
+  departments: ShowcaseDepartment[];
+}
+
 export const fromRow = (r: PieceRow): Facetable => ({
   category: r.c,
   material: r.m,

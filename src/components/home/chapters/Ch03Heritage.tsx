@@ -1,169 +1,136 @@
 'use client';
 
+import { useRef } from 'react';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
+import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useQualityStore } from '@/state/qualityStore';
+import { useSiteStore } from '@/state/siteStore';
 import { Img } from '@/components/media/Img';
-import { WaseemMark } from '@/components/brand/WaseemMark';
+import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/ui/primitives';
 import { WaseemLockup } from '@/components/brand/WaseemLockup';
-import { HERITAGE } from '@/data/heritage';
+import { SITE } from '@/data/site';
 import { COPY } from '@/data/copy';
-import { cn } from '@/lib/cn';
-
-const RATIO: Record<string, string> = { '4:5': '4 / 5', '3:2': '3 / 2', '1:1': '1 / 1', '21:9': '21 / 9' };
-const HEIGHT: Record<string, string> = { '4:5': 'md:h-[54svh]', '3:2': 'md:h-[43svh]', '1:1': 'md:h-[46svh]', '21:9': 'md:h-[34svh]' };
 
 /**
- * CH03 — 1952. Ivory paper rises out of the dark around the numeral; then the house's
- * moments pass horizontally, each mounted like a museum print. Copy stays within the
- * facts published by the house; only the facade is treated (monochrome scrubbing to colour).
+ * CH03 — since 1952, in one screen.
+ *
+ * The heritage chapter used to be five screens on a horizontal track with a viewport of
+ * empty paper around a numeral. What a visitor needs from a jeweller's history is short:
+ * how long, who, and where the doors are. So: the facade turning from monochrome to colour
+ * as it arrives, the vitrine and the kundan detail as two prints, the two names, and the
+ * three showrooms with their addresses and hours — which are what make a retailer a retailer.
  */
 export function Ch03Heritage() {
-  const { ref, ready } = useChapter({ id: 'heritage', theme: 'ivory', pinned: true });
+  const { ref } = useChapter({ id: 'heritage', theme: 'ivory' });
+  const scope = useRef<HTMLDivElement>(null);
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
+  const openConsultation = useSiteStore((s) => s.openConsultation);
+  useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
+  useRise(scope);
 
+  // the one treatment that says something: the showroom arrives in colour
   useGSAP(
     () => {
       const root = ref.current;
       if (!root) return;
+      const facade = root.querySelector<HTMLElement>('.heritage-facade img');
+      if (!facade) return;
       const mm = gsap.matchMedia(root);
-      mm.add({ desktop: '(min-width: 768px)', mobile: '(max-width: 767px)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
-        const { mobile, reduce } = ctx.conditions as { mobile: boolean; reduce: boolean };
-        // the media query is the source of truth: gsap reverts the other branch when it flips
-        const still = reduce || reduced;
-        const lead = root.querySelector<HTMLElement>('.heritage-lead');
-        const paper = root.querySelector<HTMLElement>('.heritage-paper');
-        const numeral = root.querySelector<HTMLElement>('.heritage-numeral');
-        const wrap = root.querySelector<HTMLElement>('.heritage-wrap');
-        const track = root.querySelector<HTMLElement>('.heritage-track');
-        const panels = root.querySelectorAll<HTMLElement>('.heritage-panel');
-        const facade = root.querySelector<HTMLElement>('.heritage-facade img');
-        if (!lead || !paper || !numeral || !wrap || !track) return;
-
-        // lead-in: paper fades up around the numeral, which turns from champagne to ink
-        if (still) {
-          gsap.set(paper, { opacity: 1 });
-          gsap.set(numeral, { color: '#0B0A09' });
-          panels.forEach((p) => {
-            const masks = p.querySelectorAll('.h-mask');
-            if (masks.length) gsap.set(masks, { clipPath: 'inset(0 0 0 0)' });
-          });
-          if (facade) gsap.set(facade, { filter: 'grayscale(0)' });
-          ready();
+      mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { reduce } = ctx.conditions as { reduce: boolean };
+        if (reduce || reduced) {
+          gsap.set(facade, { filter: 'grayscale(0)' });
           return;
         }
-        gsap.fromTo(paper, { opacity: 0 }, { opacity: 1, ease: 'none', scrollTrigger: { trigger: lead, start: 'top 70%', end: 'bottom 60%', scrub: true } });
-        gsap.fromTo(numeral, { color: '#e4cfa3' }, { color: '#0B0A09', ease: 'none', scrollTrigger: { trigger: lead, start: 'top 40%', end: 'bottom 55%', scrub: true } });
-
-        if (mobile) {
-          panels.forEach((p) => {
-            const masks = p.querySelectorAll('.h-mask');
-            if (masks.length) gsap.fromTo(masks, { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 1.2, ease: 'wj.out', scrollTrigger: { trigger: p, start: 'top 80%', once: true } });
-            gsap.fromTo(p.querySelectorAll('.h-line'), { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 1, ease: 'wj.out', scrollTrigger: { trigger: p, start: 'top 75%', once: true } });
-          });
-          if (facade) gsap.fromTo(facade, { filter: 'grayscale(1)' }, { filter: 'grayscale(0)', ease: 'none', scrollTrigger: { trigger: facade, start: 'top 80%', end: 'top 30%', scrub: true } });
-          ready();
-          return;
-        }
-
-        const distance = () => track.scrollWidth - window.innerWidth;
-        const scrub = gsap.to(track, {
-          x: () => -distance(),
-          ease: 'none',
-          scrollTrigger: {
-            trigger: wrap,
-            start: 'top top',
-            end: () => '+=' + distance(),
-            pin: true,
-            scrub: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
-        });
-        ready();
-
-        panels.forEach((p) => {
-          const masks = p.querySelectorAll<HTMLElement>('.h-mask');
-          const inner = p.querySelector<HTMLElement>('.h-inner');
-          const lines = p.querySelectorAll<HTMLElement>('.h-line');
-          // panels standing inside the first viewport reveal as the track arrives; the rest as they travel in
-          const inFirstView = p.offsetLeft < window.innerWidth * 0.88;
-          const revealTrigger = inFirstView ? { trigger: wrap, start: 'top 70%', once: true } : { trigger: p, containerAnimation: scrub, start: 'left 88%', once: true };
-          const lineTrigger = inFirstView ? { trigger: wrap, start: 'top 60%', once: true } : { trigger: p, containerAnimation: scrub, start: 'left 75%', once: true };
-          if (masks.length) gsap.fromTo(masks, { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 1.3, ease: 'wj.out', scrollTrigger: revealTrigger });
-          gsap.fromTo(lines, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1, stagger: 0.1, ease: 'wj.out', scrollTrigger: lineTrigger });
-          if (inner) {
-            gsap.fromTo(inner, { xPercent: -6, scale: 1.16 }, { xPercent: 6, scale: 1, ease: 'none', scrollTrigger: { trigger: p, containerAnimation: scrub, start: 'left right', end: 'right left', scrub: true } });
-          }
-        });
-        if (facade) gsap.fromTo(facade, { filter: 'grayscale(1)' }, { filter: 'grayscale(0)', ease: 'none', scrollTrigger: { trigger: facade.closest('.heritage-panel'), containerAnimation: scrub, start: 'left 70%', end: 'center 40%', scrub: true } });
-
-        // the numeral travels against the track through the first two panels
-        const travel = root.querySelector<HTMLElement>('.heritage-travel');
-        if (travel) gsap.fromTo(travel, { xPercent: 0 }, { xPercent: 60, ease: 'none', scrollTrigger: { trigger: wrap, start: 'top top', end: () => '+=' + distance() * 0.45, scrub: true } });
+        gsap.fromTo(facade, { filter: 'grayscale(1)' }, { filter: 'grayscale(0)', ease: 'none', scrollTrigger: { trigger: facade, start: 'top 85%', end: 'top 35%', scrub: true } });
       });
     },
     { scope: ref, dependencies: [reduced] },
   );
 
   return (
-    <section ref={ref} id="ch03" className="relative bg-ink text-ink" aria-labelledby="heritage-title">
-      {/* lead-in: 1952 on ink, paper rising */}
-      <div className="heritage-lead relative h-[48svh] overflow-hidden">
-        <div className="heritage-paper absolute inset-0 bg-ivory opacity-0" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-5">
-          <p className="micro text-champagne">{COPY.heritage.eyebrow}</p>
-          <p className="heritage-numeral display text-[clamp(5rem,16vw,15rem)] leading-none text-champagne" aria-hidden>
-            1952
-          </p>
-          <h2 id="heritage-title" className="sr-only">
-            Waseem Jewellers, since 1952
-          </h2>
-        </div>
-      </div>
-
-      {/* the horizontal track */}
-      <div className="heritage-wrap relative bg-ivory md:h-svh md:overflow-hidden">
-        <div className="pointer-events-none absolute right-[5vw] top-1/2 hidden w-[24vw] -translate-y-1/2 opacity-[0.035] md:block">
-          <WaseemMark variant="crest" tone="ink" className="w-full" />
-        </div>
-        <div className="heritage-track flex w-full flex-col items-start gap-[14svh] px-gutter py-[12svh] md:h-full md:w-max md:flex-row md:items-center md:gap-[5vw] md:px-[6vw] md:py-0">
-          <div className="heritage-travel pointer-events-none absolute left-[8vw] top-[calc(var(--nav-h)+2svh)] hidden md:block">
-            <p className="display text-[clamp(3rem,6.5vw,6.5rem)] leading-none text-ink/8" aria-hidden>
-              1952
+    <section ref={ref} id="ch03-heritage" data-theme="ivory" className="relative bg-bg-2 px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="heritage-title">
+      <div ref={scope} className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
+        {/* the words, and the showrooms */}
+        <div className="flex flex-col gap-8 md:col-span-5 md:gap-10">
+          <div className="flex flex-col gap-4">
+            <Eyebrow className="text-ink/60">{COPY.heritage.eyebrow}</Eyebrow>
+            <h2 id="heritage-title" data-split className="display max-w-[9em] text-[clamp(2.25rem,4.2vw,4.5rem)] leading-[1.02] text-ink opacity-0">
+              {COPY.heritage.title}
+            </h2>
+            <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
+              {COPY.heritage.line}
             </p>
           </div>
-          {HERITAGE.map((m) => (
-            <article key={m.id} className={cn('heritage-panel relative flex w-full shrink-0 flex-col gap-8 md:w-auto md:flex-row md:items-end md:gap-[3vw]', m.ratio === '21:9' && 'md:items-center')}>
-              <div className={cn('flex flex-col gap-4', m.ratio === '21:9' ? 'md:order-2 md:w-[20vw]' : 'md:w-[14vw] md:min-w-[11.5rem] md:pb-[7svh]')}>
-                <p className="h-line micro text-ink/60">{m.numeral}</p>
-                <p className="h-line display text-[clamp(1.6rem,2.6vw,2.9rem)] leading-[1.04] text-ink">{m.line}</p>
-                {m.fact && (
-                  <p className="h-line font-display italic text-[1.0625rem] leading-snug text-ink/75" style={{ fontVariationSettings: '"opsz" 16' }}>
-                    {m.fact}
-                  </p>
-                )}
-              </div>
-              <figure className={cn('relative w-full shrink-0 md:w-auto', m.ratio === '21:9' ? 'md:w-[52vw]' : HEIGHT[m.ratio], m.treatment === 'monochrome-to-colour' && 'heritage-facade')}>
-                <div className="pointer-events-none absolute -inset-4 border border-ink/35 md:-inset-8" aria-hidden />
-                <div className={cn('h-mask relative w-full overflow-hidden md:h-full', m.ratio !== '21:9' && 'md:w-auto')} style={{ aspectRatio: RATIO[m.ratio] }}>
-                  <div className="h-inner absolute inset-0">
-                    <Img id={m.image} sizes="(min-width: 768px) 60vw, 90vw" className="object-cover" />
-                  </div>
-                </div>
-                {m.caption && (
-                  <figcaption className="h-line micro absolute -bottom-8 left-0 text-ink/60 md:-bottom-12">
-                    {m.numeral} · {m.caption}
-                  </figcaption>
-                )}
-              </figure>
-            </article>
-          ))}
-          {/* seal */}
-          <div className="heritage-panel relative flex w-full shrink-0 flex-col items-center justify-center gap-6 py-[6svh] text-center md:h-full md:w-[26vw] md:py-0">
-            {/* the lockup is 3.4:1; at h-28 it is 384px wide, which is wider than a 360px phone */}
-            <WaseemLockup tone="ink" className="h-auto w-[min(24rem,80vw)] md:h-28 md:w-auto" />
-            <p className="h-line display text-[clamp(1.5rem,2.2vw,2.4rem)] text-ink">{COPY.heritage.closing}</p>
+
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-ink/10 pt-6" data-rise>
+            <div className="flex flex-col gap-1">
+              <dt className="micro text-ink/45">Founded by</dt>
+              <dd className="font-display text-[1.0625rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 16' }}>
+                {SITE.founder}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="micro text-ink/45">Expanded by</dt>
+              <dd className="font-display text-[1.0625rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 16' }}>
+                {SITE.successor}
+              </dd>
+            </div>
+          </dl>
+
+          <div className="flex flex-col gap-4" data-rise>
+            <p className="micro text-ink/45">{COPY.heritage.showrooms}</p>
+            <ul className="flex flex-col divide-y divide-ink/10 border-y border-ink/10">
+              {SITE.showrooms.map((s) => (
+                <li key={s.id}>
+                  <a href={s.mapsUrl} target="_blank" rel="noreferrer" className="group/room flex items-baseline justify-between gap-6 py-3.5 text-ink" data-cursor="open">
+                    <span className="font-display text-[1.125rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
+                      {s.name}
+                    </span>
+                    <span className="micro text-right text-ink/50 transition-colors group-hover/room:text-ink">{s.address}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="micro text-ink/50">
+              {SITE.hours} · {SITE.phone}
+            </p>
+          </div>
+
+          <div data-rise>
+            <Button variant="bracket" onClick={() => openConsultation({ topic: 'general', source: 'cta' })}>
+              {COPY.heritage.cta}
+            </Button>
+          </div>
+        </div>
+
+        {/* the prints */}
+        <div className="grid grid-cols-12 gap-x-[3vw] gap-y-[5svh] md:col-span-7 md:col-start-6">
+          <figure className="heritage-facade col-span-7 md:col-span-6" data-rise>
+            <div className="relative w-full overflow-hidden bg-pearl" style={{ aspectRatio: '4 / 5' }}>
+              <Img id="heritage-facade" sizes="(min-width: 768px) 28vw, 56vw" className="object-cover" />
+            </div>
+            <figcaption className="micro mt-3 text-ink/50">The showroom · Lahore</figcaption>
+          </figure>
+          <figure className="col-span-5 self-end md:col-span-6 md:mt-[14svh]" data-rise>
+            <div className="relative w-full overflow-hidden bg-pearl" style={{ aspectRatio: '1 / 1' }}>
+              <Img id="heritage-kundan" sizes="(min-width: 768px) 28vw, 40vw" className="object-cover" />
+            </div>
+            <figcaption className="micro mt-3 text-ink/50">Kundan · detail</figcaption>
+          </figure>
+          <figure className="col-span-12 md:col-span-9 md:col-start-2" data-rise>
+            <div className="relative w-full overflow-hidden bg-pearl" style={{ aspectRatio: '3 / 2' }}>
+              <Img id="heritage-vitrine" sizes="(min-width: 768px) 42vw, 92vw" className="object-cover" />
+            </div>
+            <figcaption className="micro mt-3 flex items-baseline justify-between gap-6 text-ink/50">
+              <span>Gold · the vitrine</span>
+              <span className="display text-[1.125rem] normal-case tracking-normal text-ink/70">{COPY.heritage.closing}</span>
+            </figcaption>
+          </figure>
+          <div className="col-span-12 flex justify-end pt-2 md:col-span-9 md:col-start-2" data-rise>
+            <WaseemLockup tone="gold" className="h-[4.5rem] w-auto md:h-[5.5rem]" />
           </div>
         </div>
       </div>
