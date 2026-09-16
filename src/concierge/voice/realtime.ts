@@ -183,10 +183,9 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private supersede(reason: string) {
     this.epoch += 1;
     this.pending.clear();
-    if (this.responseOpen || this.speaking) {
-      this.send({ type: 'output_audio_buffer.clear' });
-      this.send({ type: 'response.cancel' });
-    }
+    // audio still in the buffer after the response completed is cleared alone; a cancel then has nothing to cancel
+    if (this.responseOpen || this.speaking) this.send({ type: 'output_audio_buffer.clear' });
+    if (this.responseOpen) this.send({ type: 'response.cancel' });
     this.responseOpen = false;
     if (this.speaking) {
       this.speaking = false;
