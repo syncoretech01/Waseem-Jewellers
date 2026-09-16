@@ -54,6 +54,8 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
   const focal = `${Math.round(asset.focal[0] * 100)}% ${Math.round(asset.focal[1] * 100)}%`;
   const dataAttrs = data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v])) : {};
   if (!asset.src) return null;
+  // a local source carries its own width, so the loader never serves a variant wider than the file
+  const src = asset.src.startsWith('/') ? `${asset.src}?mw=${asset.width}` : asset.src;
   // White-background packshots sit on a pearl tile and multiply into it, so they never read as catalogue cut-outs.
   const packshot = asset.role === 'packshot';
   const blend = packshot ? ({ mixBlendMode: 'multiply' } as const) : undefined;
@@ -61,7 +63,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
     return (
       <span className="absolute inset-0 block bg-pearl" aria-hidden={alt === ''}>
         <Image
-          src={asset.src}
+          src={src}
           alt={alt ?? asset.alt}
           fill
           sizes={sizes}
@@ -94,7 +96,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
      * or the plate it does not: a long-tail scene has no placeholder, and an empty ink box
      * in a row of jewellery reads as a fault, so it sits on a warm plate instead.
      */
-    const { props: optimised } = getImageProps({ src: asset.src, alt: alt ?? asset.alt, width: asset.width, height: asset.height, sizes, quality, loading: priority || eager ? 'eager' : 'lazy' });
+    const { props: optimised } = getImageProps({ src, alt: alt ?? asset.alt, width: asset.width, height: asset.height, sizes, quality, loading: priority || eager ? 'eager' : 'lazy' });
     const holding = !packshot
       ? asset.blurDataURL
         ? { backgroundImage: `url("${asset.blurDataURL}")`, backgroundSize: 'cover', backgroundPosition: focal }
@@ -129,7 +131,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
   if (fill) {
     return (
       <Image
-        src={asset.src}
+        src={src}
         alt={alt ?? asset.alt}
         fill
         sizes={sizes}
@@ -149,7 +151,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
 
   return (
     <Image
-      src={asset.src}
+      src={src}
       alt={alt ?? asset.alt}
       width={asset.width}
       height={asset.height}

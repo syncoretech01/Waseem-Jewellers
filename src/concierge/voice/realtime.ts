@@ -5,6 +5,7 @@ import { pulseSpeech, startMeter, stopMeter, stopSpeechEnvelope } from './meter'
 import { renderVoiceContext, withContext } from './realtimePrompt';
 import type { VoiceAdapter, VoiceHandlers, VoiceSessionRuntime } from './adapters';
 import type { ToolName } from '../types';
+import { romaniseDevanagari } from '@/lib/romanise';
 
 /**
  * The realtime tier: one model that hears, understands and speaks.
@@ -438,12 +439,13 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
 
       case 'conversation.item.input_audio_transcription.delta': {
         this.interim += String(e.delta ?? '');
-        h.onInterim(this.interim);
+        h.onInterim(romaniseDevanagari(this.interim));
         break;
       }
 
       case 'conversation.item.input_audio_transcription.completed': {
-        const text = tidy(String(e.transcript ?? '')) || this.interim;
+        // what is shown is Roman where the model wrote Devanagari; Urdu script and English stay as they are
+        const text = romaniseDevanagari(tidy(String(e.transcript ?? '')) || this.interim);
         this.note('heard', text.slice(0, 80));
         this.interim = '';
         const language = scriptOf(text);

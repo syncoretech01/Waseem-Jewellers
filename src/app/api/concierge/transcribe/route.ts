@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
   const upstream = new FormData();
   const type = audio.type || 'audio/webm';
-  const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : 'webm';
+  const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : type.includes('mpeg') || type.includes('mp3') ? 'mp3' : 'webm';
   upstream.append('file', new File([audio], `utterance.${ext}`, { type }));
   upstream.append('model', env.sttModel);
   upstream.append('response_format', 'json');
@@ -89,7 +89,11 @@ export async function POST(request: Request) {
   } catch {
     return fail('UPSTREAM', 'the transcription service did not answer', 502);
   }
-  if (!res.ok) return fail('UPSTREAM', `transcription ${res.status}`, 502);
+  if (!res.ok) {
+    // the provider's reason stays in the server log; the browser learns only that hearing failed
+    console.error('[transcribe] upstream', res.status, env.sttModel, (await res.text().catch(() => '')).slice(0, 600));
+    return fail('UPSTREAM', `transcription ${res.status}`, 502);
+  }
 
   let text = '';
   try {

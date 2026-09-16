@@ -102,7 +102,13 @@ export function realtimeEnv(): RealtimeEnv {
     baseUrl: voice.baseUrl,
     model: process.env.OPENAI_REALTIME_MODEL?.trim() || 'gpt-realtime-2.1',
     voice: process.env.OPENAI_REALTIME_VOICE?.trim() || process.env.CONCIERGE_TTS_VOICE?.trim() || 'marin',
-    sttModel: process.env.CONCIERGE_REALTIME_STT?.trim() || 'gpt-live-transcribe',
+    /**
+     * What writes the visitor's words down inside the session. The live model is faster but,
+     * asked for Roman Urdu, wrote Hindi in Devanagari on the review build; the older model
+     * honours the Roman-script prompt, which is what a Lahore visitor reads. Set the live
+     * one here when it does.
+     */
+    sttModel: process.env.CONCIERGE_REALTIME_STT?.trim() || 'gpt-4o-transcribe',
     enabled: onOpenAi && Boolean(voice.apiKey) && !off,
   };
 }

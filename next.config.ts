@@ -20,6 +20,13 @@ const config: NextConfig = {
   experimental: { cpus: Number(process.env.NEXT_BUILD_CPUS) || 3 },
 
   images: {
+    /**
+     * No metered optimiser. The review deployment answered 402 to every image once the
+     * plan's monthly transformations were spent; the loader serves the shop's CDN resizes
+     * and the build-time variants instead. See src/lib/imageLoader.ts.
+     */
+    loader: 'custom',
+    loaderFile: './src/lib/imageLoader.ts',
     formats: ['image/webp'],
     deviceSizes: [640, 828, 1080, 1280, 1600, 1920, 2560],
     imageSizes: [96, 160, 256, 384, 512],
