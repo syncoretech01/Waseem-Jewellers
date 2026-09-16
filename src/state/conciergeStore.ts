@@ -27,7 +27,8 @@ export const TRANSITIONS: Record<ConciergeState, readonly ConciergeState[]> = {
   CHAT: ['THINKING', 'VOICE_READY', 'ERROR', 'IDLE'],
   VOICE_READY: ['LISTENING', 'CHAT', 'THINKING', 'ERROR', 'IDLE'],
   LISTENING: ['THINKING', 'VOICE_READY', 'ERROR', 'IDLE'],
-  THINKING: ['EXECUTING_ACTION', 'SPEAKING', 'RESULT', 'ERROR', 'CHAT', 'VOICE_READY', 'IDLE'],
+  // LISTENING: a live session's visitor can speak over the concierge before it has said a word
+  THINKING: ['EXECUTING_ACTION', 'SPEAKING', 'RESULT', 'LISTENING', 'ERROR', 'CHAT', 'VOICE_READY', 'IDLE'],
   EXECUTING_ACTION: [
     'EXECUTING_ACTION',
     'THINKING',

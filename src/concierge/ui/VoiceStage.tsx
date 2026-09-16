@@ -25,7 +25,7 @@ const STATUS: Partial<Record<string, string>> = {
 function statusLine(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; voiced: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; fallback: string | null }) {
   const atRest = v.state === 'VOICE_READY' || v.state === 'CHAT' || v.state === 'ERROR';
   if (v.preparing) return CONCIERGE.voice.preparing;
-  if (v.transcribing) return CONCIERGE.voice.hearing;
+  if (v.transcribing && (v.state === 'LISTENING' || v.state === 'THINKING' || v.state === 'VOICE_READY')) return CONCIERGE.voice.hearing;
   if (v.denied && atRest) return CONCIERGE.micDenied;
   if (v.error && v.state !== 'LISTENING') return v.error;
   if (!v.recognition && atRest) return CONCIERGE.voice.unavailable;

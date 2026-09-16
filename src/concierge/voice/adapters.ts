@@ -31,6 +31,8 @@ export interface VoiceAdapter {
   bind?(runtime: VoiceSessionRuntime): void;
   isLive?(): boolean;
   sendText?(text: string): boolean;
+  /** Cut the reply that is being spoken; the conversation stays. */
+  interrupt?(): void;
 }
 
 export interface VoiceSessionRuntime {

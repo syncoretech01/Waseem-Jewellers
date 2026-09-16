@@ -152,8 +152,25 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     this.teardown('abort');
   }
 
+  /** The reply stops here — on the server, which cancels the response, and on the page, which clears the audio. */
+  interrupt() {
+    if (!this.live) return;
+    if (this.responseOpen || this.speaking) {
+      this.send({ type: 'response.cancel' });
+      this.send({ type: 'output_audio_buffer.clear' });
+    }
+    this.responseOpen = false;
+    if (this.speaking) {
+      this.speaking = false;
+      stopSpeechEnvelope();
+      this.runtime?.emit({ type: 'voice.speaking', active: false });
+    }
+    this.note('interrupt');
+  }
+
   sendText(text: string): boolean {
     if (!this.live || !this.dc || this.dc.readyState !== 'open') return false;
+    this.interrupt();
     this.note('text.sent', text.slice(0, 60));
     this.send({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] } });
     this.send({ type: 'response.create' });
@@ -432,12 +449,20 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         const language = scriptOf(text);
         if (language) rt.onLanguage(language);
         h.onFinal(text, { language });
-        if (this.utteranceId) rt.emit({ type: 'voice.utterance', id: this.utteranceId, text, final: true });
+        // the words usually land after the sentence ended; if they land first, the line is written now
+        if (!this.utteranceId) {
+          this.utteranceId = uid('v');
+          rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: '…', final: false });
+        }
+        rt.emit({ type: 'voice.utterance', id: this.utteranceId, text, final: true });
         break;
       }
 
       case 'conversation.item.input_audio_transcription.failed': {
         this.note('heard.failed');
+        // the stage must not wait for words that are not coming
+        h.onFinal(this.interim || '…', {});
+        this.interim = '';
         if (this.utteranceId) rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: '…', final: true });
         break;
       }
@@ -448,6 +473,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
           this.turnId = uid('t');
           this.replyText = '';
           this.turnHadTool = false;
+          this.callsThisTurn = 0;
           rt.emit({ type: 'turn.start', turnId: this.turnId });
         }
         this.note('response.created');
@@ -512,6 +538,10 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     }
   }
 
+  /** No more than this many actions answer one sentence — the same budget the text path keeps. */
+  private static readonly CALLS_PER_TURN = 4;
+  private callsThisTurn = 0;
+
   private queueCall(callId: string, name: string, args: string) {
     if (!callId || !name || this.answered.has(callId) || this.pending.has(callId)) return;
     this.pending.set(callId, { callId, name, args });
@@ -527,6 +557,12 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     let answered = false;
     for (const call of calls) {
       this.answered.add(call.callId);
+      this.callsThisTurn += 1;
+      if (this.callsThisTurn > RealtimeVoiceAdapter.CALLS_PER_TURN) {
+        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_BUDGET', message: 'no more actions for this sentence; answer with what you have' }) } });
+        answered = true;
+        continue;
+      }
       this.running += 1;
       this.turnHadTool = true;
       let args: Record<string, unknown> = {};

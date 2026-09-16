@@ -378,6 +378,8 @@ export class ConciergeController {
 
   cancelTurn() {
     this.spokenText = '';
+    // a live session's reply is cut on both ends; a text turn is cancelled at the provider
+    this.adapter?.interrupt?.();
     if (this.activeTurn) this.provider.cancelTurn(this.activeTurn);
     const s = this.store;
     if (s.activeTurnId) {
@@ -433,7 +435,8 @@ export class ConciergeController {
         break;
       }
       case 'text.ready': {
-        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable()) {
+        // a session speaks for itself; nothing here reads its words aloud a second time
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && this.adapter?.kind !== 'realtime') {
           /**
            * "No voice for this language" is a modifier on SPEAKING, not a tenth state — the
            * nine states are unchanged. The concierge still answers; it simply says once that
@@ -450,7 +453,9 @@ export class ConciergeController {
         break;
       }
       case 'text.delta': {
-        if (s.state !== 'SPEAKING') s.transition('SPEAKING', 'delta');
+        // a reply that arrives while the stage still says "Listening" passes through THINKING first
+        if (s.state === 'LISTENING' || s.state === 'VOICE_READY' || s.state === 'CHAT') s.transition('THINKING', 'delta');
+        if (this.store.state !== 'SPEAKING') this.store.transition('SPEAKING', 'delta');
         s.appendDelta(e.turnId, e.delta);
         break;
       }
@@ -468,7 +473,7 @@ export class ConciergeController {
          * from text.ready and used to stop there — a two-sentence answer, the register's whole
          * allowance, was written in full and voiced in half. The remainder is said from here.
          */
-        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && e.text) {
+        if (s.mode === 'voice' && s.voice.spokenReplies && speechAvailable() && e.text && this.adapter?.kind !== 'realtime') {
           const rest = this.spokenText && e.text.startsWith(this.spokenText) ? e.text.slice(this.spokenText.length).trim() : this.spokenText ? '' : e.text;
           if (rest) {
             this.spokenText = e.text;
