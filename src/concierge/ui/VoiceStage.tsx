@@ -22,7 +22,7 @@ const STATUS: Partial<Record<string, string>> = {
 };
 
 /** One sentence for every voice condition, in the order the visitor most needs to hear it. */
-function statusLine(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; voiced: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean }) {
+function statusLine(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; voiced: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; fallback: string | null }) {
   const atRest = v.state === 'VOICE_READY' || v.state === 'CHAT' || v.state === 'ERROR';
   if (v.preparing) return CONCIERGE.voice.preparing;
   if (v.transcribing) return CONCIERGE.voice.hearing;
@@ -31,6 +31,8 @@ function statusLine(v: { state: string; preparing: boolean; transcribing: boolea
   if (!v.recognition && atRest) return CONCIERGE.voice.unavailable;
   if (v.state === 'LISTENING' && v.interrupted) return CONCIERGE.voice.interrupted;
   if (v.state === 'LISTENING' && v.adapter === 'scripted') return CONCIERGE.youMightSay.replace(/ —$/, '');
+  // a rung down from the best hearing on offer: said plainly, in the visitor's words
+  if (v.state === 'LISTENING' && v.fallback) return CONCIERGE.voice.listeningFallback;
   if (v.state === 'EXECUTING_ACTION' && v.toolLabel) return v.toolLabel;
   if (v.state === 'SPEAKING' && !v.voiced) return CONCIERGE.voice.answering;
   if (v.state === 'SPEAKING' && v.recognition) return `${CONCIERGE.voice.speaking} ${CONCIERGE.voice.tapToInterrupt.toLowerCase()}.`;
@@ -100,13 +102,16 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const voiced = useConciergeStore((s) => s.voice.spokenReplies && s.voice.synthesis);
   const toolLabel = useConciergeStore((s) => s.activeTool?.label ?? '');
   const error = useConciergeStore((s) => s.error);
+  const fallback = useConciergeStore((s) => s.voice.fallback);
   const language = useConciergeStore((s) => s.memory.language);
   const listening = state === 'LISTENING';
   const speaking = state === 'SPEAKING';
   const working = state === 'THINKING' || state === 'EXECUTING_ACTION';
-  const heard = working && Boolean(transcript.final);
+  // what was heard stays on the stage through the whole answer, so a mishearing can be corrected while it is still fresh
+  const heard = (working || speaking || state === 'RESULT') && Boolean(transcript.final);
+  const correctable = heard && !transcript.active;
 
-  const status = statusLine({ state, preparing, transcribing, denied, recognition, voiced, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted });
+  const status = statusLine({ state, preparing, transcribing, denied, recognition, voiced, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted, fallback });
   const micLabel = denied ? CONCIERGE.voice.deniedLabel : preparing ? CONCIERGE.voice.preparingLabel : listening ? CONCIERGE.voice.stop : speaking ? CONCIERGE.voice.tapToInterrupt : CONCIERGE.voice.start;
   const size = compact ? 104 : 128;
   const text = heard ? transcript.final : transcript.interim;
@@ -120,12 +125,24 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
         <span>{status}</span>
       </p>
 
-      <div className={cn('flex w-full items-start justify-center', (transcript.interim || transcript.active || heard) && (compact ? 'min-h-[3rem]' : 'min-h-[4rem]'))}>
+      <div className={cn('flex w-full flex-col items-center justify-start gap-3', (transcript.interim || transcript.active || heard) && (compact ? 'min-h-[3rem]' : 'min-h-[4rem]'))}>
         {(transcript.interim || transcript.active || heard) && (
           <p dir="auto" lang={langOf(language)} className={cn('max-w-[22em] text-center font-display italic leading-snug text-fg', compact ? 'text-[1.1875rem]' : 'text-[1.375rem]')} style={{ fontVariationSettings: '"opsz" 22' }}>
             {heard && <span className="micro mr-2 not-italic text-fg-muted">{CONCIERGE.heard}</span>}
             {text}
             {transcript.active && !heard && <span className="ml-0.5 inline-block h-[1em] w-px translate-y-[2px] bg-gold-hi/70 align-middle" />}
+          </p>
+        )}
+        {/* a mishearing is corrected here, not endured: the words go back to the composer, or the microphone opens again */}
+        {correctable && (
+          <p className="micro flex items-center gap-4 text-fg-muted">
+            <span>{CONCIERGE.voice.notQuite}</span>
+            <button type="button" onClick={() => controller?.editHeard()} className="underline-offset-4 transition-colors hover:text-fg hover:underline">
+              {CONCIERGE.voice.editHeard}
+            </button>
+            <button type="button" onClick={() => controller?.retryHearing()} className="underline-offset-4 transition-colors hover:text-fg hover:underline">
+              {CONCIERGE.voice.retry}
+            </button>
           </p>
         )}
       </div>

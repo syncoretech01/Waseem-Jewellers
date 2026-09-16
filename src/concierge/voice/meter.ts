@@ -7,6 +7,8 @@ export const voiceMeter = { level: 0, speech: 0, synthetic: false };
 
 let ctx: AudioContext | null = null;
 let stream: MediaStream | null = null;
+/** Whether stopMeter may end the stream's tracks — false when a caller lent its own microphone. */
+let ownsStream = true;
 let tick: ((t: number) => void) | null = null;
 let syntheticTick: ((t: number) => void) | null = null;
 let speechDecay: ((t: number) => void) | null = null;
@@ -14,14 +16,15 @@ let speechDecay: ((t: number) => void) | null = null;
 let generation = 0;
 
 /** Meters a microphone stream into voiceMeter.level with a breath-like attack/release. */
-export async function startMeter(existing?: MediaStream) {
+export async function startMeter(existing?: MediaStream, opts: { own?: boolean } = {}) {
   stopMeter();
   const mine = generation;
+  ownsStream = opts.own ?? !existing;
   try {
     const granted = existing ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
     if (mine !== generation) {
       // the session closed while the visitor was answering the permission prompt
-      if (!existing) granted.getTracks().forEach((t) => t.stop());
+      if (ownsStream) granted.getTracks().forEach((t) => t.stop());
       return false;
     }
     stream = granted;
@@ -67,8 +70,9 @@ export function stopMeter() {
   if (syntheticTick) gsap.ticker.remove(syntheticTick);
   tick = null;
   syntheticTick = null;
-  stream?.getTracks().forEach((t) => t.stop());
+  if (ownsStream) stream?.getTracks().forEach((t) => t.stop());
   stream = null;
+  ownsStream = true;
   if (ctx && ctx.state !== 'closed') void ctx.close();
   ctx = null;
   voiceMeter.level = 0;

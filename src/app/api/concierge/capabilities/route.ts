@@ -1,4 +1,4 @@
-import { modelIsConfigured, voiceIsConfigured } from '@/server/env';
+import { modelIsConfigured, realtimeIsConfigured, voiceIsConfigured } from '@/server/env';
 import { enquiryReadiness } from '@/server/enquiry/sink';
 
 /**
@@ -25,9 +25,10 @@ export function GET() {
       /**
        * 'server' — hearing and speaking through a model, with the browser's own speech as
        * the fallback for any single utterance that fails. 'browser' is the shipped state.
-       * 'native' is reserved for a realtime engine and never advertised by this build.
+       * 'native' is the realtime tier — one model that hears, reasons and speaks — and
+       * implies the server tier beneath it, since the same credential powers both.
        */
-      voice: voiceIsConfigured() ? 'server' : 'browser',
+      voice: realtimeIsConfigured() ? 'native' : voiceIsConfigured() ? 'server' : 'browser',
       /**
        * 'local' means a consultation request never leaves the visitor's device: the form
        * hands them a reference and their own WhatsApp message, which is all it has ever

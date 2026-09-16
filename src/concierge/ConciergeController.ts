@@ -4,9 +4,11 @@ import { useConciergeStore, OPEN_STATES, type ConciergeMode, type ConciergeState
 import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
-import { loadIndex } from '@/data/clientIndex';
+import { getRow, loadIndex, priceLabelOf, specLineOf } from '@/data/clientIndex';
 import { recognitionLang } from './voice/languages';
-import { chooseVoiceEngine, hearingAvailable } from './voice/engine';
+import { chooseVoiceEngine, hearingAvailable, type VoiceTier } from './voice/engine';
+import { realtimeTrace, registerRealtimeEngine } from './voice/realtime';
+import { topicLine } from './memory';
 import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
@@ -55,6 +57,8 @@ export class ConciergeController {
   private saidNoVoice = false;
   private afterOpen: (() => void) | null = null;
   private draftListeners = new Set<(draft: string) => void>();
+  /** The visitor rested the microphone of a live session; it does not reopen by itself. */
+  private micPaused = false;
 
   constructor() {
     this.provider = createProvider();
@@ -66,7 +70,33 @@ export class ConciergeController {
     };
     this.provider.attach(runtime);
     registerServerSpeech();
+    registerRealtimeEngine();
     this.refreshVoiceSupport();
+    if (typeof window !== 'undefined') window.__wjVoiceTrace = realtimeTrace;
+  }
+
+  /**
+   * What a live voice session is told about the page: the piece in view with what Waseem
+   * publishes about it, the pieces just shown with their ordinals, the standing request and
+   * the size of the selection. Small, and every fact in it published — the same rule as the
+   * text path's grounding, rendered for a model that hears "the second one".
+   */
+  private voiceContext() {
+    const site = useSiteStore.getState();
+    const c = this.store;
+    const inView = site.currentProduct ?? site.focusedProduct;
+    const row = inView ? getRow(inView) : undefined;
+    const factsOf = (slug: string, fallback: string) => {
+      const r = getRow(slug);
+      return r ? specLineOf(r) || priceLabelOf(r) : fallback;
+    };
+    return {
+      route: site.pathname || '/',
+      pieceInView: row ? { slug: row.s, name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null,
+      recent: c.recentResults.slice(0, 6).map((p, i) => ({ ordinal: i + 1, slug: p.slug, name: p.name, facts: factsOf(p.slug, p.priceLabel) })),
+      wishlistCount: site.wishlist.length,
+      standing: topicLine(c.memory.standingSlots),
+    };
   }
 
   /** What this device can hear and speak with, by whichever tier the deployment offers. */
@@ -175,7 +205,8 @@ export class ConciergeController {
     s.setTrayOpen(false);
     s.setPanel('closed');
     s.setTranscript({ interim: '', final: '', active: false });
-    s.setVoice({ sessionLive: false, preparing: false });
+    s.setVoice({ sessionLive: false, preparing: false, fallback: null });
+    this.micPaused = false;
     s.transition('IDLE', 'close');
     // back to the orb, or the ENQUIRE button, or wherever it was — not to <body>
     const opener = this.opener;
@@ -186,10 +217,15 @@ export class ConciergeController {
   setMode(mode: ConciergeMode) {
     const s = this.store;
     if (s.mode === mode) return;
-    // "Write" mid-sentence discards the half sentence rather than sending it
+    // "Write" mid-sentence discards the half sentence rather than sending it — and a live
+    // session rests its microphone rather than ending: the typed sentence joins the same conversation
     if (s.state === 'LISTENING' || s.voice.preparing) {
-      this.adapter?.abort();
-      s.setVoice({ preparing: false, transcribing: false, sessionLive: false });
+      const session = this.adapter?.kind === 'realtime' && this.adapter.isLive?.();
+      if (session) {
+        this.adapter?.stop();
+        this.micPaused = true;
+      } else this.adapter?.abort();
+      s.setVoice({ preparing: false, transcribing: false, sessionLive: session ? s.voice.sessionLive : false });
       s.setTranscript({ interim: '', final: '', active: false });
       if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'mode');
     }
@@ -209,7 +245,10 @@ export class ConciergeController {
 
   forget() {
     this.cancelTurn();
+    this.adapter?.abort();
     this.saidNoVoice = false;
+    this.micPaused = false;
+    this.store.setVoice({ sessionLive: false, fallback: null });
     this.store.forget();
   }
 
@@ -218,7 +257,8 @@ export class ConciergeController {
     const trimmed = text.trim();
     if (!trimmed) return;
     const s = this.store;
-    if (s.state === 'LISTENING' || s.voice.preparing) {
+    const session = this.adapter?.kind === 'realtime' && this.adapter.isLive?.() ? this.adapter : null;
+    if ((s.state === 'LISTENING' || s.voice.preparing) && !session) {
       this.adapter?.abort();
       // a spoken turn keeps the session live so the microphone reopens after the reply; a
       // written or scripted one ends it — the visitor has moved to the keyboard
@@ -233,6 +273,19 @@ export class ConciergeController {
     s.setTrayOpen(false);
     s.setLastVisitorText(trimmed);
     if (source !== 'card') s.appendTurn({ id: uid('v'), role: 'visitor', text: trimmed, source, createdAt: Date.now() });
+    /**
+     * A typed sentence into a live voice session goes to the same conversation the visitor
+     * has been speaking to — "second wala kholo" written after it was misheard still means
+     * the second piece the session just brought. The session emits the turn's events itself.
+     */
+    if (session && session.sendText?.(trimmed)) {
+      this.pendingResult = false;
+      if (!s.transition('THINKING', 'submit')) {
+        s.transition(this.restState(), 'submit');
+        s.transition('THINKING', 'submit');
+      }
+      return;
+    }
     const turnId = uid('t');
     this.activeTurn = turnId;
     this.pendingResult = false;
@@ -459,7 +512,32 @@ export class ConciergeController {
       }
       case 'voice.session':
         s.setVoice({ sessionLive: e.status === 'live' });
+        if (e.status === 'ended') {
+          // a session that ended mid-sentence leaves the stage at rest, not listening
+          s.setVoice({ preparing: false, transcribing: false });
+          s.setTranscript({ active: false });
+          if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'session.ended');
+        }
         break;
+      case 'voice.utterance':
+        if (!e.final) s.appendTurn({ id: e.id, role: 'visitor', text: e.text, source: 'voice', createdAt: Date.now() });
+        else s.patchTurn(e.id, { text: e.text });
+        if (e.final) s.setLastVisitorText(e.text);
+        break;
+      case 'voice.thinking': {
+        this.clearTimers();
+        this.pendingResult = false;
+        this.spokenText = '';
+        s.setError(null);
+        s.setTrayOpen(false);
+        const cur = this.store.state;
+        if (cur === 'LISTENING' || cur === 'VOICE_READY' || cur === 'RESULT' || cur === 'CHAT') s.transition('THINKING', 'heard');
+        else if (cur === 'ERROR') {
+          s.transition(this.restState(), 'heard');
+          s.transition('THINKING', 'heard');
+        }
+        break;
+      }
       case 'voice.listening':
         if (e.active) s.transition('LISTENING', 'native');
         else if (s.state === 'LISTENING') s.transition('VOICE_READY', 'native');
@@ -467,16 +545,32 @@ export class ConciergeController {
       case 'voice.transcript':
         s.setTranscript({ interim: e.final ? '' : e.text, final: e.final ? e.text : s.transcript.final, active: !e.final });
         break;
-      case 'voice.speaking':
+      case 'voice.speaking': {
         this.speaking = e.active;
+        if (e.active) {
+          const st = this.store.state;
+          if (st === 'THINKING' || st === 'EXECUTING_ACTION') this.store.transition('SPEAKING', 'audio');
+        } else {
+          // a turn that ended while the voice was still speaking settles now
+          const after = this.afterSpeech;
+          this.afterSpeech = null;
+          after?.();
+        }
         break;
+      }
     }
   }
 
   private maybeResumeListening() {
     const s = this.store;
+    if (s.mode !== 'voice' || !s.voice.sessionLive) return;
+    if (s.voice.adapter === 'realtime') {
+      // the microphone never closed; the stage simply says so again — unless the visitor rested it
+      if (!this.micPaused && this.adapter?.isLive?.() && this.store.state === 'VOICE_READY') this.store.transition('LISTENING', 'native');
+      return;
+    }
     // only after the visitor actually spoke through the microphone — never after a scripted example
-    if (s.mode !== 'voice' || !s.voice.sessionLive || (s.voice.adapter !== 'webspeech' && s.voice.adapter !== 'server')) return;
+    if (s.voice.adapter !== 'webspeech' && s.voice.adapter !== 'server') return;
     const check = () => {
       if (this.store.state !== 'VOICE_READY') return;
       if (this.speaking || voiceMeter.speech > 0.05) {
@@ -550,10 +644,9 @@ export class ConciergeController {
    * capabilities probe that also chooses the text model, so that adding a realtime voice
    * to a deployment changes one server variable and nothing in the UI.
    */
-  private chooseAdapter(forceScripted = false, preferBrowser = false): VoiceAdapter {
+  private chooseAdapter(tier: VoiceTier = 'auto'): VoiceAdapter {
     const { adapter, kind } = chooseVoiceEngine({
-      forceScripted,
-      preferBrowser,
+      tier,
       language: this.store.memory.language,
       exampleLine: () => {
         const routeKind = useSiteStore.getState().routeKind;
@@ -564,11 +657,26 @@ export class ConciergeController {
       },
     });
     this.store.setVoice({ adapter: kind });
+    adapter.bind?.({
+      emit: (e) => this.onEvent(e),
+      executeTool: (name, args) => executeTool(name, args),
+      context: () => this.voiceContext(),
+      onLanguage: (language) => this.store.rememberLanguage(language),
+      subscribe: (onChange) => {
+        const offSite = useSiteStore.subscribe(onChange);
+        const offConcierge = useConciergeStore.subscribe(onChange);
+        return () => {
+          offSite();
+          offConcierge();
+        };
+      },
+    });
     return adapter;
   }
 
-  startListening(forceScripted = false, preferBrowser = false) {
+  startListening(tier: VoiceTier = 'auto') {
     const s = this.store;
+    this.micPaused = false;
     // a mic opened over the concierge's own sentence is an interruption, and the stage says so
     const interrupted = s.state === 'SPEAKING' || this.speaking;
     if (s.mode !== 'voice') s.setMode('voice');
@@ -577,16 +685,21 @@ export class ConciergeController {
     // a tap is the moment a phone will let a later reply play aloud
     primeAudio();
     cancelSpeech();
-    this.cancelTurn();
-    this.adapter?.abort();
-    const adapter = this.chooseAdapter(forceScripted, preferBrowser);
+    const adapter = this.chooseAdapter(tier);
+    // a session adapter keeps its conversation; every other adapter starts from nothing
+    if (this.adapter !== adapter || adapter.kind !== 'realtime') {
+      this.cancelTurn();
+      this.adapter?.abort();
+    }
     this.adapter = adapter;
+    if (tier === 'auto') s.setVoice({ fallback: null });
     s.setError(null);
     s.setTranscript({ interim: '', final: '', active: false, interrupted });
     // the machine holds at VOICE_READY until the microphone is truly open: "Listening."
     // must never be shown while the browser is still asking the visitor for permission
     s.setVoice({ sessionLive: true, preparing: true, transcribing: false });
-    this.later(7000, () => {
+    // a realtime session has a handshake to complete after the permission; it is given longer
+    this.later(adapter.kind === 'realtime' ? 14000 : 7000, () => {
       if (!this.store.voice.preparing || this.adapter !== adapter) return;
       adapter.abort();
       this.store.setVoice({ preparing: false, sessionLive: false });
@@ -616,7 +729,8 @@ export class ConciergeController {
         // the server tier can tell which script it heard; the browser tier listens in it next time
         if (meta?.language === 'ur' || meta?.language === 'pa-Guru') this.store.rememberLanguage(meta.language);
         this.store.setTranscript({ interim: '', final: text, active: false });
-        this.submitText(text, adapter.kind === 'scripted' ? 'example' : 'voice');
+        // a session adapter has already answered the sentence itself; only an utterance is submitted
+        if (adapter.kind !== 'realtime') this.submitText(text, adapter.kind === 'scripted' ? 'example' : 'voice');
       },
       onEnd: () => {
         this.store.setTranscript({ active: false });
@@ -634,9 +748,19 @@ export class ConciergeController {
         }
         if (code === 'NETWORK' || code === 'UNSUPPORTED') {
           st.transition('VOICE_READY', 'network');
-          // the server tier could not hear this utterance: the browser's own hearing takes it
-          if (adapter.kind === 'server' && !preferBrowser && recognitionSupported()) {
-            this.later(150, () => this.startListening(false, true));
+          /**
+           * One rung down, never silently. A realtime session that could not open falls to
+           * the transcription tier; a transcription that failed falls to the browser's own
+           * hearing. The stage says which — in the visitor's words, not the engine's.
+           */
+          if (adapter.kind === 'realtime' && tier === 'auto') {
+            st.setVoice({ fallback: 'server' });
+            this.later(150, () => this.startListening('server'));
+            return;
+          }
+          if (adapter.kind === 'server' && tier !== 'browser' && recognitionSupported()) {
+            st.setVoice({ fallback: 'browser' });
+            this.later(150, () => this.startListening('browser'));
             return;
           }
           // never a silent example in the visitor's name: say so, and leave the offer standing
@@ -661,12 +785,43 @@ export class ConciergeController {
    */
   stopListening() {
     const scripted = this.adapter?.kind === 'scripted';
+    if (this.adapter?.kind === 'realtime') this.micPaused = true;
     this.adapter?.stop();
     this.store.setVoice({ sessionLive: scripted ? false : this.store.voice.sessionLive, preparing: false });
   }
 
   runExample() {
-    this.startListening(true);
+    this.startListening('scripted');
+  }
+
+  /**
+   * "Not quite?" — what was heard, put into the composer to be corrected. The conversation
+   * stays live, so the corrected sentence goes to the same session that misheard it.
+   */
+  editHeard() {
+    const text = this.store.transcript.final || this.store.lastVisitorText;
+    if (!text) return;
+    this.cancelTurn();
+    cancelSpeech();
+    this.setMode('chat');
+    this.draftListeners.forEach((fn) => fn(text));
+  }
+
+  /** Once more: the last words are cleared and the microphone is open again. */
+  retryHearing() {
+    const s = this.store;
+    this.cancelTurn();
+    cancelSpeech();
+    s.setError(null);
+    s.setTranscript({ interim: '', final: '', active: false, interrupted: false });
+    if (this.adapter?.kind === 'realtime' && this.adapter.isLive?.()) {
+      const cur = this.store.state;
+      if (cur !== 'VOICE_READY' && cur !== 'LISTENING') s.transition('VOICE_READY', 'retry');
+      this.startListening();
+      return;
+    }
+    if (this.store.state !== 'VOICE_READY') s.transition('VOICE_READY', 'retry');
+    this.startListening();
   }
 
   toggleSpokenReplies() {

@@ -75,3 +75,31 @@ export function voiceEnv(): VoiceEnv {
 }
 
 export const voiceIsConfigured = () => Boolean(voiceEnv().apiKey);
+
+/**
+ * The realtime voice tier: one model that hears, understands and speaks. It is the client-demo
+ * voice path when the OpenAI credential is present; `CONCIERGE_REALTIME=off` keeps the
+ * transcription/speech tier as the top of the ladder without touching the code.
+ */
+export interface RealtimeEnv {
+  apiKey: string | null;
+  baseUrl: string;
+  model: string;
+  voice: string;
+  enabled: boolean;
+}
+
+export function realtimeEnv(): RealtimeEnv {
+  const voice = voiceEnv();
+  const onOpenAi = /api\.openai\.com/.test(voice.baseUrl);
+  const off = /^(off|0|false)$/i.test(process.env.CONCIERGE_REALTIME?.trim() ?? '');
+  return {
+    apiKey: onOpenAi ? voice.apiKey : null,
+    baseUrl: voice.baseUrl,
+    model: process.env.OPENAI_REALTIME_MODEL?.trim() || 'gpt-realtime-2.1',
+    voice: process.env.OPENAI_REALTIME_VOICE?.trim() || process.env.CONCIERGE_TTS_VOICE?.trim() || 'marin',
+    enabled: onOpenAi && Boolean(voice.apiKey) && !off,
+  };
+}
+
+export const realtimeIsConfigured = () => realtimeEnv().enabled;

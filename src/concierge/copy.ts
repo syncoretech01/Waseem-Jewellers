@@ -37,6 +37,12 @@ export const CONCIERGE = {
     tapToInterrupt: 'Tap to interrupt',
     hearing: 'A moment — hearing you.',
     hearingUnavailable: 'Hearing is not available just now. You can write to me instead, or let me show you.',
+    /** A rung down from the best hearing this deployment offers — said in the visitor's words, never the engine's. */
+    listeningFallback: 'Listening — if I mishear, correct me or write to me.',
+    notQuite: 'Not quite?',
+    editHeard: 'Correct it',
+    retry: 'Once more',
+    couldNotHear: 'I could not hear that clearly. You can try once more or write to me.',
     interrupted: 'Go on — I am listening.',
     write: 'Write instead',
     heardHeading: 'Heard',

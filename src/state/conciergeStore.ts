@@ -135,6 +135,8 @@ export interface VoiceFlags {
   denied: boolean;
   /** The microphone has closed and the words are still on their way (the server tier). */
   transcribing: boolean;
+  /** A rung down from the tier the deployment offers, for this visitor: said on the stage, never in the engine's words. */
+  fallback: 'server' | 'browser' | null;
 }
 
 interface ConciergeStoreState {
@@ -201,7 +203,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   recentCollections: [],
   lastVisitorText: null,
   providerId: 'keyless',
-  voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false, preparing: false, denied: false, transcribing: false },
+  voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false, preparing: false, denied: false, transcribing: false, fallback: null },
   error: null,
   greeted: false,
   trayOpen: false,

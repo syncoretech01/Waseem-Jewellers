@@ -138,6 +138,10 @@ export type ProviderEvent =
   | { type: 'turn.done'; turnId: string }
   | { type: 'turn.error'; turnId: string; message: string; recoverable: boolean }
   | { type: 'voice.session'; status: 'connecting' | 'live' | 'ended'; message?: string }
+  /** The visitor's spoken line as the exchange shows it — a placeholder while the words are on their way, then the words. */
+  | { type: 'voice.utterance'; id: string; text: string; final: boolean }
+  /** The visitor has finished a sentence and the session is composing — LISTENING becomes THINKING. */
+  | { type: 'voice.thinking' }
   | { type: 'voice.listening'; active: boolean }
   | { type: 'voice.transcript'; text: string; final: boolean }
   | { type: 'voice.speaking'; active: boolean };

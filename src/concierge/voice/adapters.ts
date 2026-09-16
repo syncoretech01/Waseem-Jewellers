@@ -20,8 +20,27 @@ export interface VoiceAdapter {
   readonly kind: 'webspeech' | 'scripted' | 'server' | 'realtime';
   isSupported(): boolean;
   start(handlers: VoiceHandlers): Promise<void>;
+  /** The visitor is done for now: an utterance adapter finalises; a session adapter pauses its microphone. */
   stop(): void;
   abort(): void;
+  /**
+   * A session adapter keeps one conversation open across turns. It hears, reasons and speaks by
+   * itself, so it needs the concierge's runtime — the event sink and the tools — and it can
+   * take a typed sentence into the same conversation. Utterance adapters leave these undefined.
+   */
+  bind?(runtime: VoiceSessionRuntime): void;
+  isLive?(): boolean;
+  sendText?(text: string): boolean;
+}
+
+export interface VoiceSessionRuntime {
+  emit(event: import('../types').ProviderEvent): void;
+  executeTool(name: import('../types').ToolName, args: Record<string, unknown>): Promise<import('../types').ToolOutcome>;
+  /** What the session should know about the page, rendered small. */
+  context(): import('./realtimePrompt').VoiceContextInput;
+  onLanguage(language: 'ur' | 'pa-Guru'): void;
+  /** Fires whenever the page changes in a way the session should hear about; returns the unsubscribe. */
+  subscribe(onChange: () => void): () => void;
 }
 
 export function recognitionSupported() {
