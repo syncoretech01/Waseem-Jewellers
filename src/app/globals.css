@@ -615,19 +615,8 @@ html[data-rm="1"] .wj-ring-light { animation: none; opacity: 0.6; }
 /* ── loading ritual: the stone rises over the drawing, which stays beneath it ─ */
 .ritual-stone[data-gem="1"] .stone-lines { opacity: 0.5; transition: opacity 900ms var(--ease-silk); }
 
-/* ── reduced motion: chapters whose desktop composition is only traversable by
-      scroll fall back to their stacked reading order. `data-rm` is stamped on
-      <html> before hydration, so this needs no JavaScript and cannot mismatch. ── */
-html[data-rm="1"] #ch09 {
-  height: auto;
-  overflow: visible;
-}
-html[data-rm="1"] .bespoke-stage {
-  display: none;
-}
-html[data-rm="1"] .bespoke-stack {
-  display: flex;
-}
+/* (reduced motion no longer stacks the bespoke chapter: its desktop stage is a composed still —
+   the pair whole, one stage word — exactly like the study, the goldwork and the light.) */
 
 /* while the salon panel is open, a page steps out from beneath it rather than letting the rail
    cover the piece's own controls. Only above 1280, where a page has the width to give. */

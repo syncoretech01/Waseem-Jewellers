@@ -255,7 +255,7 @@ Every chapter's scroll animation lives inside its own `useGSAP` scope — and, w
 
 There are two independent layers, because one of them has to work before any JavaScript has run.
 
-**1. Pre-hydration CSS.** An inline script in `src/app/layout.tsx` stamps `data-rm="1"` on `<html>` when `(prefers-reduced-motion: reduce)` matches, alongside `data-visited` and `data-coarse`. A chapter whose composition is only traversable by scroll would be unreachable if the pin were never built, so `globals.css` gives it a stacked reading order under `html[data-rm="1"]` — no JavaScript involved, and no hydration mismatch possible. Bespoke (`#ch09`) loses its fixed height and overflow and its stage is hidden while its stack becomes the visible layout; `#page-root` drops its `100svh` bottom margin and the footer stops being fixed.
+**1. Pre-hydration CSS.** An inline script in `src/app/layout.tsx` stamps `data-rm="1"` on `<html>` when `(prefers-reduced-motion: reduce)` matches, alongside `data-visited` and `data-coarse`. The pinned chapters build no pin under reduced motion and their desktop stage is a composed still (the piece whole, one stage word), so nothing is unreachable; `#page-root` drops its `100svh` bottom margin and the footer stops being fixed.
 
 **2. Per-chapter GSAP.** Every pinned chapter's `mm.add()` carries a `reduce: '(prefers-reduced-motion: reduce)'` condition alongside `desktop` and `mobile`, combined with the store's tier:
 

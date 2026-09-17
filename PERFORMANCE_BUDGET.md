@@ -243,6 +243,25 @@ It prints one JSON line — elapsed ms, resolved `data-tier`, scroll height, liv
 
 **What remains.** Long tasks of 50–150 ms still appear through the scroll on this machine (82–100 over a 16–18 s pass at two viewports a second; 4 with WebGL unavailable), and the frame-rate monitor demotes the tier to LOW partway through every run (17–38 fps measured). A timeline trace of the same range shows the main thread nearly idle — 197 ms of tasks, 5 ms of paint — and 1.8 s on the compositor and GPU threads, which is where an integrated GPU pays for a page of full-bleed photographs and a live WebGL context. The numbers vary by a third between identical runs. That is the honest state: the page is smooth on the main thread and GPU-bound on a 2016 Intel laptop, and the tier monitor is doing what it is for.
 
+## The S2H round, measured (18 Sep 2026)
+
+Same instruments, same Intel HD 530, production build, 1440×900, headed, two runs each. The round added five pinned chapters (the study, the goldwork journey, the light, bespoke, and the gate before them), the emerald shader, the card system and the morph, and took the page from 20,542 px to 25,440 px.
+
+| | Before (d699bd1) | After (S2H) |
+|---|---|---|
+| Worst scrolled frame | 133–300 ms | **117–133 ms** |
+| Long tasks through a full scroll | 82–100 · 5.3–8.9 s | **67–68 · 4.0–4.1 s** |
+| Frame rate through the scroll | 33–37 fps | **41.6–41.9 fps** |
+| LCP (localhost) | 1.2–1.8 s | **1.1 s** |
+| CLS after load | 0.000 | **0.000** |
+| Base route JS (home, initial) | 317 kB gz | 323 kB gz (+6: four chapters and four moments; the GSAP Flip plugin no longer loads — the morph tweens its own clone) |
+| Homepage settled | 447 kB | 435 kB |
+| Leaks | clean | clean (nodes 0 %, listeners 0 %, heap +11 % over five loops and twenty concierge cycles) |
+
+**The emerald costs less than the glass it replaces.** The stone's shader is a facet-plane ray march with Beer–Lambert absorption (`src/lib/three/emeraldMaterial.ts`) instead of drei's refraction tracer: GPU timer queries on the stone alone, 240 renders over the pin's orbit — drei MEDIUM 7.07 ms / HIGH 9.62 ms → **1.97 ms / 2.74 ms**, against 1.15 ms for the flat LOW stone. Its tier is decided once at compile, so a demotion mid-scroll never remounts the material. Nothing compiles during an active scroll: the canvas still holds `frameloop="never"` until every program is linked and mounts at the first still moment after the loader.
+
+**The morph is transform-only.** One measurement of the source (clip-aware, object-fit-aware) and one of the target; one clone tweened from one state object; flights of 456–692 ms on every image door, landing within 0.1 px, no blank frame (`npm run flip:check`, headless, headed, 390×844 and reduced motion).
+
 ## What has not been measured
 
 Be clear with anyone reading these numbers:

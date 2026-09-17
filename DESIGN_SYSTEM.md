@@ -215,7 +215,7 @@ Two global state classes: `html.has-cursor` (set by `CursorLayer`, and dropped a
 
 `data-rm="1"` is stamped on `<html>` by the pre-paint script in `layout.tsx`, before hydration, so the reduced-motion layout is pure CSS and cannot mismatch on the client.
 
-The block does structural work, not just animation suppression. The one chapter whose desktop composition is only traversable by scroll falls back to its stacked reading order: `#ch09` (bespoke) loses its pinned height, `.bespoke-stage` is hidden and `.bespoke-stack` becomes flex. The concierge orb core and the invitation ring stop animating.
+The block does structural work, not just animation suppression. The pinned chapters (the study, the goldwork, the light, bespoke) build no pin under reduced motion and present their desktop stage as a composed still — the piece whole, one stage word — so nothing is unreachable and nothing is stacked twice. The concierge orb core and the invitation ring stop animating.
 
 There is also a `@media (prefers-reduced-motion: reduce) { .sheen { animation: none } }` rule; no element currently carries a bare `sheen` class (the keyframe is used by name), so this rule is inert.
 
