@@ -19,7 +19,7 @@ import { cn } from '@/lib/cn';
  * mask is composed from a single state object tweened by the timeline, written in one
  * `onUpdate`, and nothing else touches it.
  */
-export function SuiteLight({ moment, slug, sizes, className, driven, ref, onLit }: { moment: LightMoment; slug: string; sizes: string; className?: string; driven?: boolean; ref?: Ref<MomentHandle>; onLit?: (key: string | null) => void }) {
+export function SuiteLight({ moment, slug, sizes, className, driven, ref, onLit, captions = 'inside' }: { moment: LightMoment; slug: string; sizes: string; className?: string; driven?: boolean; ref?: Ref<MomentHandle>; onLit?: (key: string | null) => void; /** `inside` writes each light's note over the photograph; `none` leaves the words to the chapter. */ captions?: 'inside' | 'none' }) {
   const root = useRef<HTMLDivElement>(null);
   const litRef = useRef(onLit);
   useEffect(() => {
@@ -95,7 +95,7 @@ export function SuiteLight({ moment, slug, sizes, className, driven, ref, onLit 
       {/* the veil: its mask and opacity have exactly one writer */}
       {!still && <div className="light-veil pointer-events-none absolute inset-0 bg-ink" style={{ opacity: 0 }} aria-hidden />}
 
-      {!still && (
+      {!still && captions === 'inside' && (
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           {/* the pieces are named over the darkened room in ivory; the closing line sits on the lit photograph in ink */}
           {caps.map((c) => (

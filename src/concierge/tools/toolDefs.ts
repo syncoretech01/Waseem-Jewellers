@@ -5,7 +5,7 @@ import type { ToolDef } from '../types';
  * sections, and two targets that are not sections of their own: `gate` is the Gold / Diamond
  * gate chapter, `kinds` is the row of kinds inside the window chapter.
  */
-const SECTIONS = ['hero', 'vitrine', 'kinds', 'craft', 'gate', 'gold', 'diamond', 'bridal', 'collections', 'heritage', 'menkids', 'bespoke', 'footer', 'department', 'pieces', 'gallery', 'details', 'related'];
+const SECTIONS = ['hero', 'vitrine', 'kinds', 'craft', 'study', 'gate', 'gold', 'goldwork', 'light', 'diamond', 'bridal', 'collections', 'heritage', 'menkids', 'bespoke', 'footer', 'department', 'pieces', 'gallery', 'details', 'related'];
 const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dewan', 'royal-wedding'];
 const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
 /**

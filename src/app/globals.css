@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../styles/cards.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
    WASEEM JEWELLERS — design tokens
@@ -433,9 +434,17 @@ html.is-transitioning #page-root {
   100% { transform: translateX(70%); opacity: 0; }
 }
 
+/* ── a stage word: one node whose text changes by state; the new text fades in, the old is simply gone ── */
+.light-word, .light-note, .stage-word, .stage-note { animation: stage-word-in 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+@keyframes stage-word-in {
+  from { opacity: 0; transform: translate3d(0, 0.35em, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheen { animation: none; }
   .gate-drift, .gate-light { animation: none !important; }
+  .light-word, .light-note, .stage-word, .stage-note { animation: none; }
 }
 
 /* ── the concierge trigger: Waseem's crest on a disc, and a ring that carries the state ── */

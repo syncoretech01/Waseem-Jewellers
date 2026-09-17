@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type Ref } from 'react';
+import type { gsap } from '@/lib/motion/gsap';
 import { Img } from '@/components/media/Img';
 import { useMoment, type MomentHandle } from './useMoment';
 import type { StudyMoment } from '@/data/moments';
@@ -20,7 +21,7 @@ import { cn } from '@/lib/cn';
  * turn is a single rotateY on the wrapper that holds them, and the captions are opacity
  * tweens on their own elements. No element is written by two tweens.
  */
-export function RingStudy({ study, slug, sizes, className, driven, ref, onBeat }: { study: StudyMoment; slug: string; sizes: string; className?: string; driven?: boolean; ref?: Ref<MomentHandle>; onBeat?: (key: 'drawn' | 'made' | 'turned' | null) => void }) {
+export function RingStudy({ study, slug, sizes, className, driven, ref, onBeat, captions = 'inside' }: { study: StudyMoment; slug: string; sizes: string; className?: string; driven?: boolean; ref?: Ref<MomentHandle>; onBeat?: (key: 'drawn' | 'made' | 'turned' | null) => void; /** `inside` writes the beats over the pearl; `none` leaves the words to the chapter. */ captions?: 'inside' | 'none' }) {
   const root = useRef<HTMLDivElement>(null);
   const beatRef = useRef(onBeat);
   useEffect(() => {
@@ -34,8 +35,10 @@ export function RingStudy({ study, slug, sizes, className, driven, ref, onBeat }
       const hero = el.querySelector<HTMLElement>('.study-hero');
       const second = el.querySelector<HTMLElement>('.study-second');
       const turn = el.querySelector<HTMLElement>('.study-turn');
-      const caps = el.querySelectorAll<HTMLElement>('.study-cap');
+      const caps = [...el.querySelectorAll<HTMLElement>('.study-cap')];
       if (!sketch || !hero || !second || !turn) return;
+      const cap = (i: number, from: gsap.TweenVars, to: gsap.TweenVars, at: number) => caps[i] && tl.fromTo(caps[i]!, from, to, at);
+      const capTo = (i: number, to: gsap.TweenVars, at: number) => caps[i] && tl.to(caps[i]!, to, at);
       // the beat is read from the playhead, so it is right in both directions of a scrub
       let last: 'drawn' | 'made' | 'turned' | null = null;
       tl.eventCallback('onUpdate', () => {
@@ -50,19 +53,19 @@ export function RingStudy({ study, slug, sizes, className, driven, ref, onBeat }
       tl.set(hero, { opacity: 0, filter: 'grayscale(1) contrast(1.15)' }, 0);
       tl.set(second, { opacity: 0 }, 0);
       tl.set(turn, { rotateY: 0 }, 0);
-      tl.fromTo(caps[0]!, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.02);
+      cap(0, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.02);
       // the photograph develops out of the drawing: the drawing thins as tone arrives, then colour
-      tl.to(caps[0]!, { autoAlpha: 0, y: -6, duration: 0.04 }, 0.2);
+      capTo(0, { autoAlpha: 0, y: -6, duration: 0.04 }, 0.2);
       tl.to(hero, { opacity: 1, duration: 0.14 }, 0.2);
       tl.to(sketch, { opacity: 0, duration: 0.12 }, 0.26);
       tl.to(hero, { filter: 'grayscale(0) contrast(1)', duration: 0.12 }, 0.32);
-      tl.fromTo(caps[1]!, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.3);
+      cap(1, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.3);
       // the turn: the frame tilts on its vertical axis; the second angle takes over at the deepest point
-      tl.to(caps[1]!, { autoAlpha: 0, y: -6, duration: 0.04 }, 0.56);
+      capTo(1, { autoAlpha: 0, y: -6, duration: 0.04 }, 0.56);
       tl.to(turn, { rotateY: -16, duration: 0.13, ease: 'power2.in' }, 0.58);
       tl.to(second, { opacity: 1, duration: 0.05 }, 0.685);
       tl.to(turn, { rotateY: 0, duration: 0.14, ease: 'power2.out' }, 0.71);
-      tl.fromTo(caps[2]!, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.74);
+      cap(2, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.05 }, 0.74);
       tl.set({}, {}, 1);
     },
     { driven, ref },
@@ -89,7 +92,7 @@ export function RingStudy({ study, slug, sizes, className, driven, ref, onBeat }
       </div>
 
       {/* the captions, each a plain fact: written over the pearl at the foot of the frame */}
-      {!still && (
+      {!still && captions === 'inside' && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0" aria-hidden>
           {caps.map((c) => (
             <p key={c} className="study-cap absolute bottom-5 left-5 right-5 max-w-[30em] font-display text-[0.9375rem] leading-snug text-ink opacity-0 md:bottom-7 md:left-7 md:right-7 md:text-[1.0625rem]" style={{ fontVariationSettings: '"opsz" 18' }}>

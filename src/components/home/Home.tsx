@@ -7,9 +7,11 @@ import { sectionElement, sectionsReady } from '@/state/sections';
 import { Ch01Hero } from './chapters/Ch01Hero';
 import { Ch02Kinds } from './chapters/Ch02Kinds';
 import { Ch02Craft } from './chapters/Ch02Craft';
+import { Ch02Study } from './chapters/Ch02Study';
 import { Ch03Gate } from './chapters/Ch03Gate';
 import { Ch03Gold } from './chapters/Ch03Gold';
 import { Ch04Diamond } from './chapters/Ch04Diamond';
+import { Ch05Light } from './chapters/Ch05Light';
 import { Ch05Bridal } from './chapters/Ch05Bridal';
 import { Ch04Worlds } from './chapters/Ch04Worlds';
 import { Ch07MenKids } from './chapters/Ch07MenKids';
@@ -56,10 +58,12 @@ export function Home({ showcase, departments, doors }: { showcase: Showcase; dep
       <Arrive />
       <Ch01Hero credit={doors['royal-wedding-polki-raani-haar']} departments={departments} />
       <Ch02Kinds kinds={showcase.categories} />
-      <Ch02Craft coda={doors['lavender-halo-ring-r11912']} />
+      <Ch02Craft />
+      <Ch02Study piece={doors['lavender-halo-ring-r11912']} />
       <Ch03Gate goldPiece={doors['aks-e-noor-satlada-haar']} diamondPiece={doors['diamond-bridal-sapphire-suite']} />
       <Ch03Gold department={dept('gold')} figure={doors['gold-bridal-set-2']} />
-      <Ch04Diamond department={dept('diamond')} suite={doors['diamond-bridal-sapphire-suite']} />
+      <Ch04Diamond department={dept('diamond')} />
+      <Ch05Light suite={doors['diamond-bridal-sapphire-suite']} />
       <Ch05Bridal suite={doors['rang-e-jamal-emerald-suite']} choker={doors['naqsh-e-gul-pearl-blossom-choker']} />
       <Ch04Worlds doors={doors} />
       <Ch07MenKids men={dept('men')} kids={dept('kids')} />

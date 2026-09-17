@@ -1,33 +1,26 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Eyebrow } from '@/components/ui/primitives';
-import { PieceLink } from '@/components/commerce/PieceLink';
-import { pieceRefOf } from '@/data/clientIndex';
-import { SuiteLight } from '@/semantic/moments/SuiteLight';
-import { lightsFor } from '@/data/moments';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { COPY } from '@/data/copy';
-import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { KindsList, PieceCluster, tagOf } from './showcase';
+import type { ShowcaseDepartment } from '@/lib/facets';
+import { KindsList, PieceCluster } from './showcase';
 
 /**
  * CH04 — Diamond.
  *
  * The same shop, the other tray: on ink, so the pearl plates read as cards laid on velvet.
- * The pieces lead and the words follow; the kinds are counted and the department is the
- * door. One campaign piece stands at the end as the suite the studio shot — a listed piece
- * with its published grading, not a mood.
+ * The pieces lead and the words follow; the kinds are the doors and the department is the
+ * door. The suite in one light follows as its own chapter.
  */
-export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepartment; suite?: PieceRow }) {
+export function Ch04Diamond({ department }: { department?: ShowcaseDepartment }) {
   const { ref } = useChapter({ id: 'diamond', theme: 'dark' });
   const scope = useRef<HTMLDivElement>(null);
   useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
-  const [lit, setLit] = useState<string | null>(null);
   useRise(scope);
-  const light = suite ? lightsFor(suite.s) : undefined;
   if (!department) return null;
 
   return (
@@ -61,42 +54,6 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
           </div>
         </div>
 
-        {/* the suite the studio shot, with what Waseem publishes about it */}
-        {suite && (
-          <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[5svh] border-t border-ivory/10 pt-[8svh] md:mt-[11svh] md:grid-cols-12 md:items-center md:pt-[9svh]">
-            <div className="md:col-span-5 md:col-start-2" data-rise>
-              <PieceLink product={pieceRefOf(suite)} sizes="(min-width: 768px) 40vw, 92vw" aspect={light ? '1 / 1' : '4 / 5'} cursor="view" figure={light ? <SuiteLight moment={light} slug={suite.s} sizes="(min-width: 768px) 40vw, 92vw" onLit={setLit} /> : undefined}>
-                <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
-                  <div className="flex flex-col gap-1">
-                    <p className="font-display text-[1.375rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 22' }}>
-                      {suite.t}
-                    </p>
-                    <p className="micro text-ivory/55">{tagOf(suite)}</p>
-                  </div>
-                  <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.window.view}</span>
-                </div>
-              </PieceLink>
-            </div>
-            <div className="flex flex-col gap-4 md:col-span-4 md:col-start-8" data-rise>
-              <p className="micro text-champagne">{COPY.departments.diamond.suite.eyebrow}</p>
-              <p className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ivory">{COPY.departments.diamond.suite.title}</p>
-              <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70">{COPY.departments.diamond.suite.line(suite)}</p>
-              {/* the index of the pieces the light finds, lit in step */}
-              {light && (
-                <ol className="hidden flex-col gap-3 border-t border-ivory/10 pt-5 md:flex">
-                  {light.lights.map((l, i) => (
-                    <li key={l.key} data-lit={lit === l.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-40 transition-opacity duration-500 data-[lit=1]:opacity-100">
-                      <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <span className="micro text-ivory">{l.label}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

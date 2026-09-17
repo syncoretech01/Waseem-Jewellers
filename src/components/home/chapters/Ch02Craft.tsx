@@ -4,21 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { gsap, useGSAP } from '@/lib/motion/gsap';
 import { useChapter } from '@/motion/hooks/useChapter';
-import { useRise } from '@/motion/hooks/useReveals';
 import { useQualityStore } from '@/state/qualityStore';
-import { Img } from '@/components/media/Img';
-import { PieceLink } from '@/components/commerce/PieceLink';
-import { SemanticFigure } from '@/semantic/SemanticFigure';
-import { RingStudy } from '@/semantic/moments/RingStudy';
-import { studyFor } from '@/data/moments';
-import { pieceRefOf } from '@/data/clientIndex';
-import { tagOf } from './showcase';
-import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import { craftProgress, CRAFT_WINDOWS, stageAt } from './craftProgress';
 import { cn } from '@/lib/cn';
 import { useSiteStore } from '@/state/siteStore';
-import type { PieceRow } from '@/lib/facets';
 
 const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), { ssr: false, loading: () => null });
 
@@ -38,14 +28,13 @@ const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), 
  * actually sells, its stone, halo and shank named where they sit in the one frame. The
  * object teaches the vocabulary; the coda proves it on a piece that can be opened.
  */
-export function Ch02Craft({ coda }: { coda?: PieceRow }) {
+export function Ch02Craft() {
   const { ref, ready } = useChapter({ id: 'craft', theme: 'dark', pinned: true });
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const tier = useQualityStore((s) => s.tier);
   const webgl = useQualityStore((s) => s.webgl);
   const loaderDone = useSiteStore((s) => s.loaderDone);
   const stage = useRef<HTMLDivElement>(null);
-  const codaScope = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   /**
    * The object's environment is pre-filtered on the GPU when it mounts, and on an Intel
@@ -59,7 +48,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   const [warm, setWarm] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [lostOnce, setLostOnce] = useState(0);
-  const [lit, setLit] = useState<string | null>(null);
   /**
    * The ring is for everyone. It used to mount only on HIGH and MEDIUM, which left every
    * phone, every 4 GB laptop, every touch-first device and every reduced-motion visitor with
@@ -70,11 +58,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   // the still stands whenever the object is not on stage: before it compiles, after a lost
   // context, under reduced motion, without WebGL — never a third thing
   const stillShown = !(wantsScene && sceneReady);
-  const descriptor = coda ? semanticFor(coda.s) : undefined;
-  const study = coda ? studyFor(coda.s) : undefined;
-  // the index beside the figure: the study's three beats, or the figure's holds
-  const index = study ? COPY.craft.coda.beats.map((label, i) => ({ key: (['drawn', 'made', 'turned'] as const)[i]!, label })) : (descriptor?.regions ?? []).map((r) => ({ key: r.key, label: r.label }));
-  useRise(codaScope);
 
   // the object mounts early, in a still moment after the loader
   useEffect(() => {
@@ -195,7 +178,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
     { scope: ref, dependencies: [reduced] },
   );
 
-  const codaSizes = '(min-width: 768px) 46vw, 92vw';
 
   return (
     <section ref={ref} id="ch02-craft" className="relative bg-ink text-ivory" aria-labelledby="craft-title">
@@ -263,68 +245,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         </div>
       </div>
 
-      {/* the coda: the same anatomy, photographed once, on a piece that can be opened */}
-      {coda && (study || descriptor) && (
-        <div ref={codaScope} className="craft-coda relative px-gutter pb-[12svh] pt-[9svh] md:pb-[13svh] md:pt-[10svh]">
-          <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] md:grid-cols-12 md:items-center">
-            <div className="md:col-span-6" data-rise>
-              <PieceLink
-                product={pieceRefOf(coda)}
-                sizes={codaSizes}
-                aspect="1 / 1"
-                cursor="view"
-                className="mx-auto w-full md:w-[min(46vw,74svh)]"
-                figure={
-                  study ? (
-                    <RingStudy study={study} slug={coda.s} sizes={codaSizes} onBeat={setLit} />
-                  ) : descriptor ? (
-                    <SemanticFigure
-                      descriptor={descriptor}
-                      sizes={codaSizes}
-                      flipSource={coda.s}
-                      onLit={setLit}
-                      fallback={
-                        <div className="absolute inset-0 bg-pearl">
-                          <Img image={pieceRefOf(coda).media.hero} sizes={codaSizes} plain data={{ 'flip-source': coda.s }} />
-                        </div>
-                      }
-                    />
-                  ) : null
-                }
-              >
-                <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
-                  <div className="flex flex-col gap-1">
-                    <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
-                      {coda.t}
-                    </p>
-                    <p className="micro text-ivory/55">{tagOf(coda)}</p>
-                  </div>
-                  <span className="micro shrink-0 text-ivory/70 underline-offset-4 transition-colors group-hover/piece:text-ivory group-hover/piece:underline">{COPY.craft.coda.view}</span>
-                </div>
-              </PieceLink>
-            </div>
-
-            <div className="flex flex-col gap-6 md:col-span-5 md:col-start-8 md:gap-8">
-              <div className="flex flex-col gap-4" data-rise>
-                <p className="micro text-champagne">{COPY.craft.coda.eyebrow}</p>
-                <p className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ivory">{COPY.craft.coda.title}</p>
-                <p className="max-w-[30em] text-[0.875rem] leading-relaxed text-ivory/70">{COPY.craft.coda.line}</p>
-              </div>
-              {/* the index of the figure's holds, lit in step with the camera */}
-              <ol className="hidden flex-col gap-3 border-t border-ivory/10 pt-6 md:flex" data-rise>
-                {index.map((r, i) => (
-                  <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-40 transition-opacity duration-500 data-[lit=1]:opacity-100">
-                    <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="micro text-ivory">{r.label}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

@@ -76,6 +76,28 @@ export const COPY = {
     /** The line the sequence closes on: what the craft is for, in Waseem's own register. */
     closing: ['CRAFTED', 'TO ENDURE.'],
   },
+  /** The study — a chapter of its own after the craft: a drawing becomes the piece, and the piece turns. */
+  study: {
+    eyebrow: 'The Study',
+    title: 'Drawn, made, and turned in the hand.',
+    line: 'The craft object above is a study — an emerald cut and set in gold, made to show how a ring is put together. This is a ring Waseem sells: drawn from its own photograph, then the photograph, then a second angle as it was shot.',
+    beats: [
+      { key: 'drawn', label: 'Drawn first', note: 'The oval stone, the halo, the split shank — traced from the photograph itself.' },
+      { key: 'made', label: 'Then made', note: 'In rose gold, stamped 21K on the inside. Reference R11912, 9.444 grams.' },
+      { key: 'turned', label: 'Seen from above', note: 'The halo of small white diamonds, and the four claws that hold the stone clear of it.' },
+    ],
+    view: 'View the piece',
+  },
+  /** One suite, in one light — a chapter of its own after Diamond. */
+  light: {
+    eyebrow: 'One suite, in one light',
+    title: 'The earring, the necklace, the pendant.',
+    line: 'A bridal suite in diamonds, shown the way it is shown in the showroom: the room dark, one light finding each piece in turn.',
+    opening: 'The suite',
+    openingNote: 'Necklace, pendant and chandelier earrings, photographed as they are worn together.',
+    closing: 'Worn together',
+    view: 'View the suite',
+  },
   /** CH03 — the gate: two material worlds in one frame, and the way into each department. */
   gate: {
     eyebrow: 'Two material worlds',
