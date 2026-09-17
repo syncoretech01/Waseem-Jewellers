@@ -9,11 +9,10 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { COPY } from '@/data/copy';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { KindsList } from './showcase';
-import { kindOf, tagOf } from './Ch02Window';
+import { KindsList, kindOf, tagOf } from './showcase';
 import { cn } from '@/lib/cn';
 
-function Half({ department, copy, href, align }: { department: ShowcaseDepartment; copy: { eyebrow: string; title: (n: number) => string; line: string; cta: string }; href: string; align: 'left' | 'right' }) {
+function Half({ department, copy, href, align }: { department: ShowcaseDepartment; copy: { eyebrow: string; title: string; line: string; cta: string }; href: string; align: 'left' | 'right' }) {
   const [lead, ...rest] = department.rows;
   const label = (row: PieceRow, size: 'lg' | 'sm') => (
     <div className="mt-3 flex flex-col gap-1">
@@ -29,7 +28,7 @@ function Half({ department, copy, href, align }: { department: ShowcaseDepartmen
       <div className="flex flex-col gap-4">
         <Eyebrow className="text-ink/60">{copy.eyebrow}</Eyebrow>
         <h3 data-split className="display max-w-[9em] text-[clamp(1.75rem,2.8vw,3rem)] leading-[1.06] text-ink opacity-0 [text-wrap:balance] md:min-h-[2.15em]">
-          {copy.title(department.count)}
+          {copy.title}
         </h3>
         <p className="max-w-[26em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
           {copy.line}

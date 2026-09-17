@@ -12,8 +12,7 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { COPY } from '@/data/copy';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { KindsList, PieceCluster } from './showcase';
-import { tagOf } from './Ch02Window';
+import { KindsList, PieceCluster, tagOf } from './showcase';
 
 /**
  * CH03 — Gold.
@@ -42,7 +41,7 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
             <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-ink/60">{COPY.departments.gold.eyebrow}</Eyebrow>
               <h2 id="gold-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ink opacity-0 [text-wrap:balance]">
-                {COPY.departments.gold.title(department.count)}
+                {COPY.departments.gold.title}
               </h2>
               <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
                 {COPY.departments.gold.line}

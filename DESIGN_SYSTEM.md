@@ -306,27 +306,34 @@ for the pipeline, the fidelity gates and the sign-off record.
 
 ---
 
-## 11. The concierge jewel
+## 11. The concierge trigger
 
-The orb is CSS, not a video or a Lottie: `.wj-orb` and its layers, composed in `src/concierge/orb/OrbStatic.tsx` as `ring / bezel / core(specular, sweep) / glint`. This is the orb everywhere except the voice stage, where `Orb` (`src/concierge/orb/Orb.tsx`) swaps in the WebGL `OrbCanvas` when `qualityStore.orbRenderer` is `webgl`, and falls back to the CSS gem when it is not.
+Waseem's crest on a small disc, bottom-right: 56px on a desktop with the crest at 24px, a 48px touch target on a phone with the crest at 22px. One hairline ring, a soft inner shade beneath the disc, and a lift shadow — no glow halo, no sphere, no canvas, no microphone glyph. Composed in `src/concierge/orb/Orb.tsx` as `disc / ring(line, light) / mark`, styled by the `.wj-orb` block in `globals.css`, mounted by `src/concierge/ui/ConciergeOrb.tsx` (which also carries the hover caption and the compact "steps aside" ticket).
 
-State is expressed only through **glow, tint and breath** — never a spinner. Three custom properties on `.wj-orb` carry it: `--orb-glow` (default `0.16`, driving both the box-shadow spread and its alpha), `--orb-tint` (default transparent, applied to a `::after` over the core) and `--orb-breath` (default `4s`, the period of the `breathe` keyframe).
+The crest is the generated geometry (`CREST` from `src/components/brand/markGeometry.ts`), assembled in `src/concierge/orb/OrbCrest.tsx` with the same `data-mark` vocabulary as `WaseemMark animatable` — `crest-fill`, `crest-draw`, `crest-specular`, and `specular` on the gradient — but with a `currentColor` fill, because `WaseemMark`'s travelling specular exists only in its gold tone and the trigger takes the chapter's colour. Three concessions to the size: the stroked twin carries `pathLength="100"` so the trace is a stylesheet keyframe and `getTotalLength()` is never called; its weight is a hairline (22 mark units) rather than the artwork's 12; and the specular band is spread 1.8× so it is seven pixels wide rather than four. The medallion is optically centred: its own centre sits 3.7% above the box's because the finial hangs beneath it, so the mark is set `translate: 0 3.5%` — measured on the geometry, not judged by eye.
+
+**Theme.** The trigger is fixed chrome and reads `[data-theme]` the way the nav does, through custom properties on `.wj-orb`: on the dark chapters a charcoal disc (`#211d18 → #0f0d0b`), the crest in champagne, the ring in `--line-strong`, the light and the lit ring in gold-hi; on the ivory chapters a pearl disc, the crest in ink, the ring a gilt edge (gold-deep at 42%, warmer than the grey `--line-strong` would be there), the lit ring in `--color-gold`. `--orb-sweep` sets how bright the hover's light may get — 0.85 through champagne, 0.42 through ink, where a near-white band would read as a scratch.
+
+**States** are the ring's, or a trace round the crest's outline; the mark itself never changes shape, size or colour.
 
 | `data-state` | Reads as |
 | --- | --- |
-| `HOVER` | glow 0.32 |
-| `OPENING` | glow 0.50, one 0.9s breath on `--ease-out-expo` |
-| `CHAT`, `VOICE_READY` | glow 0.22, breath slowed to 5s |
-| `LISTENING` | glow 0.42, level ring at 0.35 |
-| `THINKING` | glow 0.36, core runs `orb-gather` (contract to 0.94 with a saturation lift) |
-| `EXECUTING_ACTION` | the sweep layer runs `sheen` once, forwards |
-| `SPEAKING` | glow 0.40, ring at 0.25 |
-| `RESULT` | glow 0.50, the `orb-glint` conic sweep once |
-| `ERROR` | glow drops to 0.08, burgundy tint, breath stops |
+| `IDLE` | the ring in `--orb-ring`, still |
+| `HOVER`, `OPENING` | the ring lights and steps out 2px (`scale(1.07)` over 700ms `--ease-out-expo`); a band of light passes once through the crest — the `specular` gradient's `gradientTransform` tweened from `translate(-1.2 0)` to `translate(1.2 0)` over 1.1s, the way the ritual moves it |
+| `CHAT`, `VOICE_READY`, `RESULT` | the ring lit at 75%, still |
+| `LISTENING` | the ring lit at 55%; the same light that travels the hero invitation's ring (`ring-light`, `pathLength="100"`, dash `14 86`) travels this one at 3.2s; the crest steady |
+| `THINKING` | a precision trace: the outline drawn once round and out again (`orb-trace`, dash `100 100`, offset 100 → −100, 2.6s linear), over the fill held at 38% |
+| `EXECUTING_ACTION` | the same trace at 1.3s |
+| `SPEAKING` | the ring alone breathes — `orb-ring-pulse`, scale to 1.05 and opacity 0.7 → 1, 1.8s — never the mark |
+| `ERROR` | still, the ring in `--line` |
 
-With `live`, `OrbStatic` adds a GSAP ticker that scales the ring and core, and fades the ring, from the microphone/speech envelope in `voiceMeter`. Under `html[data-rm="1"]` the core animation is off entirely.
+**Writers.** One per property: the stylesheet's keyframes and transitions own the ring and the trace; the trigger's one GSAP timeline owns the specular band alone (its opacity and the gradient's transform), because a `gradientTransform` cannot be keyframed from a stylesheet, and it is killed and cleared when the hover ends. Motion handles the mount and unmount opacity of the whole corner and nothing else. Nothing reads `voiceMeter` — the live envelope belongs to the voice stage's ring, not the trigger.
 
-Shared keyframes in `globals.css`: `sheen`, `breathe`, `travel-light`, `orb-gather`, `orb-glint`, `ring-light`.
+**Reduced motion** (`html[data-rm="1"]`): no travelling light, no trace, no pulse, no step-out, no sweep — a state is the ring's colour only. The mark stays finished.
+
+**Accessibility.** A `<button>` with `aria-label` built from `CONCIERGE.name` ("Open the Waseem Concierge" / "Close …"), `aria-haspopup="dialog"`, `aria-expanded`, `data-cursor="ask"`, `data-concierge-orb`. Focus is the house `:focus-visible` outline — a second hairline 4px outside the disc — and focus also puts the store in `HOVER`, so the keyboard sees what the pointer sees. The corner hides while the hero invitation, the menu, the ledger, a dialog or the full desktop rail is up, and until the loading ritual is done.
+
+Shared keyframes in `globals.css`: `sheen`, `breathe`, `travel-light`, `ring-light`; the trigger's own: `orb-trace`, `orb-ring-pulse`. `preloadOrbCanvas` in `Orb.tsx` is a no-op kept for the two invitations that still call it.
 
 ---
 

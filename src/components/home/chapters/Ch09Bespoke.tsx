@@ -6,14 +6,13 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useQualityStore } from '@/state/qualityStore';
 import { useSiteStore } from '@/state/siteStore';
 import { useMediaQuery } from '@/lib/useMediaQuery';
-import { Img } from '@/components/media/Img';
 import { Button } from '@/components/ui/Button';
 import { PieceLink } from '@/components/commerce/PieceLink';
-import { SemanticFigure, type SemanticFigureHandle } from '@/semantic/SemanticFigure';
-import { beatsFor } from '@/semantic/resolve';
+import { PartedPiece } from '@/semantic/moments/PartedPiece';
+import type { MomentHandle } from '@/semantic/moments/useMoment';
+import { partedFor } from '@/data/moments';
 import { pieceRefOf } from '@/data/clientIndex';
-import { tagOf } from './Ch02Window';
-import { semanticFor } from '@/data/semantic';
+import { tagOf } from './showcase';
 import { COPY } from '@/data/copy';
 import type { PieceRow } from '@/lib/facets';
 
@@ -22,11 +21,10 @@ const DESKTOP = '(min-width: 768px)';
 /**
  * CH09 — bespoke: made for one person.
  *
- * The chapter used to argue for bespoke with five cards — a drawn outline, a stone, a
- * photograph masked into the outline — which read as a diagram rather than as jewellery. It
- * now argues with one pair of earrings Waseem made, looked at as a jeweller looks: the two
- * crowns, the two bells, the two drops, and then the pair together. The words at the left
- * are lit in step with the figure's holds, and the consultation is the door beneath them.
+ * The chapter argues for bespoke with one pair of earrings Waseem made, read as a jeweller
+ * reads it: the photograph is cut at the joints — crown, bell, tassel — and drawn apart so each
+ * part sits on its own with its name, then closed again into the pair. The words at the left
+ * are lit in step with the holds, and the consultation is the door beneath them.
  *
  * On desktop the chapter pins and drives the figure from its own scrub; on a phone the figure
  * reads as it travels through the viewport, exactly as it does on a product page.
@@ -36,10 +34,10 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const openConsultation = useSiteStore((s) => s.openConsultation);
   const desktop = useMediaQuery(DESKTOP);
-  const figure = useRef<SemanticFigureHandle>(null);
+  const figure = useRef<MomentHandle>(null);
   const [lit, setLit] = useState<string | null>(null);
-  const descriptor = pair ? semanticFor(pair.s) : undefined;
-  const regions = descriptor?.regions ?? [];
+  const parted = pair ? partedFor(pair.s) : undefined;
+  const regions = parted?.bands ?? [];
   const words = [COPY.bespoke.opening, ...regions.map((r) => r.label), COPY.bespoke.closing];
 
   useGSAP(
@@ -63,7 +61,11 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
           return;
         }
 
-        const beats = beatsFor(regions);
+        // the words follow the moment's holds: opening while whole, one per part, closing once the pair is whole again
+        const holdFrom = 0.3;
+        const holdTo = 0.8;
+        const per = (holdTo - holdFrom) / Math.max(1, regions.length);
+        const beats = [{ at: 0, until: holdFrom }, ...regions.map((_, i) => ({ at: holdFrom + per * i, until: holdFrom + per * (i + 1) })), { at: holdTo, until: 1 }];
         const tl = gsap.timeline({
           scrollTrigger: {
             trigger: root,
@@ -97,23 +99,8 @@ export function Ch09Bespoke({ pair }: { pair?: PieceRow }) {
   const door = pair ? pieceRefOf(pair) : null;
 
   const figureFor = (driven: boolean) =>
-    pair && descriptor && door ? (
-      <PieceLink product={door} sizes={sizes} aspect="1 / 1" cursor="view" className="block w-full">
-        <div className="absolute inset-0">
-          <SemanticFigure
-            ref={driven ? figure : undefined}
-            descriptor={descriptor}
-            sizes={sizes}
-            driven={driven}
-            flipSource={pair.s}
-            onLit={driven ? setLit : undefined}
-            fallback={
-              <div className="absolute inset-0 bg-pearl">
-                <Img image={door.media.hero} sizes={sizes} plain data={{ 'flip-source': pair.s }} />
-              </div>
-            }
-          />
-        </div>
+    pair && parted && door ? (
+      <PieceLink product={door} sizes={sizes} aspect="1 / 1" cursor="view" className="block w-full" figure={<PartedPiece ref={driven ? figure : undefined} moment={parted} slug={pair.s} sizes={sizes} driven={driven} onLit={driven ? setLit : undefined} />}>
         <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
           <div className="flex flex-col gap-1">
             <p className="font-display text-[1.25rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>

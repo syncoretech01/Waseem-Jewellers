@@ -315,11 +315,25 @@ class SnapshotRepository implements CatalogueRepository {
     const WALK: Department[] = ['gold', 'diamond', 'men', 'kids'];
     for (const [category] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
       const home = WALK.find((department) => perDepartment.find((d) => d.department === department)?.categories.some((c) => c.category === category));
-      const hero = byKind.get(category as Category)?.find((p) => !home || p.departments.includes(home));
+      const ofKind = (byKind.get(category as Category) ?? []).filter((p) => !home || p.departments.includes(home));
+      const hero = ofKind[0];
       if (!hero || !home) continue;
       // the number beside the kind is the number behind its door, not the catalogue's
       const behind = perDepartment.find((d) => d.department === home)?.categories.find((c) => c.category === category)?.count ?? 0;
-      categories.push({ category, label: CATEGORY_PLURAL[category as Category], total: behind, href: `/${home}/${category}`, hero: rowOf(hero) });
+      const alt = ofKind.find((p) => p.slug !== hero.slug && nameOf(p) !== nameOf(hero)) ?? ofKind[1];
+      categories.push({ category, label: CATEGORY_PLURAL[category as Category], total: behind, href: `/${home}/${category}`, hero: rowOf(hero), alt: alt ? rowOf(alt) : undefined });
+    }
+    // bridal sets have no page of their own kind: the door is the bridal department, and the
+    // one place a worn photograph is the right face for a kind
+    const bridal = order(LISTABLE_PRODUCTS.filter((p) => p.category === 'bridal-set' && p.departments.includes('bridal')), 'featured');
+    // the tile is the jewellery, not the bride: a set whose photograph has a jewellery-only crop
+    // fronts the kind, and that crop is what the tile shows
+    const macroOf = (p: Product) => p.media.gallery.find((i) => i.role === 'macro' && i.ref.kind === 'local');
+    const fronted = bridal.find((p) => macroOf(p)) ?? bridal[0];
+    if (fronted) {
+      const second = bridal.find((p) => p.slug !== fronted.slug);
+      const macro = macroOf(fronted);
+      categories.push({ category: 'bridal-set', label: CATEGORY_PLURAL['bridal-set'], total: bridal.length, href: '/bridal', hero: rowOf(fronted), alt: second ? rowOf(second) : undefined, image: macro && macro.ref.kind === 'local' ? macro.ref.id : undefined });
     }
 
     // the kind that leads each tray: what reads largest on a plate, then the rest in the order a

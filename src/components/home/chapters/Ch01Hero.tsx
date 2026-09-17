@@ -23,7 +23,7 @@ import { COPY } from '@/data/copy';
  * doors on the page — then the piece worn in the film, and the concierge's line. Pinned for
  * one viewport with no spacing so the window rises over its end state.
  */
-export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: PieceRow; departments?: { department: Department; count: number }[]; total?: number }) {
+export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; departments?: { department: Department; count: number }[] }) {
   const { ref, ready } = useChapter({ id: 'hero', theme: 'dark', pinned: true });
   const video = useRef<VideoHandle>(null);
   const loaderDone = useSiteStore((s) => s.loaderDone);
@@ -216,21 +216,20 @@ export function Ch01Hero({ credit, departments = [], total = 0 }: { credit?: Pie
         </div>
         <div className="hero-sub mt-5 max-w-[34rem]">
           <p className="intro-line font-display italic text-[clamp(1.0625rem,1.45vw,1.375rem)] leading-snug text-ivory/85 opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
-            {COPY.hero.line(total)}
+            {COPY.hero.line}
           </p>
         </div>
-        {/* the departments: what is sold, and how much of it — the first doors on the page */}
+        {/* the departments: what is sold — the first doors on the page */}
         {departments.length > 0 && (
-          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments and their piece counts">
-            <ul className="intro-tail flex flex-wrap items-baseline gap-x-7 gap-y-1 opacity-0 md:gap-x-9">
-              {departments.map(({ department, count }) => (
+          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
+            <ul className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-1 opacity-0 md:gap-x-10">
+              {departments.map(({ department }) => (
                 <li key={department}>
-                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline gap-2.5 py-2" data-cursor="explore">
-                    <span className="relative font-display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline py-2" data-cursor="explore">
+                    <span className="relative font-display text-[clamp(1.25rem,1.6vw,1.625rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
                       {DEPARTMENT_LABEL[department]}
                       <span aria-hidden className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100" />
                     </span>
-                    <span className="micro text-ivory/80 transition-colors group-hover/dept:text-champagne">{COPY.hero.pieces(count)}</span>
                   </TransitionLink>
                 </li>
               ))}

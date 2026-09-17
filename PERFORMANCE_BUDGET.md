@@ -113,7 +113,7 @@ DPR caps are `Math.min(cap, devicePixelRatio || 1)`:
 | LOW | 1 |
 | REDUCED | 1 |
 
-A live `prefers-reduced-motion` change is followed: turning it on forces REDUCED with DPR 1 and a static orb; turning it off re-runs detection.
+A live `prefers-reduced-motion` change is followed: turning it on forces REDUCED with DPR 1; turning it off re-runs detection.
 
 ### What each tier turns off
 
@@ -127,31 +127,30 @@ A live `prefers-reduced-motion` change is followed: turning it on forces REDUCED
 | FLIP page transition | yes | yes | curtain/veil instead | veil |
 | Custom cursor | yes | yes | off on coarse pointers | off |
 | Chapter scrubs | yes | yes | yes | replaced by composed stills |
-| Concierge orb | WebGL | WebGL | WebGL | static |
+| Concierge trigger | crest + ring, CSS | same | same | same, nothing moving |
 
-Notes on the edges. The craft chapter's object is for everyone (16 Sep 2026): HIGH and MEDIUM render it with the refractive stone; LOW — every phone — renders the same geometry at DPR 1 with the non-refractive stone, on a demand frameloop, which is what makes the three chunk (253 kB gz, fetched only as the chapter approaches) affordable there; REDUCED and a browser without WebGL show a still of the same object rendered once from the same scene (`public/assets/waseem/images/craft/ring-*.webp`, 11–36 kB, cut by `scripts/assets/craft-poster.mjs`). The SVG stone, halo, ring and band remain in the DOM only for the drawing's own reveal and are hidden the moment the object or the still is up. Under REDUCED the pinned chapters take their still path — the `reduce` condition of `gsap.matchMedia` — which sets the finished composition (labels lit, reveals at rest) instead of building a scrubbed timeline. `scrollTo` collapses to an immediate jump, and no video ever plays. The concierge orb falls back to `OrbStatic` whenever `orbRenderer` is `'static'`, which is any tier without a usable WebGL probe plus REDUCED.
+Notes on the edges. The craft chapter's object is for everyone (16 Sep 2026): HIGH and MEDIUM render it with the refractive stone; LOW — every phone — renders the same geometry at DPR 1 with the non-refractive stone, on a demand frameloop, which is what makes the three chunk (253 kB gz, fetched only as the chapter approaches) affordable there; REDUCED and a browser without WebGL show a still of the same object rendered once from the same scene (`public/assets/waseem/images/craft/ring-*.webp`, 11–36 kB, cut by `scripts/assets/craft-poster.mjs`). The SVG stone, halo, ring and band remain in the DOM only for the drawing's own reveal and are hidden the moment the object or the still is up. Under REDUCED the pinned chapters take their still path — the `reduce` condition of `gsap.matchMedia` — which sets the finished composition (labels lit, reveals at rest) instead of building a scrubbed timeline. `scrollTo` collapses to an immediate jump, and no video ever plays. The concierge trigger (17 Sep 2026) is the crest on a disc with a hairline ring, DOM and CSS on every tier — it has no renderer to choose, so `qualityStore.orbRenderer` no longer has a reader.
 
 ## WebGL rules
 
-Three canvases exist in Stage 1. Two are transient; one is long-lived.
+Two canvases exist. One is transient; one is long-lived. A third — the concierge orb's liquid-metal sphere, `frameloop="always"` on `[1, 2]` DPR, mounted with the voice stage — was removed on 17 September 2026 with the trigger redesign: the trigger is Waseem's crest on a disc, and the voice stage was already a hairline ring with the crest at its centre, so nothing asked for the sphere.
 
 | Canvas | File | Frameloop | DPR | Power hint | Lifetime |
 |---|---|---|---|---|---|
 | Loader stone | `src/components/loader/LoaderGem.tsx` | `always` | `[1, 1.5]` | low-power | unmounts with the ritual |
 | Craft object | `src/components/three/craft/CraftScene.tsx` | `demand` | `[1, max(1, min(dprCap, 1.75 on HIGH, 1.5 on MEDIUM))]` | high-performance | mounts near CH02, then persists |
-| Concierge orb | `src/concierge/orb/OrbCanvas.tsx` | `always` | `[1, 2]` | low-power | mounts with the voice stage |
 
-**One heavy canvas at a time.** The craft object is the only expensive scene. It mounts only when the loader has finished, the tier is not REDUCED, WebGL is available, and an `IntersectionObserver` with `rootMargin: '100% 0px'` reports the chapter within one viewport. The loader gem is gone before that point. The orb is a single sphere on a small element. Once mounted, the craft canvas is not torn down again for the life of the page — its cost is bounded by demand rendering rather than by unmounting.
+**One heavy canvas at a time.** The craft object is the only expensive scene. It mounts only when the loader has finished, the tier is not REDUCED, WebGL is available, and an `IntersectionObserver` with `rootMargin: '100% 0px'` reports the chapter within one viewport. The loader gem is gone before that point. Once mounted, the craft canvas is not torn down again for the life of the page — its cost is bounded by demand rendering rather than by unmounting.
 
 **Demand rendering.** `useDemandInvalidate` (`src/lib/three/sceneLifecycle.ts`) adds one function to `gsap.ticker` and calls `invalidate()` only when something has changed: a damped value still settling, a new `craftProgress.value` from the chapter's scrub, or a mouse that has moved more than 0.002 in normalised space (the shared pointer model in `src/lib/motion/pointer.ts` tracks `pointerType === 'mouse'` only). A still, unhovered scene renders nothing.
 
-**Disposal.** Every geometry and material is created in `useMemo` and disposed in an unmount effect — nine objects in `CraftScene`, geometry and material in `OrbMesh` and in the loader gem. `disposeObject(root)` sits in the same file for imperatively built subtrees; nothing in Stage 1 calls it yet.
+**Disposal.** Every geometry and material is created in `useMemo` and disposed in an unmount effect — nine objects in `CraftScene`, geometry and material in the loader gem. `disposeObject(root)` sits in the same file for imperatively built subtrees; nothing in Stage 1 calls it yet.
 
 **Environment maps.** `createStudioEnvironment` and `createGemEnvironment` (`src/lib/three/studioEnvironment.ts`) build a procedural jeweller's studio and a gem light tent and render each **once per renderer** into a half-float `WebGLCubeRenderTarget` (256 px; 128 px for the loader gem's tent), cached in a `WeakMap` keyed by the renderer. Nothing is downloaded. `scene.environment` is set on mount and cleared on unmount; the cube itself lives as long as the renderer that made it.
 
 **Context loss.** `useContextLoss` calls `preventDefault()` on `webglcontextlost` and reports upward. `CraftScene` then renders nothing, and `Ch02Craft` increments a counter and remounts the scene under a new `key`. After two losses it stops mounting the scene entirely and the chapter runs on its DOM stage. The canvas is also only faded in (700 ms) once `gl.compileAsync` resolves, or after a 900 ms timeout, so a slow compile never shows a half-lit object.
 
-**Orb throttling, precisely.** `OrbCanvas` runs `frameloop="always"`. Its `Throttle` component returns early from its own frame callback while the concierge is at rest, which skips that callback's work; R3F still renders the frame. The saving is the callback, not the draw.
+**The concierge trigger costs no frame.** At rest nothing runs: the ring and the trace are stylesheet keyframes that exist only while the store is in a moving state (LISTENING, THINKING, EXECUTING_ACTION, SPEAKING), and the hover's specular band is one GSAP timeline of 1.1s, killed when the hover ends. No ticker, no canvas, no `voiceMeter` reader — the trigger is the one piece of the concierge on every first paint, and it is a `<button>`, two `<span>`s and two small SVGs.
 
 ## Media policy
 
@@ -190,11 +189,10 @@ Video is encoded by `scripts/assets/encode-videos.mjs` into three variants and t
 |---|---|---|
 | `@/components/three/craft/CraftScene` | `next/dynamic`, `ssr: false` in `Ch02Craft` | HIGH or MEDIUM, WebGL available, loader done, chapter within one viewport |
 | `./LoaderGem` | bare `import()` in `Loader` | home route without `data-rm`, requested as the ritual mounts at every tier; raced against a 400 ms timer (2500 ms in development) and joined only on HIGH with WebGL while the fill is still below 0.75 (0.97 in development) |
-| `./OrbCanvas` | `next/dynamic`, `ssr: false` in `Orb` | preloaded on pointer-enter of the concierge invitation or orb; rendered only for the voice stage with `orbRenderer === 'webgl'` |
 | `gsap/Flip` | `loadFlip()` in `src/lib/motion/lazyPlugins.ts` | a 1500 ms timer in `TransitionLayer`. Registered but not called: the FLIP transition tweens its own clone with core GSAP |
 | `gsap/Observer` | `loadObserver()` in the same file | no homepage consumer since the spatial slider left (16 Sep 2026); kept for a drag surface that needs it |
 
-So three and R3F arrive on every tier but REDUCED: the loader stone requests them on the home route, and the concierge orb requests them when the voice stage opens. drei is pulled in only by `CraftScene`, so it never loads on LOW or REDUCED.
+So three and R3F now arrive only on the home route: the loader stone requests them on every tier but REDUCED, and the craft object as CH02 approaches. No other route loads them — the concierge no longer requests them anywhere (`preloadOrbCanvas` is a kept no-op). drei is pulled in only by `CraftScene`, so it never loads on LOW or REDUCED.
 
 `src/lib/motion/gsap.ts` is the single GSAP entry point — ScrollTrigger, SplitText and CustomEase register there, and ESLint forbids importing `gsap` or `gsap/*` anywhere else. `SmoothScroll` drives `lenis.raf` from `gsap.ticker`, so the DOM layer runs on one RAF.
 

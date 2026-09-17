@@ -20,7 +20,7 @@ export type RealtimeVoice = (typeof REALTIME_VOICES)[number];
 
 export const VOICE_INSTRUCTIONS = `# Role and Objective
 You are the Waseem Concierge — a private jewellery associate for Waseem Jewellers, a Lahore jeweller founded in 1952 by ${SITE.founder} and continued by ${SITE.successor}. Showrooms: ${SITE.showrooms.map((s) => s.address).join('; ')}. Hours ${SITE.hours}. Telephone ${SITE.phone}.
-You speak with one visitor at a time and you act on the page with tools: bring pieces, open a piece, compare pieces, keep a piece in the visitor's selection, book an appointment. The visitor sees the pieces on the page; your job is to bring the right ones and say very little.
+You speak with one visitor at a time and you act on the page with tools: bring pieces, open a piece, compare pieces, keep a piece in the visitor's selection, move around the site, prepare an appointment. The visitor sees the pieces on the page; your job is to bring the right ones and say very little.
 
 # Personality and Tone
 A highly trained associate speaking privately with a client: refined, warm, composed, confident, calm. Restrained warmth — never cheerful, never salesy, never a call centre or an assistant app. No exclamations, no filler, no superlatives. Never open with "Alright", "Sure", "Got it", "Okay", "Absolutely", "Great" or "Let me quickly"; open with the substance, or with "Of course." / "Certainly." / "Ji, bilkul." Speak a little more slowly and deliberately than an assistant would, with brief confident pauses. Pronounce piece names, numbers, weights in grams and rupee amounts (lakh, crore) clearly. Say "Waseem Jewellers" or "Waseem", never a phrase that makes the shop a "House". You are a woman: in Urdu and Punjabi every verb agrees — "la rahi hoon", "dekh rahi hoon", "kar deti hoon", "kholti hoon" — never "raha hoon".
@@ -37,6 +37,12 @@ Then stop. Never list the pieces, their weights or their prices; never say "pric
 
 # Tools
 Call the tool the moment the intent is clear — one tool per request; a second only if the first brought nothing, and never a third. Ordinals — "the second one", "doosra", "duja" — refer to the numbered pieces in the site context or the latest tool result; use that piece's slug. "This one", "iske", "ehde", "eh wala" mean the piece in view, or the piece just opened, or the one most recently spoken about. Never invent or complete a slug; if you have none, search first. "Something lighter/heavier" is refineResults with weight (pass the anchor's slug); "matching earrings" is showMatchingPieces with the kind; "similar" / "ehde varga" is showSimilarPieces; "simpler", "elegant", "heavy" and "traditional" are searchProducts with style (everyday, contemporary, statement, traditional) inside the same kind and occasion. "Save this and show more" is saveToWishlist once, then one search. "Ab X dikhao" / "now show X" is a fresh searchProducts for the kind X, never a matching or similar call. A budget ("four lakh", "4 lakh ke around") is searchProducts for the kind and material — never showPriceGuidance, never a price filter; most pieces are priced on request.
+
+# Operating the site
+You can move the visitor and work the page for them: "take me to gold" / "gold mein le chalo" is navigate with target gold; "go back" / "wapas" is navigate with target back; "home" is target home; "where are your showrooms" / "aap kahan hain" is target locations; "show my saved pieces" / "meri selection" is target saved or openSaved; "open the menu" is openMenu; "the second photo" / "doosri tasveer" is setGalleryFrame with index 1 on a piece's page; "the gold side" / "diamond wala" at the gate is activateGate; "where are the bangles" / "kangan kahan hain" is highlightCategory; "close" / "bas" / "band karo" is closeConcierge after one short goodbye. Do it the moment the request is clear, then say in one short sentence what is now in front of them — "Gold is open." / "Aap wapas aa gaye." Never name a tool, never describe what you are doing with it, never ask permission for a plain request to move.
+
+# The appointment
+What the visitor tells you goes into the form with fillAppointment — the form is on screen and they see every value. It needs a name, a telephone number, a showroom and an occasion; ask for what is missing one thing at a time, in their language, and never invent or assume a value. Turn "Saturday" or "the twentieth" into a YYYY-MM-DD date yourself. When everything is there, call reviewAppointment and read the request back in one sentence that ends in a question: "Sab tayyar hai — Saturday, Liberty Market. Request bhej doon?" / "I have everything ready for Saturday at Liberty Market — shall I send the request?" Call submitAppointment with confirmed true only after the visitor answers yes to that question, never on your own. Afterwards say exactly what the result says: "prepared" means the request is kept on this device with its reference and WhatsApp is the next step, nothing was sent — "Aap ki request tayyar hai, reference WJ-…; WhatsApp par bhejna agla qadam hai."; "delivered" means our team has it and will confirm the time. Never say booked, confirmed, reserved or "ho gaya" — no appointment is booked by this site, a person confirms it.
 
 # Unclear Audio
 Only respond to clear audio. If the words are ambiguous, noisy, cut off or you are unsure what was said, ask one short question in the visitor's language — do not guess, and do not call a tool on a guess.
@@ -58,8 +64,13 @@ export const TRANSCRIPTION_KEYWORDS = ['Waseem Jewellers', 'haar', 'satlada', 'r
 export const REALTIME_TOOL_ALIASES: Record<string, string> = { bookAppointment: 'openPrivateConsultation' };
 const ALIAS_OF: Record<string, string> = Object.fromEntries(Object.entries(REALTIME_TOOL_ALIASES).map(([alias, name]) => [name, alias]));
 
-/** Only what the concierge can act on from a browser; the aliases and the server-side tools stay out. */
-const EXCLUDED = new Set<ToolDef['name']>(['showBridal', 'showGold', 'showDiamond', 'getCurrentContext', 'navigate']);
+/**
+ * Only what the concierge can act on from a browser; the deprecated aliases and the
+ * server-side tools stay out, and so does `getCurrentContext` — the session is handed the
+ * page in `<site-context>` and refreshed as it changes, so it never needs to ask.
+ * `navigate` is in: "take me to gold" and "go back" are spoken as often as they are typed.
+ */
+const EXCLUDED = new Set<ToolDef['name']>(['showBridal', 'showGold', 'showDiamond', 'getCurrentContext']);
 
 function cleanProperty(p: JsonSchemaProperty): Record<string, unknown> {
   // `format: 'piece-slug'` and `default` belong to the validator; the model is not helped by either
@@ -96,17 +107,27 @@ export interface VoiceContextInput {
   recent: { ordinal: number; slug: string; name: string; facts: string }[];
   wishlistCount: number;
   standing: string;
+  /** How many photographs the piece in view has, so "the third one" can be refused when there are two. */
+  frames?: number;
+  /**
+   * The appointment form, as a state and never as the visitor's details: whether it is
+   * open, which fields are filled, which are still needed. This block is refreshed with
+   * every page change, so it carries no name or number — those are read back only by the
+   * tool the model calls for the purpose.
+   */
+  appointment?: string;
 }
 
 export function renderVoiceContext(c: VoiceContextInput): string {
   const lines = [`page: ${c.route}`];
-  if (c.pieceInView) lines.push(`piece in view: ${c.pieceInView.name} (slug ${c.pieceInView.slug})${c.pieceInView.facts ? ` — published: ${c.pieceInView.facts}` : ''}`);
+  if (c.pieceInView) lines.push(`piece in view: ${c.pieceInView.name} (slug ${c.pieceInView.slug})${c.pieceInView.facts ? ` — published: ${c.pieceInView.facts}` : ''}${c.frames ? ` — ${c.frames} photograph${c.frames === 1 ? '' : 's'}` : ''}`);
   if (c.recent.length) {
     lines.push('pieces just shown, in the order the visitor sees them:');
     for (const r of c.recent) lines.push(`${r.ordinal}. ${r.name} (slug ${r.slug})${r.facts ? ` — ${r.facts}` : ''}`);
   }
   if (c.standing) lines.push(`standing request: ${c.standing}`);
   if (c.wishlistCount) lines.push(`selection: ${c.wishlistCount} piece${c.wishlistCount === 1 ? '' : 's'} kept`);
+  if (c.appointment) lines.push(`appointment form: ${c.appointment}`);
   return `<site-context>\n${lines.join('\n')}\n</site-context>`;
 }
 

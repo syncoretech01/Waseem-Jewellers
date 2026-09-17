@@ -13,13 +13,14 @@ import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
 import { TOOL_DEFS } from './tools/toolDefs';
+import { summariseDraft } from './tools/appointment';
 import { CONCIERGE } from './copy';
 import { recognitionSupported, type VoiceAdapter } from './voice/adapters';
 import { cancelSpeech, planSpeech, speak, speechAvailable, speechEngine } from './voice/speech';
 import { primeAudio, registerServerSpeech } from './voice/serverSpeech';
 import { startMeter, stopMeter, voiceMeter } from './voice/meter';
 import { EXAMPLE_SCRIPTS } from './voice/scripts';
-import type { ConciergeProvider, ProviderEvent, ProviderRuntime } from './types';
+import type { ConciergeProvider, ProviderEvent, ProviderRuntime, ToolName, ToolOutcome } from './types';
 
 let counter = 0;
 const uid = (p: string) => `${p}${Date.now().toString(36)}${(counter++).toString(36)}`;
@@ -94,12 +95,16 @@ export class ConciergeController {
       const r = getRow(slug);
       return r ? specLineOf(r) || priceLabelOf(r) : fallback;
     };
+    const gallery = row && site.gallery?.slug === row.s ? site.gallery : null;
     return {
       route: site.pathname || '/',
       pieceInView: row ? { slug: row.s, name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null,
       recent: c.recentResults.slice(0, 6).map((p, i) => ({ ordinal: i + 1, slug: p.slug, name: p.name, facts: factsOf(p.slug, p.priceLabel) })),
       wishlistCount: site.wishlist.length,
       standing: topicLine(c.memory.standingSlots),
+      frames: gallery?.count,
+      // the form's state, never the visitor's details: those travel only when a tool is asked for them
+      appointment: site.consultation.open || site.consultation.draft ? `${site.consultation.open ? 'open' : 'closed'} — ${summariseDraft(site.consultation.draft)}` : undefined,
     };
   }
 
@@ -399,6 +404,39 @@ export class ConciergeController {
       })
       .catch(() => {
         this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+      });
+  }
+
+  /**
+   * One tool, run exactly as a provider would run it: the same validator, the same events,
+   * the same store transitions — so the harness (`npm run operator:check`) exercises the
+   * path a model's call takes rather than a shortcut beside it.
+   *
+   * It is not gated to development, deliberately. Everything it can do the visitor's own
+   * hands can do — navigate, open the ledger, fill the form they are looking at — and every
+   * call still passes `validateToolCall`, so a slug that does not exist or a path off the
+   * site is refused here as anywhere. It is the same surface `tapCard` already exposes;
+   * the security boundary is what a *model* may do, and that boundary is unchanged.
+   */
+  runTool(name: ToolName, args: Record<string, unknown> = {}): Promise<ToolOutcome> {
+    const turnId = uid('t');
+    const callId = uid('c');
+    this.cancelTurn();
+    this.activeTurn = turnId;
+    this.pendingResult = false;
+    this.store.setError(null);
+    this.onEvent({ type: 'turn.start', turnId });
+    this.onEvent({ type: 'tool.call', turnId, callId, name, args });
+    return executeTool(name, args)
+      .then((outcome) => {
+        this.onEvent({ type: 'tool.result', turnId, callId, outcome });
+        this.onEvent({ type: 'text.done', turnId, text: outcome.label });
+        this.onEvent({ type: 'turn.done', turnId });
+        return outcome;
+      })
+      .catch((err: unknown) => {
+        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+        throw err;
       });
   }
 

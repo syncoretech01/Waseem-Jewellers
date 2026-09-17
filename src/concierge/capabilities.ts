@@ -28,6 +28,11 @@ export interface ConciergeCapabilities {
    * something to show the visitor before they do.
    */
   privacy: { url: string; contact: string } | null;
+  /**
+   * The booking provider's kind — `none` on every deployment today. An appointment is a
+   * request until a person confirms it; only a provider that books could change that word.
+   */
+  booking: string;
 }
 
 /** What a deployment is until told otherwise. It is also exactly what ships with no key. */
@@ -37,6 +42,7 @@ export const DEFAULT_CAPABILITIES: ConciergeCapabilities = {
   languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
   enquiry: 'local',
   privacy: null,
+  booking: 'none',
 };
 
 const KEY = 'wj:concierge:capabilities:v1';
@@ -61,6 +67,8 @@ function parse(raw: unknown): ConciergeCapabilities {
     // the disclosure is only honoured alongside the permission; one without the other is
     // treated as neither, because that is the case the server never produces
     ...(r.enquiry === 'server' && isPrivacy(r.privacy) ? { enquiry: 'server' as const, privacy: r.privacy } : { enquiry: 'local' as const, privacy: null }),
+    // a short identifier or nothing; an answer that omits it is a deployment with no booking system
+    booking: typeof r.booking === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(r.booking) ? r.booking : 'none',
   };
 }
 

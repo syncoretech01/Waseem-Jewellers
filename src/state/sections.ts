@@ -11,6 +11,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   hero: 'Waseem Jewellers',
   vitrine: 'The Window',
   craft: 'The Craft',
+  gate: 'Gold and Diamond',
   heritage: 'Since 1952',
   collections: 'Signature Collections',
   bridal: 'Bridal',

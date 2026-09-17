@@ -170,5 +170,26 @@ export const CONCIERGE = {
     going: (label: string) => `Taking you to ${label}…`,
     gone: (label: string) => label,
     navigating: (label: string) => `Opening ${label}…`,
+    // operating the site
+    back: 'Going back…',
+    backDone: 'Back',
+    menu: 'Menu',
+    menuClosed: 'Menu closed',
+    closing: 'Until next time',
+    frame: (n: number, of: number) => `Photograph ${n} of ${of}`,
+    framing: 'Turning the photograph…',
+    gate: (material: 'gold' | 'diamond') => (material === 'gold' ? 'Gold' : 'Diamond'),
+    kinds: 'The kinds',
+    // the appointment, at every step
+    filling: 'Writing it into the appointment form…',
+    filled: 'Noted for your appointment',
+    reviewing: 'Reading it back…',
+    review: 'Please check the form',
+    sending: 'Sending your request…',
+    /** Kept on the device, nothing sent: the reference and WhatsApp are the visitor's next step. */
+    prepared: (reference: string) => `Ready · ${reference}`,
+    delivered: (reference: string) => `Sent · ${reference}`,
+    notSent: (reference: string) => `Not sent · ${reference}`,
+    missing: 'A detail or two still needed',
   },
 } as const;

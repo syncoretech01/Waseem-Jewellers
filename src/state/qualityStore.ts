@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { detectQuality, type Tier } from '@/lib/quality';
 
-export type OrbRenderer = 'webgl' | 'static';
-
 interface QualityState {
   tier: Tier | 'unresolved';
   dprCap: number;
@@ -12,7 +10,6 @@ interface QualityState {
   webgl: boolean;
   renderer: string;
   detected: boolean;
-  orbRenderer: OrbRenderer;
   detect: () => void;
   setReducedMotion: (value: boolean) => void;
   /** One step down, from the frame-rate monitor. Never up, never past LOW, never from REDUCED. */
@@ -32,7 +29,6 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
   webgl: false,
   renderer: '',
   detected: false,
-  orbRenderer: 'static',
   detectedTier: 'unresolved',
   demotedAtFps: null,
   detect: () => {
@@ -42,7 +38,6 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
       ...q,
       detected: true,
       detectedTier: q.tier,
-      orbRenderer: q.webgl && q.tier !== 'REDUCED' ? 'webgl' : 'static',
     });
     document.documentElement.setAttribute('data-tier', q.tier.toLowerCase());
   },
@@ -60,7 +55,6 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
     set({
       tier: to,
       dprCap: Math.min(to === 'LOW' ? 1 : 1.5, window.devicePixelRatio || 1),
-      orbRenderer: current.webgl && to !== 'LOW' ? 'webgl' : 'static',
       demotedAtFps: measuredFps,
     });
     document.documentElement.setAttribute('data-tier', to.toLowerCase());
@@ -69,7 +63,7 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
   setReducedMotion: (value) => {
     const current = get();
     if (value) {
-      set({ reducedMotion: true, tier: 'REDUCED', dprCap: 1, orbRenderer: 'static' });
+      set({ reducedMotion: true, tier: 'REDUCED', dprCap: 1 });
       document.documentElement.setAttribute('data-tier', 'reduced');
     } else if (current.tier === 'REDUCED') {
       current.detect();

@@ -8,14 +8,16 @@ import { asDepartment, asKarat, asMaterial, canonicalCategory } from '@/data/voc
 import { DEPARTMENT_LABEL, CATEGORY_LABEL, CATEGORY_PLURAL, campaignSlugOf } from '@/data/labels';
 import { EMPTY_FACETS, facetPhrases, parseFacets, serialiseFacets, type FacetState, type SortKey } from '@/lib/facets';
 import type { Category, Department } from '@/data/types';
-import { SECTION_LABELS, sectionElement } from '@/state/sections';
+import { SECTION_LABELS, sectionElement, sectionsReady } from '@/state/sections';
 import { productElement } from '@/state/visibility';
 import { runtime, scrollTo } from '@/state/runtime';
-import { useSiteStore, type SectionId } from '@/state/siteStore';
+import { useSiteStore, type ConsultationDraft, type ConsultationOutcome, type SectionId } from '@/state/siteStore';
 import { useConciergeStore, type CollectionCard, type CompareRow } from '@/state/conciergeStore';
 import { countInWords, capitalise } from '@/lib/format';
 import { buildSiteContext, cardsOf } from '../context';
+import { requestConcierge } from '../bridge';
 import { CONCIERGE } from '../copy';
+import { checkDate, describeDraft, isOccasion, isWindow, missingFields, PHONE_RE, resolveShowroom } from './appointment';
 import type { SiteContext, ToolName, ToolOutcome } from '../types';
 import type { PieceRow } from '@/lib/facets';
 
@@ -31,6 +33,92 @@ function navigate(href: string, kind: 'curtain' | 'flip' = 'curtain', sourceEl?:
   runtime.router?.push(href, { scroll: false });
   return Promise.resolve();
 }
+
+/**
+ * "Go back." The router's own history step, which the transition layer receives as a
+ * popstate and answers with its reveal half (`arrivePlain`) — the same arrival a visitor's
+ * back button gets. Resolves once the route has actually changed, or after a short wait
+ * when there was nowhere to go back to, so the model is told where the visitor stands.
+ */
+function goBack(from: string): Promise<string> {
+  if (runtime.router) runtime.router.back();
+  else window.history.back();
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const tick = () => {
+      const now = useSiteStore.getState().pathname;
+      if (now !== from) return resolve(now);
+      if (performance.now() - started > 2500) return resolve(now);
+      window.setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+/** After a navigation: the curtain has lifted and the destination's sections are registered. */
+async function arrived() {
+  await runtime.transition?.whenReady().catch(() => undefined);
+  await Promise.race([sectionsReady(), new Promise((r) => setTimeout(r, 1200))]);
+}
+
+/**
+ * A chapter of the homepage, from wherever the visitor is.
+ *
+ * The glide is issued here, after the arrival, rather than left to the homepage's own
+ * pending-section effect — and the smooth scroller is told to measure the new page first.
+ * Without that it clamps the target to the *previous* page's height: arriving from a
+ * department page, "the showrooms" stopped seven thousand pixels short, at exactly the old
+ * page's last scrollable pixel.
+ */
+async function glideToChapter(el: () => HTMLElement | null, onHome: boolean, offset = 0) {
+  if (!onHome) {
+    await navigate('/');
+    await arrived();
+  }
+  runtime.lenis?.resize();
+  const target = el();
+  if (target) scrollTo(target, { offset, duration: 1.6 });
+  return Boolean(target);
+}
+
+/**
+ * The row of kinds inside the window chapter. It is not a section of its own, so it is
+ * found within the window: marked `data-kinds` where the chapter marks it, else the one
+ * navigation the chapter contains, else the chapter itself.
+ */
+function kindsElement(): HTMLElement | null {
+  const window_ = sectionElement('vitrine');
+  if (!window_) return null;
+  return window_.querySelector<HTMLElement>('[data-kinds]') ?? window_.querySelector<HTMLElement>('nav') ?? window_;
+}
+
+/**
+ * The form's verdict on a submission the concierge asked for, matched by nonce. The form
+ * answers with what actually happened; waiting on it is how the tool's sentence stays true.
+ */
+function awaitOutcome(nonce: number, timeoutMs = 20000): Promise<ConsultationOutcome | null> {
+  return new Promise((resolve) => {
+    const current = useSiteStore.getState().consultationOutcome;
+    if (current?.nonce === nonce) return resolve(current);
+    let done = false;
+    const finish = (o: ConsultationOutcome | null) => {
+      if (done) return;
+      done = true;
+      off();
+      window.clearTimeout(timer);
+      resolve(o);
+    };
+    const off = useSiteStore.subscribe((s) => {
+      if (s.consultationOutcome?.nonce === nonce) finish(s.consultationOutcome);
+    });
+    const timer = window.setTimeout(() => finish(null), timeoutMs);
+  });
+}
+
+/** The form's topic that best matches an occasion; the form itself preselects the occasion from it. */
+const topicOf = (occasion: string | undefined): 'bridal' | 'bespoke' | 'viewing' => (occasion === 'bridal' ? 'bridal' : occasion === 'bespoke' ? 'bespoke' : 'viewing');
+
+const uniq = (list: string[]) => [...new Set(list)];
 
 /** The department the visitor is standing in, read from the route rather than kept twice. */
 const departmentOf = (ctx: SiteContext): Department | undefined => asDepartment(ctx.route.split('?')[0]?.split('/')[1]);
@@ -222,7 +310,8 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       return { result: { ok: true, slug: product.s }, runningLabel: CONCIERGE.labels.removing, label: CONCIERGE.labels.removed, ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'removed' } };
     }
 
-    case 'openWishlist': {
+    case 'openWishlist':
+    case 'openSaved': {
       const pieces = getRows(site.wishlist);
       site.openLedger();
       const n = countInWords(pieces.length);
@@ -236,21 +325,38 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
     }
 
     case 'scrollToSection': {
-      const id = str(args.section) as SectionId | undefined;
-      if (!id) return { result: { error: 'unknown section' }, label: '' };
+      const wanted = str(args.section);
+      if (!wanted) return { result: { error: 'unknown section' }, label: '' };
+      /**
+       * The row of kinds is inside the window chapter rather than a chapter of its own, so
+       * it has no registration to glide to; it is found within the window once the page is
+       * there. Every other target is a registered section.
+       */
+      if (wanted === 'kinds') {
+        const found = await glideToChapter(kindsElement, ctx.routeKind === 'home', -96);
+        return {
+          result: { ok: true, section: 'kinds', found },
+          runningLabel: CONCIERGE.labels.going(CONCIERGE.labels.kinds),
+          label: CONCIERGE.labels.kinds,
+          ui: { kind: 'navigation', label: CONCIERGE.labels.kinds, href: '/' },
+          compact: ctx.viewport !== 'desktop',
+        };
+      }
+      const id = wanted as SectionId;
       const label = SECTION_LABELS[id] ?? id;
       const el = sectionElement(id);
+      let found = true;
       if (id === 'footer') {
         // the footer waits beneath every route
         scrollTo(document.documentElement.scrollHeight, { duration: 1.6 });
-      } else if (el && (ctx.routeKind === 'home' || ['pieces', 'related', 'gallery', 'details'].includes(id))) {
+      } else if (el && (ctx.routeKind === 'home' || ['pieces', 'related', 'gallery', 'details', 'department'].includes(id))) {
         scrollTo(el, { duration: 1.6 });
       } else {
-        site.setPendingSection(id);
-        await navigate('/');
+        // a homepage chapter from anywhere else: home first, then the glide
+        found = await glideToChapter(() => sectionElement(id), ctx.routeKind === 'home');
       }
       return {
-        result: { ok: true, section: id },
+        result: { ok: true, section: id, found },
         runningLabel: CONCIERGE.labels.going(label),
         label: CONCIERGE.labels.gone(label),
         ui: id === 'heritage' ? { kind: 'house' } : id === 'collections' ? { kind: 'collections', collections: worldCards() } : { kind: 'navigation', label, href: '/' },
@@ -258,7 +364,8 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       };
     }
 
-    case 'openPrivateConsultation': {
+    case 'openPrivateConsultation':
+    case 'openAppointment': {
       const topic = (str(args.topic) as 'bridal' | 'bespoke' | 'viewing' | 'general' | undefined) ?? 'viewing';
       const productSlug = str(args.productSlug) ?? ctx.currentProduct?.slug ?? undefined;
       site.openConsultation({ topic, productSlug, source: 'concierge' });
@@ -507,8 +614,32 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         compact: true,
       };
     }
+    /**
+     * "Take me to gold." A target is the place as the visitor names it; a path is for the
+     * pages the targets do not cover. Three of the targets are not pages at all — the
+     * showrooms are a chapter, the appointment is a form, the saved pieces are the ledger —
+     * and each is answered by the tool that owns it, validator and all.
+     */
     case 'navigate': {
-      const path = str(args.path) ?? '/';
+      const target = str(args.target);
+      if (target === 'back') {
+        const from = ctx.route.split('?')[0] ?? '/';
+        const now = await goBack(from);
+        const moved = now !== from;
+        return {
+          result: moved ? { ok: true, target, path: now } : { ok: false, target, path: now, note: 'There was no earlier page to return to. Offer the homepage instead.' },
+          runningLabel: CONCIERGE.labels.back,
+          label: moved ? CONCIERGE.labels.backDone : '',
+          navigateTo: moved ? now : undefined,
+          compact: moved,
+        };
+      }
+      if (target === 'locations') return executeTool('scrollToSection', { section: 'heritage' });
+      if (target === 'appointment') return executeTool('openAppointment', {});
+      if (target === 'saved') return executeTool('openSaved', {});
+      const department_ = asDepartment(target);
+      const path = target === 'home' ? '/' : target === 'bridal-collection' ? COLLECTION_ROUTE : department_ ? `/${department_}` : str(args.path);
+      if (!path) return { result: { error: 'NO_DESTINATION', message: 'give a target or a path' }, label: '' };
       const ok =
         path === '/' ||
         /^\/collections\/[a-z0-9-]+(\?.*)?$/.test(path) ||
@@ -527,8 +658,227 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       return { result: { ok: true, path }, runningLabel: CONCIERGE.labels.navigating(label), label, navigateTo: path, ui: { kind: 'navigation', label, href: path }, compact: true };
     }
 
-    case 'getCurrentContext':
-      return { result: ctx, label: '' };
+    /**
+     * The chrome. Each of these is one visitor sentence — "open the menu", "close", "the
+     * second photo" — and each does exactly what the visitor's own hand would.
+     */
+    case 'openMenu':
+      site.openMenu();
+      return { result: { ok: true, menuOpen: true }, label: CONCIERGE.labels.menu, compact: true };
+
+    case 'closeMenu':
+      site.closeMenu();
+      return { result: { ok: true, menuOpen: false }, label: CONCIERGE.labels.menuClosed };
+
+    case 'closeConcierge':
+      // after the goodbye has been said, not under it: the panel closes as the keyless engine's
+      // "Until next time." does, and a spoken goodbye is given a little longer to finish
+      window.setTimeout(() => requestConcierge({ action: 'close' }), useConciergeStore.getState().mode === 'voice' ? 2600 : 1600);
+      return { result: { ok: true, note: 'The panel closes in a moment. Say goodbye in one short line and nothing more.' }, label: CONCIERGE.labels.closing };
+
+    case 'setGalleryFrame': {
+      const slug = ctx.currentProduct?.slug;
+      if (ctx.routeKind !== 'product' || !slug) return { result: { error: 'NOT_ON_A_PIECE', message: 'the visitor is not on a piece\'s page; open one first' }, label: '' };
+      const index = Math.max(0, Math.round(Number(args.index ?? 0)));
+      const gallery = site.gallery && site.gallery.slug === slug ? site.gallery : null;
+      if (gallery && index >= gallery.count) {
+        return { result: { error: 'NO_SUCH_FRAME', count: gallery.count, message: `this piece has ${gallery.count} photograph${gallery.count === 1 ? '' : 's'}` }, label: '' };
+      }
+      site.requestGalleryFrame(slug, index);
+      const of = gallery?.count ?? index + 1;
+      return {
+        result: { ok: true, slug, index, count: gallery?.count ?? null },
+        runningLabel: CONCIERGE.labels.framing,
+        label: CONCIERGE.labels.frame(index + 1, of),
+        compact: ctx.viewport !== 'desktop',
+      };
+    }
+
+    case 'activateGate': {
+      const material = str(args.material) === 'diamond' ? 'diamond' : 'gold';
+      site.setGate(material);
+      const found = await glideToChapter(() => sectionElement('gate'), ctx.routeKind === 'home');
+      const label = CONCIERGE.labels.gate(material);
+      return {
+        result: { ok: true, material, found },
+        runningLabel: CONCIERGE.labels.going(label),
+        label,
+        ui: { kind: 'navigation', label, href: '/' },
+        compact: ctx.viewport !== 'desktop',
+      };
+    }
+
+    case 'highlightCategory': {
+      const category = canonicalCategory(args.category);
+      if (!category) return { result: { error: 'unknown kind' }, label: '' };
+      site.setHighlightedCategory(category);
+      const outcome = await executeTool('scrollToSection', { section: 'kinds' });
+      const label = CATEGORY_PLURAL[category as Category] ?? category;
+      return { ...outcome, result: { ok: true, category, label }, label, ui: { kind: 'navigation', label, href: '/' } };
+    }
+
+    /**
+     * The appointment, in three steps that the visitor can watch.
+     *
+     * `fillAppointment` writes into the form — the form, not a private state: every value is
+     * on screen in the field it belongs to, and a value the visitor typed themselves is not
+     * overwritten. `reviewAppointment` reads the form back so the confirming sentence is
+     * built from the same words the visitor sees. `submitAppointment` runs the form's own
+     * button, and only after the visitor has said yes; what it returns is what the form
+     * reports, so the sentence after it cannot claim more than happened.
+     */
+    case 'fillAppointment': {
+      const draft = site.consultation.draft ?? {};
+      const patch: Partial<ConsultationDraft> = {};
+      const problems: Record<string, string> = {};
+      const name = str(args.name);
+      if (name) {
+        if (name.length < 2) problems.name = 'a name of at least two letters';
+        else patch.name = name.slice(0, 80);
+      }
+      const phone = str(args.phone);
+      if (phone) {
+        if (!PHONE_RE.test(phone)) problems.phone = 'a telephone number we can reach: digits, with the code';
+        else patch.phone = phone.slice(0, 32);
+      }
+      const email = str(args.email);
+      if (email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) problems.email = 'an email address, or none';
+        else patch.email = email.slice(0, 120);
+      }
+      const showroomWord = str(args.showroom);
+      if (showroomWord) {
+        const id = resolveShowroom(showroomWord);
+        if (id) patch.showroom = id;
+        else problems.showroom = 'one of MM Alam Road, Liberty Market or DHA';
+      }
+      if (isOccasion(args.occasion)) patch.occasion = args.occasion;
+      const date = str(args.date);
+      if (date) {
+        const verdict = checkDate(date);
+        if (verdict.ok) patch.date = verdict.date;
+        else problems.date = verdict.reason;
+      }
+      if (isWindow(args.window)) patch.window = args.window;
+      const message = str(args.message);
+      if (message) patch.message = message.slice(0, 1200);
+      const given = Array.isArray(args.productSlugs) ? (args.productSlugs as unknown[]).filter((s): s is string => typeof s === 'string') : [];
+      const fromSelection = args.addSelection === true ? site.wishlist : [];
+      const slugs = uniq([...(draft.productSlugs ?? []), ...given, ...fromSelection]).filter((s) => Boolean(getRow(s))).slice(0, 40);
+      if (slugs.length) patch.productSlugs = slugs;
+      if (Object.keys(patch).length) site.setConsultationDraft(patch);
+      const wasOpen = site.consultation.open;
+      const occasion = patch.occasion ?? draft.occasion;
+      if (!wasOpen) site.openConsultation({ topic: topicOf(occasion), productSlug: ctx.currentProduct?.slug, source: 'concierge' });
+      const after = useSiteStore.getState().consultation.draft;
+      const described = describeDraft(after, (s) => getRow(s)?.t);
+      const refused = Object.keys(problems).length ? `Not written: ${Object.entries(problems).map(([k, why]) => `${k} (${why})`).join('; ')}. Ask again. ` : '';
+      const next = described.missing.length ? `Still needed before it can be sent: ${described.missing.join(', ')}. Ask for one at a time.` : 'Everything required is filled. Read it back with reviewAppointment and ask whether to send.';
+      return {
+        result: {
+          ok: true,
+          formOpen: true,
+          draft: described,
+          missing: described.missing,
+          ...(Object.keys(problems).length ? { problems } : {}),
+          note: refused + next,
+        },
+        runningLabel: CONCIERGE.labels.filling,
+        label: Object.keys(patch).length ? CONCIERGE.labels.filled : CONCIERGE.labels.consultationDone,
+        ui: { kind: 'consultation', topic: topicOf(occasion) },
+        compact: true,
+      };
+    }
+
+    case 'reviewAppointment': {
+      if (!site.consultation.open) site.openConsultation({ topic: topicOf(site.consultation.draft?.occasion), productSlug: ctx.currentProduct?.slug, source: 'concierge' });
+      const described = describeDraft(useSiteStore.getState().consultation.draft, (s) => getRow(s)?.t);
+      return {
+        result: {
+          formOpen: true,
+          draft: described,
+          missing: described.missing,
+          note: described.missing.length
+            ? `Not ready: ${described.missing.join(', ')} still needed. Ask for them; do not offer to send yet.`
+            : 'Ready. Confirm the showroom, the date and the pieces in one sentence and ask whether to send the request. Call submitAppointment only after a yes.',
+        },
+        runningLabel: CONCIERGE.labels.reviewing,
+        label: CONCIERGE.labels.review,
+        ui: { kind: 'consultation', topic: topicOf(described.occasion?.value) },
+        compact: true,
+      };
+    }
+
+    case 'submitAppointment': {
+      if (args.confirmed !== true) {
+        return { result: { error: 'NOT_CONFIRMED', message: 'ask the visitor whether to send the request; call again with confirmed true only after they say yes' }, label: '' };
+      }
+      // the draft can say no before the form has to; the form's own validation still runs
+      const early = missingFields(site.consultation.draft);
+      if (early.length && !site.consultation.open) {
+        site.openConsultation({ topic: topicOf(site.consultation.draft?.occasion), productSlug: ctx.currentProduct?.slug, source: 'concierge' });
+        return { result: { error: 'INCOMPLETE', missing: early, note: 'The form is open. Ask for the missing details, then review and confirm again.' }, label: CONCIERGE.labels.missing, ui: { kind: 'consultation' }, compact: true };
+      }
+      if (!site.consultation.open) site.openConsultation({ topic: topicOf(site.consultation.draft?.occasion), productSlug: ctx.currentProduct?.slug, source: 'concierge' });
+      const nonce = useSiteStore.getState().requestConsultationSubmit();
+      const outcome = await awaitOutcome(nonce);
+      if (!outcome) return { result: { error: 'NO_ANSWER', message: 'the form did not answer; ask the visitor to press the button themselves' }, label: '' };
+      if (outcome.status === 'invalid') {
+        // no missing field and still refused: the form is not at its fields — it already shows an acknowledgement
+        if (!outcome.missing?.length) {
+          return { result: { error: 'FORM_NOT_READY', message: 'the form is not showing its fields; it may already show an acknowledgement. Ask the visitor to close it and begin a new request if they want another.' }, label: '' };
+        }
+        return { result: { error: 'INCOMPLETE', missing: outcome.missing, note: 'The form shows what is missing. Ask for it, then review and confirm again.' }, label: CONCIERGE.labels.missing, ui: { kind: 'consultation' }, compact: true };
+      }
+      const reference = outcome.reference ?? '';
+      // no provider books anything today; a reference is not a booking, and the result says so
+      const booked = false;
+      if (outcome.status === 'delivered') {
+        return {
+          result: { status: 'delivered', reference, transmitted: true, booked, note: `Sent. Say: the request has been sent with reference ${reference}, and our team will confirm the time. Never say booked or confirmed.` },
+          runningLabel: CONCIERGE.labels.sending,
+          label: CONCIERGE.labels.delivered(reference),
+          ui: { kind: 'consultation' },
+          compact: true,
+        };
+      }
+      if (outcome.status === 'failed') {
+        return {
+          result: { status: 'failed', reference, transmitted: false, booked, whatsappHref: outcome.whatsappHref ?? null, note: `Not delivered. Say plainly that the request did not reach our team, that it is kept on this device under reference ${reference}, and that WhatsApp is the way to send it.` },
+          runningLabel: CONCIERGE.labels.sending,
+          label: CONCIERGE.labels.notSent(reference),
+          ui: { kind: 'consultation' },
+          compact: true,
+        };
+      }
+      return {
+        result: {
+          status: 'prepared',
+          reference,
+          transmitted: false,
+          booked,
+          whatsappHref: outcome.whatsappHref ?? null,
+          note: `Nothing was sent. Say: the request is prepared with reference ${reference}, and sending it on WhatsApp is the next step. Never say booked, confirmed or received.`,
+        },
+        runningLabel: CONCIERGE.labels.sending,
+        label: CONCIERGE.labels.prepared(reference),
+        ui: { kind: 'consultation' },
+        compact: true,
+      };
+    }
+
+    case 'getCurrentContext': {
+      const described = describeDraft(site.consultation.draft, (s) => getRow(s)?.t);
+      return {
+        result: {
+          // first, so the result's key budget on the model path never trims them
+          selectionCount: ctx.wishlist.length,
+          appointment: { open: site.consultation.open, draft: described, missing: described.missing },
+          ...ctx,
+        },
+        label: '',
+      };
+    }
 
     default:
       return { result: { error: `Unknown tool ${String(name)}` }, label: '' };

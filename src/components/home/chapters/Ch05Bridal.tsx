@@ -14,7 +14,7 @@ import { pieceRefOf } from '@/data/clientIndex';
 import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import type { PieceRow } from '@/lib/facets';
-import { tagOf } from './Ch02Window';
+import { tagOf } from './showcase';
 
 /** The portrait window's proportions, shared with the collection page's opening frame. */
 export const BRIDAL_FRAME = { widthVw: 28, ratio: 1.25 };
@@ -29,7 +29,7 @@ export const BRIDAL_FRAME = { widthVw: 28, ratio: 1.25 };
  * figure beside it on the choker Waseem lists, the film as an inset rather than a screen, and
  * the count, the doors and the appointment beneath. No pin: it is read at the pace of a page.
  */
-export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; choker?: PieceRow; count?: number }) {
+export function Ch05Bridal({ suite, choker }: { suite?: PieceRow; choker?: PieceRow }) {
   const { ref } = useChapter({ id: 'bridal', theme: 'ivory' });
   const scope = useRef<HTMLDivElement>(null);
   const openConsultation = useSiteStore((s) => s.openConsultation);
@@ -48,7 +48,7 @@ export function Ch05Bridal({ suite, choker, count = 0 }: { suite?: PieceRow; cho
           <div className="flex flex-col gap-4 md:col-span-7">
             <Eyebrow className="text-ink/60">{COPY.bridal.eyebrow}</Eyebrow>
             <h2 id="bridal-title" data-split className="display max-w-[11em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0 [text-wrap:balance]">
-              {COPY.bridal.title(count)}
+              {COPY.bridal.title}
             </h2>
           </div>
           <p className="max-w-[30em] text-[0.9375rem] leading-relaxed text-ink/70 md:col-span-4 md:col-start-9 md:pb-2" data-rise>

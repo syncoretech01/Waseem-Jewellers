@@ -28,7 +28,22 @@ export type ToolName =
   | 'showGold'
   | 'showDiamond'
   | 'navigate'
-  | 'getCurrentContext';
+  | 'getCurrentContext'
+  /** Operating the site: the chrome, the gallery, the gate, the window. */
+  | 'openMenu'
+  | 'closeMenu'
+  | 'closeConcierge'
+  /** `openSaved` is `openWishlist` under the name the visitor uses; `openAppointment` is `openPrivateConsultation` likewise. */
+  | 'openSaved'
+  | 'openAppointment'
+  | 'setGalleryFrame'
+  | 'activateGate'
+  | 'highlightCategory'
+  /** The appointment, prepared in the open and sent only on the visitor's word. */
+  | 'fillAppointment'
+  | 'reviewAppointment'
+  | 'submitAppointment'
+  | 'checkAvailability';
 
 /**
  * The subset of JSON Schema this registry uses, and the validator enforces in full.
@@ -110,6 +125,17 @@ export interface SiteContext {
   mode: ConciergeMode;
   viewport: 'desktop' | 'tablet' | 'mobile';
   localHour: number;
+  /**
+   * The chrome and the page furniture the operator tools act on. None of this is personal:
+   * the appointment draft itself is deliberately not here, because this object travels with
+   * every model turn, and the draft is handed over only when a tool is asked for it.
+   */
+  gallery: { count: number; index: number } | null;
+  gate: 'gold' | 'diamond' | null;
+  highlightedCategory: string | null;
+  menuOpen: boolean;
+  ledgerOpen: boolean;
+  appointmentOpen: boolean;
 }
 
 export interface ToolOutcome {

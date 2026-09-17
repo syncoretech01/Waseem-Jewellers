@@ -5,13 +5,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field, ChoiceRow } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
-import { useSiteStore } from '@/state/siteStore';
+import { useSiteStore, type ConsultationDraftField } from '@/state/siteStore';
 import { SITE } from '@/data';
 import { getRow, getRows, loadIndex } from '@/data/clientIndex';
 import { whatsappHref } from '@/data/site';
 import { COPY } from '@/data/copy';
 import { EASE } from '@/lib/motion/easings';
 import { capabilities, probeCapabilities } from '@/concierge/capabilities';
+import { OCCASIONS, WINDOWS } from '@/concierge/tools/appointment';
 
 /**
  * `ready` is the local outcome: details prepared on the device, nothing sent. `delivered` is
@@ -21,16 +22,8 @@ import { capabilities, probeCapabilities } from '@/concierge/capabilities';
  */
 type Stage = 'idle' | 'submitting' | 'ready' | 'delivered';
 
-const OCCASIONS = [
-  { value: 'bridal', label: 'Bridal' },
-  { value: 'bespoke', label: 'Bespoke' },
-  { value: 'viewing', label: 'A viewing' },
-  { value: 'gift', label: 'Gift' },
-];
-const WINDOWS = [
-  { value: 'afternoon', label: 'Afternoon 12–4' },
-  { value: 'evening', label: 'Evening 4–9:30' },
-];
+/** The fields the concierge can write into; the honeypot is deliberately not one of them. */
+type FieldName = Exclude<ConsultationDraftField, 'productSlugs'>;
 
 function reference() {
   const d = new Date();
@@ -70,6 +63,7 @@ export function ConsultationModal() {
     }
   }, [consultation.open]);
   const close = useSiteStore((s) => s.closeConsultation);
+  const submitNonce = useSiteStore((s) => s.consultationSubmitNonce);
   const [stage, setStage] = useState<Stage>('idle');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -81,6 +75,34 @@ export function ConsultationModal() {
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [ref, setRef] = useState('');
+  /** The pieces a submission carried, held for the acknowledgement after the draft is cleared. */
+  const [sentPieces, setSentPieces] = useState<string[] | null>(null);
+  /**
+   * When the visitor last typed into each field. The concierge's draft carries its own
+   * stamps, and a field shows whichever hand wrote last: a value the visitor typed is
+   * theirs until the concierge is told something newer, and a draft value follows into every
+   * field the visitor has not touched since. Nothing is copied between the two — the shown
+   * value is derived, so the form and the draft cannot disagree about what is on screen.
+   */
+  const [touchedAt, setTouchedAt] = useState<Partial<Record<FieldName, number>>>({});
+  const touch = (field: FieldName) => setTouchedAt((t) => ({ ...t, [field]: Date.now() }));
+  const draft = consultation.draft;
+  const draftAt = consultation.draftAt;
+  const shown = <T,>(field: FieldName, own: T, fromDraft: T | undefined): T => {
+    const wrote = draftAt?.[field] ?? 0;
+    if (!wrote || fromDraft === undefined) return own;
+    return wrote > (touchedAt[field] ?? 0) ? fromDraft : own;
+  };
+  const values = {
+    name: shown('name', name, draft?.name),
+    phone: shown('phone', phone, draft?.phone),
+    email: shown('email', email, draft?.email),
+    showroom: shown<string | null>('showroom', showroom, draft?.showroom),
+    occasion: shown<string | null>('occasion', occasion, draft?.occasion),
+    date: shown('date', date, draft?.date),
+    window: shown<string | null>('window', window_, draft?.window),
+    message: shown('message', message, draft?.message),
+  };
   /** A hidden field. No visitor fills it; a form-filling script does. */
   const [honeypot, setHoneypot] = useState('');
   /**
@@ -97,10 +119,12 @@ export function ConsultationModal() {
   /** One per opening of the form, so a retry after a dropped connection is not a second enquiry. */
   const idempotencyKey = useRef('');
 
+  const draftSlugs = draft?.productSlugs;
   const pieces = useMemo(() => {
     const slugs = consultation.productSlugs ?? (consultation.productSlug ? [consultation.productSlug] : []);
-    return getRows(slugs);
-  }, [consultation.productSlug, consultation.productSlugs]);
+    // the pieces the door was opened with, and the ones the concierge added to the request
+    return getRows([...new Set([...slugs, ...(draftSlugs ?? [])])]);
+  }, [consultation.productSlug, consultation.productSlugs, draftSlugs]);
 
   // each opening begins afresh (derived during render, keyed on the open flag)
   const [seenOpen, setSeenOpen] = useState(false);
@@ -110,13 +134,42 @@ export function ConsultationModal() {
       setStage('idle');
       setErrors({});
       setHoneypot('');
+      setSentPieces(null);
       const topic = consultation.topic;
       setOccasion(topic === 'bridal' ? 'bridal' : topic === 'bespoke' ? 'bespoke' : topic === 'viewing' ? 'viewing' : null);
     }
   }
 
+  const form = useRef<HTMLFormElement>(null);
+  /** The nonce this form last acted on, so a re-render does not submit twice. */
+  const handledNonce = useRef(0);
+  const setOutcome = useSiteStore((s) => s.setConsultationOutcome);
+  const clearDraft = useSiteStore((s) => s.clearConsultationDraft);
+  /**
+   * The concierge asks; the form answers, through its own button.
+   *
+   * `requestSubmit` raises the same submit event the visitor's click does, so the
+   * validation, the honeypot and the elapsed-time rule below run unchanged — the concierge
+   * has no second path around them. A request that arrives while the form is not showing
+   * (closed, or already acknowledged) is answered as invalid rather than left hanging.
+   */
+  useEffect(() => {
+    if (submitNonce === 0 || handledNonce.current === submitNonce) return;
+    if (!consultation.open) return;
+    if (stage === 'submitting') return;
+    handledNonce.current = submitNonce;
+    if (stage !== 'idle' || !form.current) {
+      setOutcome({ nonce: submitNonce, status: 'invalid', missing: [] });
+      return;
+    }
+    form.current.requestSubmit();
+  }, [submitNonce, consultation.open, stage, setOutcome]);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    const { name, phone, email, showroom, occasion, date, window: window_ } = values;
+    const message = values.message;
+    const nonce = useSiteStore.getState().consultationSubmitNonce;
     const next: Record<string, string> = {};
     if (name.trim().length < 2) next.name = 'Your name, please.';
     if (!/^\+?[\d\s-]{7,}$/.test(phone.trim())) next.phone = 'A telephone number we can reach.';
@@ -125,7 +178,24 @@ export function ConsultationModal() {
     setErrors(next);
     // focus moves in the effect below, once React has rendered aria-invalid — a querySelector
     // here ran before it existed and found nothing, so the visitor was told nothing
-    if (Object.keys(next).length) return;
+    if (Object.keys(next).length) {
+      setOutcome({ nonce, status: 'invalid', missing: Object.keys(next) });
+      return;
+    }
+    /**
+     * What is sent is what is shown. The shown values are pinned into the visitor's own
+     * state here so the form still holds them once the draft is cleared — which happens when
+     * this submission concludes, because this request is the one the draft was gathered for.
+     */
+    setName(name);
+    setPhone(phone);
+    setEmail(email);
+    setShowroom(showroom);
+    setOccasion(occasion);
+    setDate(date);
+    setWindow(window_);
+    setMessage(message);
+    setSentPieces(pieces.map((p) => p.s));
     setStage('submitting');
     /**
      * Nothing leaves the device unless Waseem has given us somewhere to send it.
@@ -138,19 +208,33 @@ export function ConsultationModal() {
      */
     const local = caps.enquiry !== 'server';
     const fallback = reference();
+    const sent = pieces;
+    const waLine = (code: string) => whatsappHref(`Appointment request ${code}: ${name}, ${SITE.showrooms.find((s) => s.id === showroom)?.name ?? ''}${sent.length ? `, regarding ${sent.map((p) => p.t).join(', ')}` : ''}.`);
 
     const keepLocally = (code: string) => {
       try {
-        sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: pieces.map((p) => p.s), message, at: Date.now() }));
+        sessionStorage.setItem('wj:consultation', JSON.stringify({ code, name, phone, email, showroom, occasion, date, window: window_, pieces: sent.map((p) => p.s), message, at: Date.now() }));
       } catch {
         /* private mode: the reference on screen is still the visitor's copy */
       }
     };
 
+    /**
+     * The one place the outcome is written, so the concierge and the screen say the same
+     * thing. `prepared` is the screen's "ready": kept here, nothing sent. `failed` is a
+     * server submission that did not arrive — the screen shows "ready" for it too, because
+     * the request is still the visitor's to send, but the concierge is told the difference.
+     */
+    const conclude = (status: 'prepared' | 'delivered' | 'failed', code: string) => {
+      setRef(code);
+      keepLocally(code);
+      setStage(status === 'delivered' ? 'delivered' : 'ready');
+      clearDraft();
+      setOutcome({ nonce, status, reference: code, whatsappHref: waLine(code) });
+    };
+
     if (local) {
-      setRef(fallback);
-      keepLocally(fallback);
-      window.setTimeout(() => setStage('ready'), 700);
+      window.setTimeout(() => conclude('prepared', fallback), 700);
       return;
     }
 
@@ -165,7 +249,7 @@ export function ConsultationModal() {
         occasion,
         date,
         window: window_,
-        pieceSlugs: pieces.map((p) => p.s),
+        pieceSlugs: sent.map((p) => p.s),
         message,
         budgetPkr: consultation.budgetPkr,
         elapsedMs: Date.now() - openedAt.current,
@@ -182,11 +266,9 @@ export function ConsultationModal() {
       .catch(() => ({ delivered: false, reference: fallback }))
       .then(({ delivered, reference: issued }) => {
         // the visitor has already written it out: show them a reference and their own
-        // WhatsApp line rather than losing the request to a failed request
-        setRef(issued);
-        keepLocally(issued);
-        // it did not arrive, so the words must not say it did
-        setStage(delivered ? 'delivered' : 'ready');
+        // WhatsApp line rather than losing the request to a failed request; and it did not
+        // arrive, so the words must not say it did
+        conclude(delivered ? 'delivered' : 'failed', issued);
         if (delivered) {
           // this enquiry is concluded; the next one gets its own clock and key
           openedAt.current = 0;
@@ -195,8 +277,9 @@ export function ConsultationModal() {
       });
   };
 
-  const showroomName = SITE.showrooms.find((s) => s.id === showroom)?.name ?? '';
-  const waText = `Appointment request ${ref}: ${name}, ${showroomName}${pieces.length ? `, regarding ${pieces.map((p) => p.t).join(', ')}` : ''}.`;
+  const showroomName = SITE.showrooms.find((s) => s.id === values.showroom)?.name ?? '';
+  const acknowledged = sentPieces ? getRows(sentPieces) : pieces;
+  const waText = `Appointment request ${ref}: ${values.name}, ${showroomName}${acknowledged.length ? `, regarding ${acknowledged.map((p) => p.t).join(', ')}` : ''}.`;
 
   return (
     <Dialog open={consultation.open} onClose={close} label={COPY.consultation.eyebrow} variant="center" theme="ivory" className="px-8 py-10 md:px-12 md:py-12">
@@ -231,7 +314,7 @@ export function ConsultationModal() {
             </div>
           </motion.div>
         ) : (
-          <motion.form key="form" onSubmit={submit} noValidate initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.25 } }} className="mt-6 flex flex-col gap-2">
+          <motion.form ref={form} key="form" onSubmit={submit} noValidate initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.25 } }} className="mt-6 flex flex-col gap-2">
             {/*
               A field no person can see and no person fills. It is hidden from assistive
               technology too — a screen-reader user is a visitor, not a bot, and must not be
@@ -259,17 +342,91 @@ export function ConsultationModal() {
               </div>
             )}
             <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              <Field label="Name" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} required autoComplete="name" />
-              <Field label="Telephone" value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} required type="tel" autoComplete="tel" hint="+92 3xx xxx xxxx" />
+              <Field
+                label="Name"
+                value={values.name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  touch('name');
+                }}
+                error={errors.name}
+                required
+                autoComplete="name"
+              />
+              <Field
+                label="Telephone"
+                value={values.phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  touch('phone');
+                }}
+                error={errors.phone}
+                required
+                type="tel"
+                autoComplete="tel"
+                hint="+92 3xx xxx xxxx"
+              />
             </div>
-            <Field label="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" />
-            <ChoiceRow label="Showroom" options={SITE.showrooms.map((s) => ({ value: s.id, label: s.name }))} value={showroom} onChange={setShowroom} error={errors.showroom} />
-            <ChoiceRow label="Occasion" options={OCCASIONS} value={occasion} onChange={setOccasion} error={errors.occasion} />
+            <Field
+              label="Email"
+              value={values.email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                touch('email');
+              }}
+              type="email"
+              autoComplete="email"
+            />
+            <ChoiceRow
+              label="Showroom"
+              options={SITE.showrooms.map((s) => ({ value: s.id, label: s.name }))}
+              value={values.showroom}
+              onChange={(v) => {
+                setShowroom(v);
+                touch('showroom');
+              }}
+              error={errors.showroom}
+            />
+            <ChoiceRow
+              label="Occasion"
+              options={[...OCCASIONS]}
+              value={values.occasion}
+              onChange={(v) => {
+                setOccasion(v);
+                touch('occasion');
+              }}
+              error={errors.occasion}
+            />
             <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              <Field label="Preferred date" type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
-              <ChoiceRow label="Time" options={WINDOWS} value={window_} onChange={setWindow} />
+              <Field
+                label="Preferred date"
+                type="date"
+                value={values.date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  touch('date');
+                }}
+                min={new Date().toISOString().slice(0, 10)}
+              />
+              <ChoiceRow
+                label="Time"
+                options={[...WINDOWS]}
+                value={values.window}
+                onChange={(v) => {
+                  setWindow(v);
+                  touch('window');
+                }}
+              />
             </div>
-            <Field label="A note for us" multiline value={message} onChange={(e) => setMessage(e.target.value)} />
+            <Field
+              label="A note for us"
+              multiline
+              value={values.message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                touch('message');
+              }}
+            />
             <div className="mt-8 flex items-center gap-8">
               {/*
                 Shown only when a submission will leave the device. The server hands these

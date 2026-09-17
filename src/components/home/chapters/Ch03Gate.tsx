@@ -1,0 +1,211 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { gsap, ScrollTrigger, useGSAP } from '@/lib/motion/gsap';
+import { useChapter } from '@/motion/hooks/useChapter';
+import { useFlipNavigate } from '@/motion/hooks/useFlipNavigate';
+import { useQualityStore } from '@/state/qualityStore';
+import { useSiteStore } from '@/state/siteStore';
+import { Img } from '@/components/media/Img';
+import { TransitionLink } from '@/components/motion/TransitionLink';
+import { bindPointer, pointer } from '@/lib/motion/pointer';
+import { COPY } from '@/data/copy';
+import type { PieceRow } from '@/lib/facets';
+import { cn } from '@/lib/cn';
+
+/**
+ * CH03 — the gate: two material worlds in one frame.
+ *
+ * Gold beneath — the satlada haar on velvet, gold looked at closely — and diamond above it
+ * behind a mask whose edge follows the pointer and breathes at rest: the sapphire pendant and
+ * its pavé, closer still, under a light that crosses it. The two words weigh with their side.
+ * Choosing one lets that material fill the frame and carries the visitor into its department.
+ * No face in either world: the gate is jewellery. (The studio film is not used here — its only
+ * jewellery-only stretch is under three seconds, and the rest of it is the model's face.)
+ *
+ * On a phone the split is horizontal and follows the scroll through the chapter — the
+ * visitor's thumb is the pointer. Under reduced motion the frame is held at the middle and
+ * the two sides are simply two doors. The concierge can open the gate on one side: asked for
+ * gold from another page, it sets the store's gate, brings the visitor here, and the chapter
+ * opens with that side forward.
+ */
+export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; diamondPiece?: PieceRow }) {
+  const { ref } = useChapter({ id: 'gate', theme: 'dark' });
+  const reduced = useQualityStore((s) => s.tier === 'REDUCED');
+  const coarse = useQualityStore((s) => s.coarse);
+  const go = useFlipNavigate();
+  const bias = useSiteStore((s) => s.gate);
+  const setGate = useSiteStore((s) => s.setGate);
+  const split = useRef({ pointer: 0.5, breath: 0, committed: false });
+  const breathTween = useRef<gsap.core.Tween | null>(null);
+
+  // the ticker is the only writer of the mask, the divider and the words' weight
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const diamond = root.querySelector<HTMLElement>('.gate-diamond');
+    const divider = root.querySelector<HTMLElement>('.gate-divider');
+    const gold = root.querySelector<HTMLElement>('.gate-word-gold');
+    const dia = root.querySelector<HTMLElement>('.gate-word-diamond');
+    const goldNote = root.querySelector<HTMLElement>('.gate-note-gold');
+    const diaNote = root.querySelector<HTMLElement>('.gate-note-diamond');
+    if (!diamond || !divider || !gold || !dia) return;
+    const s = split.current;
+    if (reduced) {
+      diamond.style.clipPath = 'inset(0 0 0 50%)';
+      divider.style.left = '50%';
+      return;
+    }
+    const vertical = coarse || window.innerWidth < 768;
+    const apply = () => {
+      const v = Math.max(0.06, Math.min(0.94, s.pointer + s.breath));
+      const pct = (v * 100).toFixed(2);
+      if (vertical) {
+        diamond.style.clipPath = `inset(${pct}% 0 0 0)`;
+        divider.style.top = `${pct}%`;
+        divider.style.left = '0';
+      } else {
+        diamond.style.clipPath = `inset(0 0 0 ${pct}%)`;
+        divider.style.left = `${pct}%`;
+        divider.style.top = '0';
+      }
+      const g = 1 - v;
+      gold.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * g)}`;
+      dia.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * v)}`;
+      gold.style.transform = `scale(${(1 + 0.06 * g).toFixed(3)})`;
+      dia.style.transform = `scale(${(1 + 0.06 * v).toFixed(3)})`;
+      if (goldNote) goldNote.style.opacity = String(0.4 + 0.6 * g);
+      if (diaNote) diaNote.style.opacity = String(0.4 + 0.6 * v);
+    };
+    breathTween.current = gsap.to(s, { breath: 0.025, duration: 3.6, ease: 'sine.inOut', yoyo: true, repeat: -1, onStart: () => (s.breath = -0.025) });
+    const pointerTo = gsap.quickTo(s, 'pointer', { duration: 0.9, ease: 'power3' });
+    // arriving with a material already in mind: open with that side forward
+    if (bias) pointerTo(bias === 'gold' ? 0.8 : 0.2);
+    bindPointer();
+    const tick = () => {
+      if (!s.committed && !vertical && pointer.active && pointer.fine) {
+        const r = root.getBoundingClientRect();
+        if (pointer.y >= r.top && pointer.y <= r.bottom) pointerTo(Math.max(0.14, Math.min(0.86, pointer.x / window.innerWidth)));
+      }
+      apply();
+    };
+    gsap.ticker.add(tick);
+    return () => {
+      gsap.ticker.remove(tick);
+      breathTween.current?.kill();
+      pointerTo.tween.kill();
+    };
+  }, [ref, reduced, coarse, bias]);
+
+  // a phone: the split follows the scroll through the chapter
+  useGSAP(
+    () => {
+      const root = ref.current;
+      if (!root || reduced) return;
+      const mm = gsap.matchMedia(root);
+      mm.add('(max-width: 767px)', () => {
+        gsap.to(split.current, { pointer: 0.72, ease: 'none', scrollTrigger: { trigger: root, start: 'top 60%', end: 'bottom 40%', scrub: true }, onStart: () => (split.current.pointer = 0.28) });
+      });
+      // the diamond's drift and light run only while the gate is on screen
+      ScrollTrigger.create({ trigger: root, start: 'top bottom', end: 'bottom top', onToggle: (st) => root.toggleAttribute('data-live', st.isActive) });
+    },
+    { scope: ref, dependencies: [reduced] },
+  );
+
+  const choose = (side: 'gold' | 'diamond') => {
+    const root = ref.current;
+    if (!root) return;
+    const s = split.current;
+    if (s.committed) return;
+    s.committed = true;
+    breathTween.current?.kill();
+    gsap.to(s, { breath: 0, duration: 0.3 });
+    setGate(side);
+    const word = root.querySelector<HTMLElement>(side === 'gold' ? '.gate-word-gold' : '.gate-word-diamond');
+    const other = root.querySelector<HTMLElement>(side === 'gold' ? '.gate-side-diamond' : '.gate-side-gold');
+    // the chosen material fills the frame; its word lifts; the curtain carries the visitor on
+    gsap.to(s, { pointer: side === 'gold' ? 1 : 0, duration: 0.9, ease: 'power3.inOut' });
+    if (word) gsap.to(word.parentElement, { scale: 1.3, opacity: 0, duration: 0.8, ease: 'power3.in' });
+    if (other) gsap.to(other, { opacity: 0, duration: 0.4 });
+    window.setTimeout(() => go(`/${side}`), 420);
+  };
+
+  const credit = (row: PieceRow | undefined, cls: string) =>
+    row ? (
+      <TransitionLink href={`/jewellery/${row.s}`} className={cn('micro mt-3 inline-flex items-baseline gap-2 text-ivory/60 transition-colors hover:text-ivory', cls)} data-cursor="view" onClick={(e) => e.stopPropagation()}>
+        <span>{COPY.gate.inFrame}</span>
+        <span className="font-display normal-case tracking-normal text-[0.9375rem] text-ivory/85" style={{ fontVariationSettings: '"opsz" 14' }}>
+          {row.t}
+        </span>
+      </TransitionLink>
+    ) : null;
+
+  return (
+    <section ref={ref} id="ch03-gate" className="relative h-[100svh] overflow-hidden bg-ink text-ivory md:h-[105svh]" aria-labelledby="gate-title">
+      <h2 id="gate-title" className="sr-only">
+        {COPY.gate.heading}
+      </h2>
+
+      {/* gold, beneath */}
+      <div className="gate-gold absolute inset-0">
+        <Img id="p05-macro" sizes="100vw" plain className="h-full w-full object-cover" style={{ objectPosition: '50% 45%' }} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35" />
+      </div>
+      {/* diamond, above, behind the mask */}
+      <div className="gate-diamond absolute inset-0" style={{ clipPath: 'inset(0 0 0 50%)' }}>
+        <Img id="p07-macro" sizes="100vw" plain className="gate-drift h-full w-full object-cover" style={{ objectPosition: '50% 45%' }} />
+        <div className="gate-light pointer-events-none absolute inset-0" aria-hidden />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35" />
+      </div>
+      <div className="gate-divider pointer-events-none absolute h-full w-px bg-gold-hi/80 max-md:h-px max-md:w-full" style={{ left: '50%', top: 0 }} />
+      <div className="grain pointer-events-none absolute inset-0" />
+
+      {/* the eyebrow, beneath the nav band */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)]">
+        <p className="micro text-champagne">{COPY.gate.eyebrow}</p>
+        <p className="micro hidden text-ivory/50 md:block">{COPY.gate.hint}</p>
+      </div>
+
+      <div className="absolute inset-0 grid grid-rows-2 md:grid-cols-2 md:grid-rows-1">
+        <div className="gate-side-gold flex flex-col items-start justify-end p-gutter text-left [text-shadow:0_1px_2px_rgb(0_0_0/0.45),0_0_28px_rgb(0_0_0/0.4)] md:justify-start md:pl-[7vw] md:pt-[22svh]">
+          <button
+            type="button"
+            onClick={() => choose('gold')}
+            onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.72, duration: 0.8 })}
+            className="group/side flex flex-col items-start text-left"
+            data-cursor="explore"
+            aria-label={COPY.gate.gold.aria}
+          >
+            <span className="block origin-left">
+              <span className="gate-word-gold display block text-[clamp(3rem,8.5vw,9.5rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 490' }}>
+                {COPY.gate.gold.word}
+              </span>
+            </span>
+            <span className="gate-note-gold micro mt-4 max-w-[22em] text-champagne">{COPY.gate.gold.line}</span>
+            <span className="micro mt-5 text-ivory/70 underline-offset-4 transition-colors group-hover/side:text-ivory group-hover/side:underline">{COPY.gate.gold.cta}</span>
+          </button>
+          {credit(goldPiece, 'md:mt-6')}
+        </div>
+        <div className="gate-side-diamond flex flex-col items-end justify-start p-gutter text-right [text-shadow:0_1px_2px_rgb(0_0_0/0.45),0_0_28px_rgb(0_0_0/0.4)] md:justify-end md:pb-[14svh] md:pr-[7vw]">
+          <button
+            type="button"
+            onClick={() => choose('diamond')}
+            onFocus={() => !split.current.committed && gsap.to(split.current, { pointer: 0.28, duration: 0.8 })}
+            className="group/side flex flex-col items-end text-right"
+            data-cursor="explore"
+            aria-label={COPY.gate.diamond.aria}
+          >
+            <span className="block origin-right">
+              <span className="gate-word-diamond display block text-[clamp(3rem,8.5vw,9.5rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 96, "wght" 490' }}>
+                {COPY.gate.diamond.word}
+              </span>
+            </span>
+            <span className="gate-note-diamond micro mt-4 max-w-[22em] text-champagne">{COPY.gate.diamond.line}</span>
+            <span className="micro mt-5 text-ivory/70 underline-offset-4 transition-colors group-hover/side:text-ivory group-hover/side:underline">{COPY.gate.diamond.cta}</span>
+          </button>
+          {credit(diamondPiece, 'md:mt-6 md:text-right')}
+        </div>
+      </div>
+    </section>
+  );
+}

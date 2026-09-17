@@ -9,7 +9,7 @@ Stage 1 runs four animation systems in the same page. This document says which o
 | GSAP | Scroll timelines, pins, cinematic chapter choreography, route-transition timelines, pointer-driven continuous values (`quickTo` / `quickSetter`) | `src/lib/motion/gsap.ts` |
 | Motion (`motion/react`) | Discrete UI states — nav, menu overlay, dialogs, save button, concierge panel and result tray, collection index | imported directly in those components |
 | Lenis | Smooth scrolling only. It never animates anything | `ReactLenis` in `src/app/providers.tsx`, bridged by `src/components/motion/SmoothScroll.tsx` |
-| R3F / three | Every WebGL surface, each in its own isolated `<Canvas>` with its own frame loop | `src/components/three/craft/CraftScene.tsx`, `src/concierge/orb/OrbCanvas.tsx`, `src/components/loader/LoaderGem.tsx` |
+| R3F / three | Every WebGL surface, each in its own isolated `<Canvas>` with its own frame loop | `src/components/three/craft/CraftScene.tsx`, `src/components/loader/LoaderGem.tsx` |
 
 ### One writer per element per property
 
@@ -211,7 +211,7 @@ const still = reduce || reduced;
 
 The media query is the source of truth — GSAP reverts the other branch when it flips — and the store covers the case where the tier was reduced for another reason. The `still` branch builds no pin, no scrub and no timeline. It sets the composed end state (`Ch02Craft`: the object lit, every label named, one closing note; `Ch04Worlds`: the columns in place, the paper gone) and calls `ready()`. The unpinned chapters have no such branch: the reveal hooks set their targets to the finished state, and the heritage facade's monochrome-to-colour scrub is simply not built.
 
-Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`orbRenderer` is forced to `static`; `CraftScene` gives way to a still of the same object, rendered once by `scripts/assets/craft-poster.mjs`), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
+Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`CraftScene` gives way to a still of the same object, rendered once by `scripts/assets/craft-poster.mjs`), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
 
 ## Traps we hit
 

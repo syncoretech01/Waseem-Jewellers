@@ -66,6 +66,7 @@ src/concierge/
     toolDefs.ts            one registry, JSON-schema parameters, runtime: browser | server
     validate.ts            the gate — schema, slug existence by declared role, path allowlist, budget
     executeTool.ts         every browser tool; validates at the top, because the realtime path has no other gate
+    appointment.ts         the draft read the way the form reads it: required fields, showroom by name, date, the read-back
   voice/
     engine.ts              chooseVoiceEngine — which engine listens; registerVoiceEngine for the native one
     languages.ts           recognition language by conversation, speech runs by script, voice by language
@@ -84,11 +85,14 @@ src/server/concierge/     server-only, never importable from the browser (ESLint
   prompt.ts               persona, rules, the sanitised context
   continuation.ts         the HMAC-signed continuation between rounds; pending calls bound by id + name + args hash
   untrusted.ts            sanitiseMemory, sanitiseToolResult, sanitiseContext — nothing from the browser is trusted for its shape
-  serverTools.ts          compareProducts, explainSpecification, deepSearch — executed where the catalogue is
+  serverTools.ts          compareProducts, explainSpecification, deepSearch, checkAvailability — executed where the catalogue is
   limits.ts               token buckets per scope (concierge 12/min · 60/hr; enquiry 3/min · 5/hr), best-effort on serverless
 
+src/server/booking/
+  provider.ts             BookingProvider, NullProvider, bookingProvider() — the seam; nothing books today
+
 src/app/api/concierge/
-  capabilities/route.ts   what this deployment is
+  capabilities/route.ts   what this deployment is (intelligence, voice, enquiry, privacy, booking)
   turn/route.ts           the stateless agent loop
   tool/route.ts           reserved
   realtime-token/route.ts reserved for the realtime engine
@@ -133,7 +137,7 @@ sign-off, not a number.
 
 ## Tools
 
-Twenty-four in `toolDefs.ts`. Every argument that names a piece is declared `format:
+Thirty-seven in `toolDefs.ts`. Every argument that names a piece is declared `format:
 'piece-slug'` and existence-checked against the listable set; `showCollection`'s slug is a
 collection and is checked against its own enum instead. Numeric bounds clamp rather than refuse
 (a model asking for forty pieces meant "several"); enum and pattern violations refuse (those name
@@ -141,15 +145,91 @@ things that do not exist). Undeclared arguments are dropped — the args a tool 
 rebuilt from the schema, never passed through.
 
 Browser tools act on the page: search, open, focus, save, remove, the selection, a section, the
-consultation, a department, a collection, matching pieces, refine (with the honesty ladder for
-"something lighter": published weight, else form, never an estimated gram), filters into the
-URL, clear filters, price guidance (which carries a budget into the consultation rather than
-inventing a range), navigate. `showGold`/`showDiamond`/`showBridal` are deprecated aliases of
-`showDepartment`/`showCollection`.
+appointment form, a department, a collection, matching pieces, refine (with the honesty ladder
+for "something lighter": published weight, else form, never an estimated gram), filters into
+the URL, clear filters, price guidance (which carries a budget into the appointment form rather
+than inventing a range), navigate, and the operator tools below. `showGold`/`showDiamond`/
+`showBridal` are deprecated aliases of `showDepartment`/`showCollection`; `openSaved` and
+`openAppointment` are `openWishlist` and `openPrivateConsultation` under the names a visitor
+uses (the voice session also knows the latter as `bookAppointment`).
 
 Server tools read the catalogue where it is: `compareProducts` (null for every unpublished cell,
 said explicitly), `explainSpecification` (material notes, attributed as general facts),
-`deepSearch`.
+`deepSearch`, and `checkAvailability` (the booking seam, below).
+
+## Operating the site
+
+The concierge moves the visitor and works the page on request, then confirms in one short
+sentence what is in front of them, and never names a tool. Every one of these is one visitor
+sentence — the phrases are in the tool descriptions, in English and Roman Urdu — and each does
+exactly what the visitor's own hand would, through the same transition system the site's links
+use (`runtime.transition.navigate`; never `window.location`).
+
+| Tool | Visitor says | What happens |
+|---|---|---|
+| `navigate { target \| path }` | "take me to gold", "go back", "home", "the bridal collection", "where are your showrooms", "my saved pieces", "the appointment form" | A target resolves to the allowlisted path or to the tool that owns it: `locations` is the heritage chapter, `appointment` the form, `saved` the ledger. `back` is the router's history step, which the transition layer answers with its reveal half; the result says where the visitor landed, or that there was nowhere to go. The path allowlist is unchanged. |
+| `scrollToSection { section }` | "the craft", "the showrooms", "the kinds", "the gate" | A homepage chapter from any page: home first, then the glide — issued after arrival and after `lenis.resize()`, because the smooth scroller otherwise clamps the target to the previous page's height. `kinds` is the row of kinds inside the window chapter (`[data-kinds]`, else the chapter's `nav`); `gate` is the Gold / Diamond gate chapter. |
+| `openMenu` / `closeMenu` / `closeConcierge` | "open the menu", "close", "bas" | The chrome. `closeConcierge` closes the panel 1.6 s later, after the goodbye. |
+| `openSaved` / `openAppointment` | "show my saved pieces", "open the appointment form" | Aliases, above. |
+| `setGalleryFrame { index }` | "the second photo", "doosri tasveer" | On a piece's page only. `Gallery.tsx` publishes `{ slug, count, index }` to the store and answers `galleryRequest` by bringing the frame into view (stacked frame on a wide screen, snap position on a phone). A frame past the count is refused with the count. |
+| `activateGate { material }` | "the gold side", "diamond wala" | Sets `siteStore.gate` and glides to the gate chapter, home first if needed; the chapter reads the store. |
+| `highlightCategory { category }` | "where are the bangles" | Sets `siteStore.highlightedCategory` and glides to the kinds. |
+| `getCurrentContext` | — | Route kind, path, section, the piece in view and its frame count, the selection count, whether the menu, the ledger and the appointment form are open, and the appointment draft with what is still missing. |
+
+**The appointment, and the confirmation rule.** Three tools, and the visitor watches all three:
+
+- `fillAppointment { name?, phone?, email?, showroom?, occasion?, date?, window?, message?, productSlugs?, addSelection? }`
+  writes into `siteStore.consultation.draft` and opens the form if it is closed. The form shows
+  the draft in its own fields; a field the visitor has typed into since is theirs (per-field
+  timestamps on both sides — the later hand wins). A showroom is resolved by id or by the name
+  a visitor says ("Liberty", "Gulberg" is in the published address); a date must be `YYYY-MM-DD`
+  and not past; a telephone number must pass the form's own rule; product slugs pass the
+  validator like every other slug and `addSelection` adds the saved pieces. The result is the
+  draft in words (showroom name, occasion label, pieces by name) and the still-missing required
+  fields — name, telephone, showroom, occasion, the same four the form refuses without — with a
+  note to ask for them one at a time and never to invent a value.
+- `reviewAppointment` returns the same read-back so the confirming sentence is built from the
+  words on the form: "I have everything ready for Saturday at Liberty Market — shall I send the
+  request?"
+- `submitAppointment { confirmed }` refuses with `NOT_CONFIRMED` unless `confirmed === true`,
+  and both personas say to pass that only after the visitor has answered yes in the
+  conversation. It then runs the form's own button — `requestConsultationSubmit()` bumps a
+  nonce the modal answers with `form.requestSubmit()`, so validation, the honeypot and the
+  elapsed-time rule are exactly what a click gets — and waits for the outcome the modal writes
+  to `siteStore.consultationOutcome`. What comes back is what happened: `prepared` (kept on the
+  device with a `WJ-` reference and the visitor's own WhatsApp line; nothing transmitted),
+  `delivered` (the server sink took it), `failed` (sent, did not arrive; the reference and
+  WhatsApp are still the visitor's), or `INCOMPLETE` with the form's missing fields. Every
+  result carries `booked: false`, because no provider books, and the personas are told: never
+  say booked, confirmed or reserved — "your request is prepared with reference WJ-…; sending it
+  on WhatsApp is the next step" / "your request has been sent; our team will confirm".
+
+Nothing here changes where a name and a telephone number may go. The draft lives in memory in
+the store (never persisted, never partialised), the per-turn `SiteContext` the model path posts
+carries only whether the form is open, the voice `<site-context>` block carries only which
+fields are filled and which are missing, and the draft's values are returned only by the tools
+that are asked for them. The form posts `/api/enquiry` only when `capabilities().enquiry` is
+`server`, as before; on the local path the harness proves no request is made at all.
+
+**The booking seam.** `src/server/booking/provider.ts` declares `BookingProvider` —
+`availability({ showroom, date })` and `book(input)` — and ships `NullProvider` (`kind: 'none'`,
+availability `null`, `book` resolving `{ booked: false, reason: 'no booking provider configured' }`).
+`bookingProvider()` selects by `BOOKING_PROVIDER`; only `none` is implemented, and the comments
+describe what a Calendly or webhook provider would do. The capabilities route exposes
+`booking: provider.kind` and the client type carries it. `checkAvailability { showroom, date }`
+is a read-only server tool over the seam: today it answers `{ available: null, note:
+'availability is not published; our team confirms times' }`, and a model is told never to
+state a time it did not return. Only a provider returning `booked: true` could ever let the
+word "booked" be said, and none does.
+
+`npm run operator:check [base]` drives all of it through `ConciergeController.runTool` — the
+validator, the events and the store transitions a model's call takes — against a running
+server with the capabilities route mocked to keyless / local: `navigate 'gold'` through the
+curtain, `back`, a homepage chapter from a department page resting within 200 px, the ledger,
+the form filled with the values visible in its inputs (and the visitor's own typing kept),
+`submitAppointment` refused without confirmation and `prepared` with it — with `/api/enquiry`
+never called — the gallery frame moving into view, and the panel closing after a goodbye
+(43 assertions).
 
 Not registered, deliberately: `showSetMembers` — `setId` is empty on every piece, so it could
 only ever return nothing; and a campaign filter — 64 of 69 campaign pieces are withheld pending
@@ -206,6 +286,14 @@ speech, not a Lahore speaker — the blind native-speaker gate still stands.
 faked and the routes mocked: browser tier, server tier, and the native tier refused and
 falling to the server tier (24 assertions).
 
+The spoken persona carries the same "Operating the site" and appointment sections as the
+written one (`VOICE_INSTRUCTIONS`), with the Roman Urdu the phrases are heard in, and the
+session's tool list now includes `navigate` — "take me to gold" and "go back" are spoken as
+often as typed. The `<site-context>` block tells the session how many photographs the piece
+in view has and the state of the appointment form (open or closed, which fields are filled,
+which are still needed) — never the visitor's name or number, which the session reads back
+only through `reviewAppointment`.
+
 ## The UI
 
 Three zones (see DESIGN_SYSTEM.md, "The salon"): the rail (the associate — words and state,
@@ -245,6 +333,7 @@ nothing was sent, *delivered* only when the sink took it.
 | `OPENAI_API_KEY` | `src/server/env.ts` | One credential, everything on: the text model (when `CONCIERGE_API_KEY` is absent and the base is OpenAI's), the server voice tier and the realtime tier; the probe advertises `intelligence: 'model'`, `voice: 'native'`. |
 | `OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`, `CONCIERGE_REALTIME_STT`, `CONCIERGE_REALTIME` | `src/server/env.ts` (`realtimeEnv`) | Defaults `gpt-realtime-2.1`, `marin`, `gpt-4o-transcribe`; `CONCIERGE_REALTIME=off` keeps the server tier as the top of the ladder. |
 | `CONCIERGE_STT_MODEL`, `CONCIERGE_TTS_MODEL`, `CONCIERGE_TTS_VOICE`, `CONCIERGE_VOICE_BASE_URL` | `src/server/env.ts` | Defaults `gpt-4o-transcribe`, `gpt-4o-mini-tts`, `marin`, the OpenAI base. |
+| `BOOKING_PROVIDER` | `src/server/booking/provider.ts` | Which booking seam is active. Only `none` exists; any other value is logged and treated as none. The probe advertises `booking: '<kind>'`. |
 
 Nothing `NEXT_PUBLIC_` selects a provider. That variable existed in Stage 1 and could not do the
 job — it is inlined at build time — and it is gone.

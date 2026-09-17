@@ -14,7 +14,7 @@ import type { PieceRow } from '@/lib/facets';
 import { WORLDS } from '@/data/worlds';
 import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
-import { tagOf } from './Ch02Window';
+import { tagOf } from './showcase';
 
 const SPEEDS = [1.0, -0.55, 0.8, -0.65, 1.1];
 

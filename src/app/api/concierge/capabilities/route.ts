@@ -1,5 +1,6 @@
 import { modelIsConfigured, realtimeIsConfigured, voiceIsConfigured } from '@/server/env';
 import { enquiryReadiness } from '@/server/enquiry/sink';
+import { bookingProvider } from '@/server/booking/provider';
 
 /**
  * What the concierge is allowed to be, today, on this deployment.
@@ -42,6 +43,12 @@ export function GET() {
        * to post without them, which is why they are part of the same readiness decision.
        */
       privacy: enquiry.ready ? { url: enquiry.config.privacyUrl, contact: enquiry.config.privacyContact } : null,
+      /**
+       * 'none' — no booking system: an appointment request is prepared or delivered, and a
+       * person confirms the time. Only a provider that books (`src/server/booking`) may
+       * ever let the concierge say "booked", and none exists today.
+       */
+      booking: bookingProvider().kind,
     },
     { headers: { 'cache-control': 'no-store' } },
   );

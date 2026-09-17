@@ -416,8 +416,26 @@ html.is-transitioning #page-root {
   100% { transform: translateX(400%); opacity: 0; }
 }
 
+/* ── the gate (CH03): the diamond still breathes and a raking light crosses it, only while on screen ── */
+/* transform on the image and opacity on the light are owned here; the mask above them belongs to the chapter's ticker */
+[data-live] .gate-drift { animation: gate-drift 26s ease-in-out infinite alternate; }
+[data-live] .gate-light { animation: gate-light 11s ease-in-out infinite; }
+.gate-drift { transform-origin: 55% 45%; will-change: transform; }
+.gate-light { background: linear-gradient(105deg, transparent 38%, rgb(255 250 235 / 0.14) 50%, transparent 62%); mix-blend-mode: screen; opacity: 0; }
+@keyframes gate-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
+}
+@keyframes gate-light {
+  0% { transform: translateX(-70%); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(70%); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheen { animation: none; }
+  .gate-drift, .gate-light { animation: none !important; }
 }
 
 /* ── the concierge trigger: Waseem's crest on a disc, and a ring that carries the state ── */
@@ -435,7 +453,6 @@ html.is-transitioning #page-root {
   --orb-shade: inset 0 -7px 10px -6px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(244 239 230 / 0.05);
   --orb-lift: 0 10px 22px -10px rgb(0 0 0 / 0.65);
   --orb-mark: var(--color-champagne);
-  --orb-mark-lit: var(--color-gold-hi);
   --orb-ring: var(--line-strong);
   --orb-ring-lit: var(--color-gold-hi);
   --orb-ring-quiet: var(--line);
@@ -454,7 +471,8 @@ html.is-transitioning #page-root {
   --orb-shade: inset 0 -7px 10px -6px rgb(11 10 9 / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.6);
   --orb-lift: 0 10px 22px -12px rgb(11 10 9 / 0.35);
   --orb-mark: var(--color-ink);
-  --orb-mark-lit: var(--color-ink);
+  /* a gilt edge on paper, rather than the grey a line at 32% ink would be */
+  --orb-ring: color-mix(in oklab, var(--color-gold-deep) 42%, transparent);
   --orb-ring-lit: var(--color-gold);
   --orb-sweep: 0.42;
 }
@@ -495,6 +513,9 @@ html.is-transitioning #page-root {
   display: block;
   width: var(--orb-mark-size);
   height: auto;
+  /* optically centred: the medallion's own centre sits 3.7% above the box's, because the
+     finial hangs beneath it; measured on the geometry, not judged by eye */
+  translate: 0 3.5%;
 }
 .wj-orb [data-mark="crest-fill"] {
   transition: opacity 500ms var(--ease-silk);
@@ -503,9 +524,7 @@ html.is-transitioning #page-root {
   stroke-dasharray: 100 100;
   stroke-dashoffset: 100;
 }
-/* hover, and the door opening: the ring steps out 2px and lights, the mark lifts a tone */
-.wj-orb[data-state="HOVER"],
-.wj-orb[data-state="OPENING"] { color: var(--orb-mark-lit); }
+/* hover, and the door opening: the ring steps out 2px and lights; the light through the crest is Orb.tsx's */
 .wj-orb[data-state="HOVER"] .wj-orb-ring,
 .wj-orb[data-state="OPENING"] .wj-orb-ring { transform: scale(1.07); }
 .wj-orb[data-state="HOVER"] .wj-orb-ring-line,

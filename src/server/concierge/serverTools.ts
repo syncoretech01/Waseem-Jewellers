@@ -2,6 +2,8 @@ import 'server-only';
 
 import { getRepository } from '@/data/repository';
 import { TOOL_DEFS } from '@/concierge/tools/toolDefs';
+import { checkDate, resolveShowroom, showroomName } from '@/concierge/tools/appointment';
+import { bookingProvider } from '@/server/booking/provider';
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, METAL_COLOUR_LABEL } from '@/data/labels';
 import { notesFor } from '@/data/editorial/materials';
 import { specRows } from '@/lib/specs';
@@ -111,6 +113,33 @@ export async function runServerTool(name: ToolName, args: Record<string, unknown
         count: results.length,
         items: results.map((p) => published(factsOf(p))),
         note: results.length ? undefined : 'Nothing in the collection matches. Say so; do not substitute.',
+      };
+    }
+
+    /**
+     * Whether a showroom publishes free times. It is asked of the booking seam, and today
+     * the seam has nobody behind it — so the honest answer is that no times are published
+     * and a person confirms them. The tool never invents a slot, and the model is told what
+     * `null` means so it does not either.
+     */
+    case 'checkAvailability': {
+      const showroom = resolveShowroom(args.showroom);
+      if (!showroom) return { error: 'UNKNOWN_SHOWROOM', message: 'one of MM Alam Road, Liberty Market or DHA' };
+      const date = checkDate(args.date);
+      if (!date.ok) return { error: 'BAD_DATE', message: date.reason };
+      const provider = bookingProvider();
+      const published = await provider.availability({ showroom, date: date.date }).catch(() => null);
+      const name = showroomName(showroom) ?? showroom;
+      if (!published) {
+        return { available: null, showroom: name, date: date.date, provider: provider.kind, note: 'availability is not published; our team confirms times' };
+      }
+      return {
+        available: published.slots.length > 0,
+        showroom: name,
+        date: date.date,
+        provider: provider.kind,
+        slots: published.slots.slice(0, 12),
+        note: published.slots.length ? 'These times are published by the booking provider; a request still needs confirming.' : 'No free time is published for that day; offer another day or say our team confirms times.',
       };
     }
 

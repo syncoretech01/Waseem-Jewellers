@@ -65,5 +65,11 @@ export function buildSiteContext(): SiteContext {
     mode: c.mode,
     viewport: viewport(),
     localHour: new Date().getHours(),
+    gallery: s.gallery && s.gallery.slug === s.currentProduct ? { count: s.gallery.count, index: s.gallery.index } : null,
+    gate: s.gate,
+    highlightedCategory: s.highlightedCategory,
+    menuOpen: s.menuOpen,
+    ledgerOpen: s.ledgerOpen,
+    appointmentOpen: s.consultation.open,
   };
 }

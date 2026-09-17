@@ -9,8 +9,10 @@ import { useQualityStore } from '@/state/qualityStore';
 import { Img } from '@/components/media/Img';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
+import { RingStudy } from '@/semantic/moments/RingStudy';
+import { studyFor } from '@/data/moments';
 import { pieceRefOf } from '@/data/clientIndex';
-import { tagOf } from './Ch02Window';
+import { tagOf } from './showcase';
 import { semanticFor } from '@/data/semantic';
 import { COPY } from '@/data/copy';
 import { craftProgress, CRAFT_WINDOWS, stageAt } from './craftProgress';
@@ -59,6 +61,9 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   // context, under reduced motion, without WebGL — never a third thing
   const stillShown = !(wantsScene && sceneReady);
   const descriptor = coda ? semanticFor(coda.s) : undefined;
+  const study = coda ? studyFor(coda.s) : undefined;
+  // the index beside the figure: the study's three beats, or the figure's holds
+  const index = study ? COPY.craft.coda.beats.map((label, i) => ({ key: (['drawn', 'made', 'turned'] as const)[i]!, label })) : (descriptor?.regions ?? []).map((r) => ({ key: r.key, label: r.label }));
   useRise(codaScope);
 
   // the object mounts when the chapter is within a viewport of the visitor
@@ -223,7 +228,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
       </div>
 
       {/* the coda: the same anatomy, photographed once, on a piece that can be opened */}
-      {coda && descriptor && (
+      {coda && (study || descriptor) && (
         <div ref={codaScope} className="craft-coda relative px-gutter pb-[12svh] pt-[9svh] md:pb-[13svh] md:pt-[10svh]">
           <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] md:grid-cols-12 md:items-center">
             <div className="md:col-span-6" data-rise>
@@ -234,17 +239,21 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
                 cursor="view"
                 className="mx-auto w-full md:w-[min(46vw,74svh)]"
                 figure={
-                  <SemanticFigure
-                    descriptor={descriptor}
-                    sizes={codaSizes}
-                    flipSource={coda.s}
-                    onLit={setLit}
-                    fallback={
-                      <div className="absolute inset-0 bg-pearl">
-                        <Img image={pieceRefOf(coda).media.hero} sizes={codaSizes} plain data={{ 'flip-source': coda.s }} />
-                      </div>
-                    }
-                  />
+                  study ? (
+                    <RingStudy study={study} slug={coda.s} sizes={codaSizes} onBeat={setLit} />
+                  ) : descriptor ? (
+                    <SemanticFigure
+                      descriptor={descriptor}
+                      sizes={codaSizes}
+                      flipSource={coda.s}
+                      onLit={setLit}
+                      fallback={
+                        <div className="absolute inset-0 bg-pearl">
+                          <Img image={pieceRefOf(coda).media.hero} sizes={codaSizes} plain data={{ 'flip-source': coda.s }} />
+                        </div>
+                      }
+                    />
+                  ) : null
                 }
               >
                 <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
@@ -267,7 +276,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
               </div>
               {/* the index of the figure's holds, lit in step with the camera */}
               <ol className="hidden flex-col gap-3 border-t border-ivory/10 pt-6 md:flex" data-rise>
-                {descriptor.regions.map((r, i) => (
+                {index.map((r, i) => (
                   <li key={r.key} data-lit={lit === r.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-40 transition-opacity duration-500 data-[lit=1]:opacity-100">
                     <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
                       {String(i + 1).padStart(2, '0')}

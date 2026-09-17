@@ -146,6 +146,10 @@ export interface ShowcaseCategory {
   href: string;
   /** the piece that fronts the kind */
   hero: PieceRow;
+  /** a second piece of the kind, shown under the hand */
+  alt?: PieceRow;
+  /** a local asset that fronts the kind instead of the hero's own photograph — a jewellery-only crop of it */
+  image?: string;
 }
 export interface ShowcaseDepartment {
   department: string;

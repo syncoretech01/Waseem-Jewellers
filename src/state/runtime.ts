@@ -56,6 +56,9 @@ export function scrollTo(target: number | string | HTMLElement, opts: ScrollToOp
   const reduced = useQualityStore.getState().tier === 'REDUCED';
   const lenis = runtime.lenis;
   if (lenis) {
+    // measure the page as it is now, not as the previous route left it: a glide to a chapter
+    // straight after a route change would otherwise be clamped to the old page's length
+    lenis.resize();
     lenis.scrollTo(target, {
       offset: opts.offset ?? 0,
       duration: opts.duration ?? 1.4,

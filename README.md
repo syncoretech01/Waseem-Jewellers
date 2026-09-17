@@ -27,7 +27,7 @@ Follow this in order the first time; it is the intended path through the work.
 
 | Chapter | What to do |
 |---|---|
-| Hero | Let the film run; the shop's name is across it, with the five departments and their live counts as the first doors. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the jewel at the bottom right takes over. |
+| Hero | Let the film run; the shop's name is across it, with the five departments and their live counts as the first doors. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the crest at the bottom right takes over. |
 | The Window | Nine pieces photographed as pieces, one of every kind, each with purity · weight · reference; every kind counted beneath as a door. Fed by `repository.showcase()` — only white-ground packshots with published facts qualify. |
 | Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels. The object renders on every tier; without WebGL, or under reduced motion, a still of the same object stands in. The coda beneath names the same anatomy on the Lavender Halo Ring. |
 | Gold · Diamond | Each department as a department: the count, the kinds with their numbers, a tray of its pieces, the door. Gold closes on the goldwork figure; Diamond on the sapphire suite with its published grading. |
@@ -45,7 +45,7 @@ Follow this in order the first time; it is the intended path through the work.
 
 **A piece** — for example `/jewellery/lavender-halo-ring-r11912`. Hovering a gallery image draws it to the eye; clicking a macro enters drag-to-inspect at 2.4×, Escape leaves it. In the column that sticks on desktop: Enquire hands the piece to the concierge, Private viewing opens the consultation with the piece attached, Save piece keeps it in your selection. A piece from the worn-together rail transitions straight into the next product.
 
-**The concierge in writing.** ASK in the nav on desktop, the invitation in the hero, or the jewel at the bottom right. These all work:
+**The concierge in writing.** ASK in the nav on desktop, the invitation in the hero, or the crest at the bottom right. These all work:
 
 | Say | What happens |
 |---|---|

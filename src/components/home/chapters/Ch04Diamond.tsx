@@ -1,16 +1,17 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Eyebrow } from '@/components/ui/primitives';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { pieceRefOf } from '@/data/clientIndex';
+import { SuiteLight } from '@/semantic/moments/SuiteLight';
+import { lightsFor } from '@/data/moments';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { COPY } from '@/data/copy';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { KindsList, PieceCluster } from './showcase';
-import { tagOf } from './Ch02Window';
+import { KindsList, PieceCluster, tagOf } from './showcase';
 
 /**
  * CH04 — Diamond.
@@ -24,7 +25,9 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
   const { ref } = useChapter({ id: 'diamond', theme: 'dark' });
   const scope = useRef<HTMLDivElement>(null);
   useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
+  const [lit, setLit] = useState<string | null>(null);
   useRise(scope);
+  const light = suite ? lightsFor(suite.s) : undefined;
   if (!department) return null;
 
   return (
@@ -41,7 +44,7 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
             <div className="order-1 flex flex-col gap-4 md:order-none">
               <Eyebrow className="text-champagne">{COPY.departments.diamond.eyebrow}</Eyebrow>
               <h2 id="diamond-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ivory opacity-0 [text-wrap:balance]">
-                {COPY.departments.diamond.title(department.count)}
+                {COPY.departments.diamond.title}
               </h2>
               <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70" data-rise>
                 {COPY.departments.diamond.line}
@@ -60,9 +63,9 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
 
         {/* the suite the studio shot, with what Waseem publishes about it */}
         {suite && (
-          <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[5svh] border-t border-ivory/10 pt-[8svh] md:mt-[11svh] md:grid-cols-12 md:items-end md:pt-[9svh]">
+          <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[5svh] border-t border-ivory/10 pt-[8svh] md:mt-[11svh] md:grid-cols-12 md:items-center md:pt-[9svh]">
             <div className="md:col-span-5 md:col-start-2" data-rise>
-              <PieceLink product={pieceRefOf(suite)} sizes="(min-width: 768px) 36vw, 92vw" aspect="4 / 5" cursor="view">
+              <PieceLink product={pieceRefOf(suite)} sizes="(min-width: 768px) 40vw, 92vw" aspect={light ? '1 / 1' : '4 / 5'} cursor="view" figure={light ? <SuiteLight moment={light} slug={suite.s} sizes="(min-width: 768px) 40vw, 92vw" onLit={setLit} /> : undefined}>
                 <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
                   <div className="flex flex-col gap-1">
                     <p className="font-display text-[1.375rem] leading-tight text-ivory" style={{ fontVariationSettings: '"opsz" 22' }}>
@@ -74,10 +77,23 @@ export function Ch04Diamond({ department, suite }: { department?: ShowcaseDepart
                 </div>
               </PieceLink>
             </div>
-            <div className="flex flex-col gap-4 md:col-span-4 md:col-start-8 md:pb-[10svh]" data-rise>
+            <div className="flex flex-col gap-4 md:col-span-4 md:col-start-8" data-rise>
               <p className="micro text-champagne">{COPY.departments.diamond.suite.eyebrow}</p>
               <p className="display text-[clamp(1.75rem,3vw,3.25rem)] leading-tight text-ivory">{COPY.departments.diamond.suite.title}</p>
               <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ivory/70">{COPY.departments.diamond.suite.line(suite)}</p>
+              {/* the index of the pieces the light finds, lit in step */}
+              {light && (
+                <ol className="hidden flex-col gap-3 border-t border-ivory/10 pt-5 md:flex">
+                  {light.lights.map((l, i) => (
+                    <li key={l.key} data-lit={lit === l.key ? '1' : '0'} className="flex items-baseline gap-4 opacity-40 transition-opacity duration-500 data-[lit=1]:opacity-100">
+                      <span className="font-display text-[0.75rem] text-champagne" style={{ fontVariationSettings: '"opsz" 12' }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span className="micro text-ivory">{l.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
           </div>
         )}

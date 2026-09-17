@@ -1,8 +1,23 @@
 import type { ToolDef } from '../types';
 
-const SECTIONS = ['hero', 'vitrine', 'craft', 'gold', 'diamond', 'bridal', 'collections', 'heritage', 'menkids', 'bespoke', 'footer', 'department', 'pieces', 'related'];
+/**
+ * Where "take me to…" can land. The homepage chapters, the department and product page
+ * sections, and two targets that are not sections of their own: `gate` is the Gold / Diamond
+ * gate chapter, `kinds` is the row of kinds inside the window chapter.
+ */
+const SECTIONS = ['hero', 'vitrine', 'kinds', 'craft', 'gate', 'gold', 'diamond', 'bridal', 'collections', 'heritage', 'menkids', 'bespoke', 'footer', 'department', 'pieces', 'gallery', 'details', 'related'];
 const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dewan', 'royal-wedding'];
 const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
+/**
+ * The places a visitor names rather than the paths they resolve to: "take me to gold",
+ * "go back", "where are your showrooms", "my saved pieces". `navigate` accepts either.
+ */
+const NAV_TARGETS = ['home', 'back', 'gold', 'diamond', 'bridal', 'men', 'kids', 'bridal-collection', 'locations', 'appointment', 'saved'];
+const OCCASIONS = ['bridal', 'bespoke', 'viewing', 'gift'];
+const WINDOWS = ['afternoon', 'evening'];
+/** A showroom as the visitor says it — an id or a name; the tool resolves it and refuses what matches none. */
+const SHOWROOM = { type: 'string' as const, description: 'MM Alam Road, Liberty Market or DHA — the name the visitor used, or the id mm-alam, liberty, dha' };
+const ISO_DATE = { type: 'string' as const, pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'YYYY-MM-DD, today or later; turn "Saturday" or "the 20th" into a date before calling' };
 
 /**
  * The kinds a piece is actually classified as.
@@ -60,11 +75,24 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   { name: 'showSimilarPieces', description: 'Pieces in the same spirit as a piece (defaults to the piece in view).', parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 } } }, runtime: 'browser' },
   { name: 'saveToWishlist', description: "Keep a piece in the visitor's selection (defaults to the piece in view).", parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } }, runtime: 'browser' },
   { name: 'removeFromWishlist', description: "Remove a piece from the visitor's selection.", parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } }, runtime: 'browser' },
-  { name: 'openWishlist', description: "Show the visitor's selection.", parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'scrollToSection', description: 'Glide to a chapter of the current page.', parameters: { type: 'object', properties: { section: { type: 'string', enum: SECTIONS } }, required: ['section'] }, runtime: 'browser' },
+  { name: 'openWishlist', description: "Show the visitor's selection — the pieces they have saved.", parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'openSaved', description: 'Open the saved pieces — "show my saved pieces", "meri selection dikhao", "what have I kept". The same as openWishlist.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  {
+    name: 'scrollToSection',
+    description:
+      'Glide to a chapter — "show me the craft", "where are your showrooms" (heritage), "the kinds" (kinds), "the gold and diamond gate" (gate). A homepage chapter is reached from any page; the visitor is taken home first.',
+    parameters: { type: 'object', properties: { section: { type: 'string', enum: SECTIONS } }, required: ['section'] },
+    runtime: 'browser',
+  },
   {
     name: 'openPrivateConsultation',
     description: 'Open the appointment form — a visit to a Lahore showroom, optionally about a piece.',
+    parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string', format: 'piece-slug' } } },
+    runtime: 'browser',
+  },
+  {
+    name: 'openAppointment',
+    description: 'Open the appointment form — "open the appointment form", "I want to visit", "appointment book karo". Use fillAppointment instead when the visitor has already given details.',
     parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string', format: 'piece-slug' } } },
     runtime: 'browser',
   },
@@ -127,7 +155,87 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, budgetPkr: { type: 'number', minimum: 0, maximum: 100000000 } } },
     runtime: 'browser',
   },
-  { name: 'navigate', description: 'Move to a page of the site.', parameters: { type: 'object', properties: { path: { type: 'string', description: '/, /<department>, /<department>/<kind>, /collections/<slug> or /jewellery/<slug>' } }, required: ['path'] }, runtime: 'browser' },
+  {
+    name: 'navigate',
+    description:
+      'Take the visitor somewhere — "take me to gold", "go back", "home", "the bridal collection", "where are your showrooms" (locations), "my saved pieces" (saved), "the appointment form" (appointment). Give a target, or a path for a page the targets do not name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', enum: NAV_TARGETS, description: 'the place as the visitor names it; back returns to the previous page' },
+        path: { type: 'string', description: '/, /<department>, /<department>/<kind>, /collections/<slug> or /jewellery/<slug>' },
+      },
+    },
+    runtime: 'browser',
+  },
+  // ── operating the site: the chrome, the gallery, the gate, the window ──────────────────
+  { name: 'openMenu', description: 'Open the site menu — "open the menu", "menu kholo".', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'closeMenu', description: 'Close the site menu.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  { name: 'closeConcierge', description: 'Close this conversation panel — "close", "that is all", "band karo", "bas". Say goodbye in one short line first.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  {
+    name: 'setGalleryFrame',
+    description: 'On a piece\'s page, show one photograph of it — "the second photo", "doosri tasveer", "show me the back". Zero-based: the second photograph is index 1. Refused off a piece\'s page.',
+    parameters: { type: 'object', properties: { index: { type: 'integer', minimum: 0, maximum: 11, description: '0 is the first photograph' } }, required: ['index'] },
+    runtime: 'browser',
+  },
+  {
+    name: 'activateGate',
+    description: 'Open one side of the Gold / Diamond gate on the homepage — "show me the gold side", "diamond wala". Takes the visitor to that chapter, home first if needed.',
+    parameters: { type: 'object', properties: { material: { type: 'string', enum: ['gold', 'diamond'] } }, required: ['material'] },
+    runtime: 'browser',
+  },
+  {
+    name: 'highlightCategory',
+    description: 'Point out one kind of jewellery in the window chapter\'s row of kinds — "where are the bangles", "show me the kinds of rings you have". Takes the visitor there, home first if needed.',
+    parameters: { type: 'object', properties: { category: { type: 'string', enum: CATEGORIES } }, required: ['category'] },
+    runtime: 'browser',
+  },
+  // ── the appointment: prepared in the open, sent only on the visitor's word ─────────────
+  {
+    name: 'fillAppointment',
+    description:
+      'Write what the visitor has told you into the appointment form, opening it if it is closed — name, telephone, showroom, occasion, date, time, a note, the pieces. "This piece" is the piece in view; addSelection adds their saved pieces. Returns the draft and what is still missing; ask for the missing fields one at a time. Never invent a value.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        phone: { type: 'string', description: 'as the visitor gave it; digits, spaces, dashes, a leading plus' },
+        email: { type: 'string' },
+        showroom: SHOWROOM,
+        occasion: { type: 'string', enum: OCCASIONS },
+        date: ISO_DATE,
+        window: { type: 'string', enum: WINDOWS, description: 'afternoon is 12–4, evening is 4–9:30' },
+        message: { type: 'string', description: 'a note for the team in the visitor\'s words' },
+        productSlugs: { type: 'array', items: { type: 'string', format: 'piece-slug', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' }, maxItems: 8 },
+        addSelection: { type: 'boolean', description: 'true to include every piece the visitor has saved' },
+      },
+    },
+    runtime: 'browser',
+  },
+  {
+    name: 'reviewAppointment',
+    description:
+      'Read the appointment form back before sending: the showroom, the occasion, the date and time, the pieces by name, and what is still missing. Call it, then confirm the whole request in one sentence and ask whether to send it — never send without that answer.',
+    parameters: { type: 'object', properties: {} },
+    runtime: 'browser',
+  },
+  {
+    name: 'submitAppointment',
+    description:
+      'Send the appointment request — only after the visitor has answered yes to a confirming question in this conversation; pass confirmed true only then. Refused otherwise, and refused while a required field is missing. Afterwards say exactly what the result says: "prepared" means the request is kept on the device with a reference and WhatsApp is the next step, nothing was sent; "delivered" means our team has it and will confirm. Never say booked or confirmed.',
+    parameters: { type: 'object', properties: { confirmed: { type: 'boolean', description: 'true only when the visitor has just said yes to sending' } }, required: ['confirmed'] },
+    runtime: 'browser',
+  },
+  /**
+   * Read-only and on the server, where a booking provider would be. None is configured
+   * today, and the tool says so rather than inventing a free slot.
+   */
+  {
+    name: 'checkAvailability',
+    description: 'Whether a showroom publishes free times for a date. Today none does: the answer says our team confirms times. Never state a time this does not return.',
+    parameters: { type: 'object', properties: { showroom: SHOWROOM, date: ISO_DATE }, required: ['showroom', 'date'] },
+    runtime: 'server',
+  },
   /**
    * Read-only, and executed on the server where the catalogue is. A tool that only consults
    * data should not make a round trip through a browser to answer.
@@ -169,7 +277,12 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 12, default: 8 } }, required: ['query'] },
     runtime: 'server',
   },
-  { name: 'getCurrentContext', description: 'What the visitor is looking at right now.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
+  {
+    name: 'getCurrentContext',
+    description: 'What the visitor is looking at right now: the page, the chapter, the piece in view and how many photographs it has, the saved count, whether the appointment form is open and what is in it.',
+    parameters: { type: 'object', properties: {} },
+    runtime: 'browser',
+  },
 ];
 
 /** The flat shape the OpenAI Realtime session expects for `session.tools`. */

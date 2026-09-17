@@ -4,8 +4,24 @@ import { PieceLink } from '@/components/commerce/PieceLink';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { pieceRefOf } from '@/data/clientIndex';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { kindOf, tagOf } from './Ch02Window';
+import { CATEGORY_LABEL } from '@/data/labels';
+import type { Category } from '@/data/types';
 import { cn } from '@/lib/cn';
+
+/** A tag the way a jeweller writes one: purity, weight, reference — nothing invented. */
+export function tagOf(r: PieceRow): string {
+  // a number and its unit never part company at a line end
+  const grams = r.w !== undefined ? `${Number(r.w.toFixed(2))}\u00a0g` : undefined;
+  return [r.k, grams, r.ct !== undefined ? `${r.ct}\u00a0ct` : undefined, r.rf].filter(Boolean).join(' · ');
+}
+
+/** The piece's kind, for the line above its name — empty where the name already says it (a "Baby Bangle" filed as a bracelet is not captioned "Bracelet"). */
+export function kindOf(r: PieceRow): string {
+  const kind = r.c ? CATEGORY_LABEL[r.c as Category] : 'Jewellery';
+  const name = r.t.toLowerCase();
+  const named = [...Object.values(CATEGORY_LABEL), 'bangle', 'bracelet', 'suite', 'set'].some((k) => name.includes(k.toLowerCase()));
+  return named ? '' : kind;
+}
 
 /**
  * The pieces a department chapter puts forward: one large plate and four beside it, set off
@@ -65,7 +81,9 @@ export function KindsList({ department, tone = 'ink', heading }: { department: S
                 {k.label}
                 <span aria-hidden className={cn('absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/kind:scale-x-100', rule)} />
               </span>
-              <span className={cn('micro tabular-nums', muted)}>{k.count}</span>
+              <span aria-hidden className={cn('font-display text-[1rem] transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover/kind:translate-x-1', muted)}>
+                →
+              </span>
             </TransitionLink>
           </li>
         ))}
