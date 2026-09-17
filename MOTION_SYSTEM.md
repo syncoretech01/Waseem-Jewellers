@@ -248,8 +248,8 @@ enforces it alongside the "House" rules.
 | `craft-detail` | attention travels to named regions of one frame and holds | these rectangles are parts of this photograph | Bridal, the choker beside the suite (Pearl Blossom Choker); PDPs |
 | `composition` | the same mechanism at the scale of a suite — tikka, earrings, choker, haar named in place | the same, one scale up | Bridal, the suite that opens the chapter (Rang-e-Jamal emerald suite) |
 | `goldwork` | the scale ladder — collar, pendant, earring, nearer each time | this is the same picture, nearer | Gold, closely — the figure that closes the gold chapter (the gold Rang-e-Jamal set); PDPs |
-| `setting` | the anatomy of one setting as photographed — stone, halo, shank | these are the parts of this setting, where they sit | the craft coda (Lavender Halo Ring) |
-| `pair` | the two of a pair across one frame — crowns, bells, drops — and the pull-back side by side | the right earring is the right earring; nothing is mirrored | Bespoke (Emerald Tassel Earrings) |
+| `setting` | the anatomy of one setting as photographed — stone, halo, shank | these are the parts of this setting, where they sit | PDPs (the craft coda now carries the study, below) |
+| `pair` | the two of a pair across one frame — crowns, bells, drops — and the pull-back side by side | the right earring is the right earring; nothing is mirrored | PDPs (Bespoke now carries the parted pair, below) |
 
 Five families, one mechanism. Ring anatomy from teardown photography, layering compositors and
 loose-stone setting sequences were all considered and all rejected for the same reason: each
@@ -293,3 +293,40 @@ figure inside a product page would fight the sticky information column. A chapte
 pin passes `driven` and calls `apply(progress)` on the figure's handle from its own scrub, so
 the holds sit inside the chapter's choreography (Bespoke does this; its words are lit in step
 through `onLit`).
+
+## The jewellery moments — four ways of looking that are not a camera
+
+`src/semantic/moments/` (17 Sep 2026). The client's homepage brief asked for semantic
+jewellery interactions that are not zooms, parallax, hotspots, reveals or hover — and the
+families above are, at bottom, a camera moving over a photograph. These four are not. Each is
+authored against one piece Waseem publishes (`src/data/moments.ts`) and each is honest in the
+same way: nothing is shown that was not photographed.
+
+| Moment | What happens | What it claims | Where |
+|---|---|---|---|
+| **The study** (`RingStudy`) | A pencil drawing of the ring, traced from its own photograph by `scripts/assets/sketch.mjs` (greyscale, inverted blur, dodge — every line is a line the photograph has), develops into the photograph: tone first, then colour. Then the frame tilts on its vertical axis and the first photograph gives way to the second angle Waseem shot at the deepest point of the tilt, so the eye reads a turn. | the drawing is this photograph; both angles are photographs | the craft coda (Lavender Halo Ring: `p09-hero` → `p09-second`) |
+| **The light** (`SuiteLight`) | The photograph never moves. A dark veil settles over the room and one soft light — a radial mask on the veil — finds the chandelier earring, travels to the necklace, then the pendant, naming each, before the whole suite is lit again as the studio shot it. | these ellipses are where the pieces are in this frame | the diamond chapter (the sapphire suite, `p07-hero`) |
+| **The parted piece** (`PartedPiece`) | One photograph of a pair is cut into horizontal bands at the joints a jeweller names — crown, bell, tassel — and the bands draw apart by a few percent of the frame so each part reads on its own with its name beside it, then close into the one photograph. Nothing is redrawn, mirrored or moved sideways. | the cut is a reading, not a claim that the parts come away | Bespoke (Emerald Tassel Earrings, `p08-hero`), driven by the chapter's pin |
+| **The gate** (`Ch03Gate`) | Two material worlds in one frame: gold beneath, diamond above behind a mask whose edge follows the pointer and breathes at rest; the words weigh with their side; choosing fills the frame and the curtain carries the visitor into the department. A phone scrolls the split; reduced motion holds it at the middle. | both halves are photographs of pieces Waseem publishes | after the craft chapter |
+
+**One timeline, one driver.** `useMoment` builds a paused timeline once against the moment's own
+DOM and gives it exactly one driver: a scrubbed ScrollTrigger as the moment travels through the
+viewport, or — when a chapter passes `driven` — the chapter's own scrub through `apply(progress)`
+on the handle. The lit part is read back from the playhead in `onUpdate`, never from callbacks,
+so a scrub backwards un-lights correctly. Reduced motion (the media query, through
+`gsap.matchMedia`) builds no timeline: the photograph and the words stand still.
+
+**One writer per property.** The study's turn is a single `rotateY` on the wrapper that holds
+the three images, whose opacities are tweened one each; the light's mask and opacity are
+composed from one state object and written in one `onUpdate`; each band of the parted piece is
+translated by this timeline and nothing else, and its labels' transforms belong to GSAP (no
+inline `translateY` for a tween to trample).
+
+**The refresh-order trap.** A moment is a child of its chapter, and React runs a child's effects
+before the parent's — so a moment's ScrollTrigger exists before the chapter's pin does.
+ScrollTrigger refreshes triggers in creation order unless one names a `refreshPriority`, and a
+trigger measured before a preceding pin has re-applied its spacer lands a whole pin early: the
+craft coda's study ran 155svh ahead of itself. `useMoment` names `refreshPriority: -1`, which
+turns on ScrollTrigger's document-order sort for every refresh and keeps the moment after its
+chapter whatever the order of creation.
+

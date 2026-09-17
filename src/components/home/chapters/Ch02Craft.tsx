@@ -47,6 +47,16 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   const stage = useRef<HTMLDivElement>(null);
   const codaScope = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
+  /**
+   * The object's environment is pre-filtered on the GPU when it mounts, and on an Intel
+   * driver the filter shader alone compiles for the best part of a second on the main
+   * thread. Mounting only when the chapter is near put that second in the middle of the
+   * window chapter, under the visitor's scroll (measured: an 842 ms frame at 2.3 viewports).
+   * So the object is also mounted early, at the first idle moment after the loader in which
+   * the visitor is not scrolling — usually while the hero is being read — where the same
+   * second passes unnoticed.
+   */
+  const [warm, setWarm] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [lostOnce, setLostOnce] = useState(0);
   const [lit, setLit] = useState<string | null>(null);
@@ -56,7 +66,7 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
    * a diagram where the client had been promised the object. LOW gets the same geometry at
    * DPR 1 with the non-refractive stone; REDUCED, and a browser with no WebGL, get the still.
    */
-  const wantsScene = webgl && !reduced && loaderDone && near && lostOnce < 2;
+  const wantsScene = webgl && !reduced && loaderDone && (near || warm) && lostOnce < 2;
   // the still stands whenever the object is not on stage: before it compiles, after a lost
   // context, under reduced motion, without WebGL — never a third thing
   const stillShown = !(wantsScene && sceneReady);
@@ -66,7 +76,33 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   const index = study ? COPY.craft.coda.beats.map((label, i) => ({ key: (['drawn', 'made', 'turned'] as const)[i]!, label })) : (descriptor?.regions ?? []).map((r) => ({ key: r.key, label: r.label }));
   useRise(codaScope);
 
-  // the object mounts when the chapter is within a viewport of the visitor
+  // the object mounts early, in a still moment after the loader
+  useEffect(() => {
+    if (!loaderDone || !webgl || reduced) return;
+    let lastScroll = performance.now();
+    const onScroll = () => (lastScroll = performance.now());
+    window.addEventListener('scroll', onScroll, { passive: true });
+    let handle = 0;
+    let cancelled = false;
+    const ric: (cb: () => void, opts?: { timeout: number }) => number = 'requestIdleCallback' in window ? (cb, opts) => window.requestIdleCallback(cb, opts) : (cb) => window.setTimeout(cb, 300);
+    const cancel: (h: number) => void = 'cancelIdleCallback' in window ? (h) => window.cancelIdleCallback(h) : (h) => window.clearTimeout(h);
+    const poll = () => {
+      if (cancelled) return;
+      if (performance.now() - lastScroll > 900) {
+        setWarm(true);
+        return;
+      }
+      handle = ric(poll, { timeout: 1500 });
+    };
+    handle = ric(poll, { timeout: 2500 });
+    return () => {
+      cancelled = true;
+      cancel(handle);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [loaderDone, webgl, reduced]);
+
+  // and in any case when the chapter is within a viewport of the visitor
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

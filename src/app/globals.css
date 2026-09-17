@@ -421,7 +421,7 @@ html.is-transitioning #page-root {
 [data-live] .gate-drift { animation: gate-drift 26s ease-in-out infinite alternate; }
 [data-live] .gate-light { animation: gate-light 11s ease-in-out infinite; }
 .gate-drift { transform-origin: 55% 45%; will-change: transform; }
-.gate-light { background: linear-gradient(105deg, transparent 38%, rgb(255 250 235 / 0.14) 50%, transparent 62%); mix-blend-mode: screen; opacity: 0; }
+.gate-light { background: linear-gradient(105deg, transparent 38%, rgb(255 250 235 / 0.12) 50%, transparent 62%); opacity: 0; will-change: transform, opacity; }
 @keyframes gate-drift {
   from { transform: scale(1); }
   to { transform: scale(1.06); }

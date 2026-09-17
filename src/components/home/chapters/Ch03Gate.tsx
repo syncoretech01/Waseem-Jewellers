@@ -38,6 +38,8 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
   const setGate = useSiteStore((s) => s.setGate);
   const split = useRef({ pointer: 0.5, breath: 0, committed: false });
   const breathTween = useRef<gsap.core.Tween | null>(null);
+  // on screen or not: the ticker writes nothing, and the breath rests, while the gate is away
+  const live = useRef(false);
 
   // the ticker is the only writer of the mask, the divider and the words' weight
   useEffect(() => {
@@ -51,31 +53,47 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
     const diaNote = root.querySelector<HTMLElement>('.gate-note-diamond');
     if (!diamond || !divider || !gold || !dia) return;
     const s = split.current;
+    const vertical = coarse || window.innerWidth < 768;
     if (reduced) {
-      diamond.style.clipPath = 'inset(0 0 0 50%)';
-      divider.style.left = '50%';
+      // held at the middle: two doors, no mask in motion
+      diamond.style.clipPath = vertical ? 'inset(50% 0 0 0)' : 'inset(0 0 0 50%)';
+      divider.style.transform = vertical ? `translate3d(0, ${(0.5 * root.clientHeight).toFixed(1)}px, 0)` : `translate3d(${(0.5 * root.clientWidth).toFixed(1)}px, 0, 0)`;
       return;
     }
-    const vertical = coarse || window.innerWidth < 768;
+    /**
+     * The mask is a clip-path and the divider a transform, so a frame of the breath costs no
+     * layout; the words' weight is written only when it changes by a step, because a variable
+     * font setting re-shapes the text and that is layout. Nothing is written when the split
+     * has not moved.
+     */
+    let box = { w: root.clientWidth, h: root.clientHeight };
+    const onResize = () => (box = { w: root.clientWidth, h: root.clientHeight });
+    window.addEventListener('resize', onResize, { passive: true });
+    let lastV = -1;
+    let lastStep = -1;
     const apply = () => {
       const v = Math.max(0.06, Math.min(0.94, s.pointer + s.breath));
+      if (Math.abs(v - lastV) < 0.0004) return;
+      lastV = v;
       const pct = (v * 100).toFixed(2);
       if (vertical) {
         diamond.style.clipPath = `inset(${pct}% 0 0 0)`;
-        divider.style.top = `${pct}%`;
-        divider.style.left = '0';
+        divider.style.transform = `translate3d(0, ${(v * box.h).toFixed(1)}px, 0)`;
       } else {
         diamond.style.clipPath = `inset(0 0 0 ${pct}%)`;
-        divider.style.left = `${pct}%`;
-        divider.style.top = '0';
+        divider.style.transform = `translate3d(${(v * box.w).toFixed(1)}px, 0, 0)`;
       }
       const g = 1 - v;
-      gold.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * g)}`;
-      dia.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * v)}`;
+      const step = Math.round(g * 40);
+      if (step !== lastStep) {
+        lastStep = step;
+        gold.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * g)}`;
+        dia.style.fontVariationSettings = `"opsz" 96, "wght" ${Math.round(400 + 180 * v)}`;
+      }
       gold.style.transform = `scale(${(1 + 0.06 * g).toFixed(3)})`;
       dia.style.transform = `scale(${(1 + 0.06 * v).toFixed(3)})`;
-      if (goldNote) goldNote.style.opacity = String(0.4 + 0.6 * g);
-      if (diaNote) diaNote.style.opacity = String(0.4 + 0.6 * v);
+      if (goldNote) goldNote.style.opacity = (0.4 + 0.6 * g).toFixed(3);
+      if (diaNote) diaNote.style.opacity = (0.4 + 0.6 * v).toFixed(3);
     };
     breathTween.current = gsap.to(s, { breath: 0.025, duration: 3.6, ease: 'sine.inOut', yoyo: true, repeat: -1, onStart: () => (s.breath = -0.025) });
     const pointerTo = gsap.quickTo(s, 'pointer', { duration: 0.9, ease: 'power3' });
@@ -83,6 +101,7 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
     if (bias) pointerTo(bias === 'gold' ? 0.8 : 0.2);
     bindPointer();
     const tick = () => {
+      if (!live.current) return;
       if (!s.committed && !vertical && pointer.active && pointer.fine) {
         const r = root.getBoundingClientRect();
         if (pointer.y >= r.top && pointer.y <= r.bottom) pointerTo(Math.max(0.14, Math.min(0.86, pointer.x / window.innerWidth)));
@@ -92,6 +111,7 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
     gsap.ticker.add(tick);
     return () => {
       gsap.ticker.remove(tick);
+      window.removeEventListener('resize', onResize);
       breathTween.current?.kill();
       pointerTo.tween.kill();
     };
@@ -106,8 +126,18 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
       mm.add('(max-width: 767px)', () => {
         gsap.to(split.current, { pointer: 0.72, ease: 'none', scrollTrigger: { trigger: root, start: 'top 60%', end: 'bottom 40%', scrub: true }, onStart: () => (split.current.pointer = 0.28) });
       });
-      // the diamond's drift and light run only while the gate is on screen
-      ScrollTrigger.create({ trigger: root, start: 'top bottom', end: 'bottom top', onToggle: (st) => root.toggleAttribute('data-live', st.isActive) });
+      // the diamond's drift and light, the ticker and the breath run only while the gate is on screen
+      ScrollTrigger.create({
+        trigger: root,
+        start: 'top bottom',
+        end: 'bottom top',
+        onToggle: (st) => {
+          live.current = st.isActive;
+          root.toggleAttribute('data-live', st.isActive);
+          if (st.isActive) breathTween.current?.play();
+          else breathTween.current?.pause();
+        },
+      });
     },
     { scope: ref, dependencies: [reduced] },
   );
@@ -157,8 +187,8 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
         <div className="gate-light pointer-events-none absolute inset-0" aria-hidden />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35" />
       </div>
-      <div className="gate-divider pointer-events-none absolute h-full w-px bg-gold-hi/80 max-md:h-px max-md:w-full" style={{ left: '50%', top: 0 }} />
-      <div className="grain pointer-events-none absolute inset-0" />
+      {/* the divider sits at the frame's origin and is moved by transform alone */}
+      <div className="gate-divider pointer-events-none absolute left-0 top-0 h-full w-px bg-gold-hi/80 will-change-transform max-md:h-px max-md:w-full" style={{ transform: 'translate3d(50vw, 0, 0)' }} />
 
       {/* the eyebrow, beneath the nav band */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)]">

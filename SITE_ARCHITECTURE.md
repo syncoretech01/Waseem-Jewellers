@@ -24,7 +24,7 @@ As the production build reports them (alongside Next's own `/_global-error`):
 
 | Route | Kind | Renders |
 |---|---|---|
-| `/` | Static | `Home` — eleven chapters in one continuous scroll, in the order a shop is walked: the hero (the name, the five departments with their counts, the worn piece, the concierge line), the window (nine packshots with facts and every kind counted, from `repository.showcase()`), the craft (the ring, universal), Gold, Diamond, Bridal, the signature collections, Men and Kids, since 1952 (the showrooms), Bespoke, the concierge invitation; the loading ritual (CH00) and the footer mount in `Providers` |
+| `/` | Static | `Home` — twelve chapters in one continuous scroll, in the order a shop is walked: the hero (the name, the five departments as doors, the worn piece, the concierge line — no counts), the window by kind (nine category tiles on real packshots, from `repository.showcase()`), the craft (the ring, universal; the study in its coda), the gate (Gold and Diamond in one frame), Gold, Diamond (the suite in one light), Bridal, the signature collections, Men and Kids, since 1952 (the showrooms), Bespoke (the parted pair), the concierge invitation; the loading ritual (CH00) and the footer mount in `Providers` |
 | `/_not-found` | Static | `src/app/not-found.tsx` — two links back into the site |
 | `/collections/[slug]` → `/collections/bridal` | SSG | `CollectionExperience` for the one collection in `src/data/collections.ts` |
 | `/jewellery/[slug]` → ten paths | SSG | `ProductExperience` for each of the ten products |

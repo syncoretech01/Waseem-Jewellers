@@ -94,7 +94,9 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
             invalidateOnRefresh: true,
             onUpdate: (st) => {
               setShown(st.progress < 0.22);
-              document.documentElement.style.setProperty('--header-veil', String(0.1 + st.progress * 0.2));
+              // written on the header, not the root: a custom property on <html> recalculates
+              // the style of the whole document every scrolled frame of the hero
+              (document.querySelector<HTMLElement>('header[aria-label="Primary"]') ?? document.documentElement).style.setProperty('--header-veil', String(0.1 + st.progress * 0.2));
             },
             onLeave: () => video.current?.pause(),
             onEnterBack: () => video.current?.play(),
@@ -179,7 +181,7 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
   useEffect(
     () => () => {
       setInvitation(false);
-      document.documentElement.style.removeProperty('--header-veil');
+      (document.querySelector<HTMLElement>('header[aria-label="Primary"]') ?? document.documentElement).style.removeProperty('--header-veil');
     },
     [setInvitation],
   );

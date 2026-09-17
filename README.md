@@ -23,19 +23,20 @@ Follow this in order the first time; it is the intended path through the work.
 
 **The loading ritual.** A hairline of light, the wordmark, SINCE 1952, and the house stone filling with light, then the hand-off into the hero. On a high tier with WebGL the three-dimensional stone joins the drawing if its chunk arrives in time; otherwise the SVG stone carries the whole ritual. A returning visitor within 24 hours gets the short path (the flag is `wj:visited` in `localStorage` — clear it to see the full ritual again). Every other route gets a 0.6 s lift instead.
 
-**The homepage**, eleven chapters in one continuous scroll, in the order a shop is walked:
+**The homepage**, twelve chapters in one continuous scroll, in the order a shop is walked:
 
 | Chapter | What to do |
 |---|---|
-| Hero | Let the film run; the shop's name is across it, with the five departments and their live counts as the first doors. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the crest at the bottom right takes over. |
-| The Window | Nine pieces photographed as pieces, one of every kind, each with purity · weight · reference; every kind counted beneath as a door. Fed by `repository.showcase()` — only white-ground packshots with published facts qualify. |
-| Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels. The object renders on every tier; without WebGL, or under reduced motion, a still of the same object stands in. The coda beneath names the same anatomy on the Lavender Halo Ring. |
-| Gold · Diamond | Each department as a department: the count, the kinds with their numbers, a tray of its pieces, the door. Gold closes on the goldwork figure; Diamond on the sapphire suite with its published grading. |
-| Bridal | The suite figure (tikka, earrings, choker, haar named in place), the choker figure beside it, the film as an inset, the count and the appointment. |
+| Hero | Let the film run; the shop's name is across it, with the five departments as the first doors — no counts anywhere a visitor reads. The last line of the type stack is the concierge invitation — the mic ring opens voice, the words open chat. As it scrolls away the crest at the bottom right takes over. |
+| By kind | Nine editorial tiles in an asymmetric twelve-column composition, one per kind — rings, necklaces, earrings, bangles, bridal sets, pendants, bracelets, chains, cufflinks — each on a real packshot (the bridal tile on a jewellery-only crop of the Dewan suite). A second piece of the kind surfaces under the hand; the tile opens the kind, the piece named beneath opens the piece. Fed by `repository.showcase()` — only white-ground packshots with published facts front a kind. |
+| Craft | Keep scrolling: the stone condenses out of the dark, then stone, setting, metal and hand finishing separate beneath fixed labels, closing on CRAFTED / TO ENDURE. The object renders on every tier; without WebGL, or under reduced motion, a still of the same object stands in — nothing drawn ever stands beside it. The coda beneath is the study: a pencil drawing traced from the Lavender Halo Ring's own photograph develops into the photograph, and the ring turns to the second angle Waseem shot. |
+| The gate | Two material worlds in one frame: the satlada haar on velvet beneath, the sapphire suite closer still above, behind a mask whose edge follows the pointer and breathes at rest. GOLD and DIAMOND weigh with their side; choosing one fills the frame and carries you into the department. On a phone the split follows the scroll. |
+| Gold · Diamond | Each department as a department: the kinds, a tray of its pieces, the door. Gold closes on the goldwork figure; Diamond on the sapphire suite in one light — the room goes dark and a single light finds the chandelier earring, the necklace and the pendant in turn, then the whole suite. |
+| Bridal | The suite figure (tikka, earrings, choker, haar named in place), the choker figure beside it, the film as an inset, and the appointment. |
 | Signature Collections | Five columns at opposing speeds, the jewellery frame above the portrait. Hover or tab into a column to raise its name; choose one and its portrait flies into the collection page. |
 | Men · Kids | The two departments with their pieces, kinds and doors. |
 | 1952 | The facade arriving in colour, two prints, the two names, the three showrooms with addresses and hours, an appointment. |
-| Bespoke | One pair of earrings looked at as a jeweller looks; the bespoke door is open from the first frame. |
+| Bespoke | One pair of earrings read at the joints: the photograph is cut into crown, bell and tassel and drawn apart, each named, then closed again into the pair. The bespoke door is open from the first frame. |
 | Waseem Concierge | Speak or write; three lines it understands, each of which sends itself. |
 | Footer | Showrooms, hours and contact, revealed from beneath the page (it flows on a phone). |
 

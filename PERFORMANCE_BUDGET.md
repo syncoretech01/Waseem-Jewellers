@@ -14,13 +14,14 @@ A number in the table below being missed is a conversation. One of the three abo
 
 | Target | Value | Status |
 |---|---|---|
-| Base route JS | ≤ 170 kB gz | **316 kB — over by 146** (home, 16 Sep 2026, after Stage 2.2: the five figures and the doors cost 7 kB on the app chunk; was 309 on 11 Sep, 349 before the hydration work). Every route 296–316. See *Measured* below. |
+| Base route JS | ≤ 170 kB gz | **317 kB — over by 147** (home, 17 Sep 2026, after the gate, the window by kind and the three jewellery moments: +0.6 kB on 16 Sep's 316; was 309 on 11 Sep, 349 before the hydration work). Every route 297–317; settled 426–447 with the concierge operator chunk (65 kB, was 31). See *Measured* below. |
 | three + R3F chunk | ≈ 220 kB gz, requested once per document; never under REDUCED | **253 kB — over by 33** (HIGH tier via `?tier=HIGH` on a QA build, 11 Sep 2026). Two chunks: 232 + 21. |
 | drei | pulled in only by the craft object, so HIGH and MEDIUM only | no separate chunk — bundled into the 232 kB three chunk |
 | Homepage first load including three | ≤ 400 kB gz | **602 kB — over by 202** (349 initial + 253 three, HIGH tier, 11 Sep). **435 on LOW** (16 Sep 2026, settled, where three never loads; was 358 — the concierge chunk now arrives on idle and is counted as settled). |
 | Images | webp; 2880 px for the four full-bleed campaign frames, 2250 px or less for everything else; served without a metered optimiser — the shop's CDN resizes the long tail, build-time 640/1080/1600 variants serve the localised set (`src/lib/imageLoader.ts`) | met (see manifest); 16 Sep 2026: the review deployment answered 402 to every `/_next/image` once the plan's monthly transformations were spent, which is why the optimiser is gone |
 | Video, one codec, all variants | ≤ 25 MB | h264 31.2 MB — over; **AV1 21.6 MB — within** where AV1 is supported (verified in Chromium, 11 Sep 2026) |
-| CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | not measured |
+| CLS | 0 (fixed aspect boxes, blur placeholders, no late-injected chrome) | **0.000** after load (17 Sep 2026, `.cache/s22/vitals.mjs`, production build, 1440×900, MEDIUM). The same observer reports ~5.9 over a full scroll-through, which is the pinned chapters switching between fixed and flow at their boundaries — a layout-shift entry by definition, not something a visitor sees move. |
+| LCP | ≤ 2.5 s | **1.2–1.8 s** on localhost (same runs; the hero's poster). Not yet measured from Lahore. |
 
 ## Measured
 
@@ -232,14 +233,24 @@ It prints one JSON line — elapsed ms, resolved `data-tier`, scroll height, liv
 
 **Runtime inspector.** In development, `window.__wj` (`src/lib/devInspector.ts`) exposes `triggers()`, `tweens()`, `tickerFns()`, `site()` and `closeOverlays()`. `gl()` and `glInfo` are wired to a `reportGL` helper that nothing currently calls, so they report nothing yet.
 
+## The scroll, measured on an integrated GPU (17 Sep 2026)
+
+`.cache/s22/vitals.mjs` and `.cache/s22/profile.mjs` (a CDP CPU profile over a scroll range, aggregated by function and by caller) were run against the production build in a headed Chromium on an Intel HD 530 — the class of laptop most of the review will happen on. Two things were found and fixed, and one is reported as it is.
+
+**The compile block.** Mounting the craft object as its chapter approached put 1.4 s on the main thread in the middle of the window chapter: 1,378 ms in `getProgramInfoLog`, then — once that sync point was removed — 893 ms in `getProgramParameter` inside `PMREMGenerator._applyGGXFilter`. The filter shader that pre-filters the object's environment is the slowest shader in three to compile on this driver, and it is compiled by a render, so no parallel-compile extension helps it. Three changes: the canvas holds `frameloop="never"` until `compileAsync` reports every program linked (a first frame drawn earlier blocks for the whole compile); `checkShaderErrors` is off in production; and the object is also mounted early, at the first idle moment after the loader in which the visitor has not scrolled for 900 ms — usually while the hero is being read — so the environment's second passes there. Worst frame during a full scroll-through: **850–1,016 ms before, 133–300 ms after** (three runs each).
+
+**The gate's writes.** The gate's ticker wrote the divider's `left` and the two words' `font-variation-settings` every frame, breath included, whether or not the gate was on screen. Each is layout, and every scroll read after it forced a reflow: 240–470 ms of `pageYOffset`/`actualScroll` per two seconds of scrolling in the profile. The divider is now moved by transform, the weight is written only when it changes by a step, nothing is written when the split has not moved, and the ticker and the breath run only while the gate is on screen. The hero's `--header-veil` moved from `<html>` to the header for the same reason: a custom property on the root recalculates the whole document's style every frame of the hero.
+
+**What remains.** Long tasks of 50–150 ms still appear through the scroll on this machine (82–100 over a 16–18 s pass at two viewports a second; 4 with WebGL unavailable), and the frame-rate monitor demotes the tier to LOW partway through every run (17–38 fps measured). A timeline trace of the same range shows the main thread nearly idle — 197 ms of tasks, 5 ms of paint — and 1.8 s on the compositor and GPU threads, which is where an integrated GPU pays for a page of full-bleed photographs and a live WebGL context. The numbers vary by a third between identical runs. That is the honest state: the page is smooth on the main thread and GPU-bound on a 2016 Intel laptop, and the tier monitor is doing what it is for.
+
 ## What has not been measured
 
 Be clear with anyone reading these numbers:
 
-- **No Lighthouse or PageSpeed run has been recorded.** LCP, TBT, INP and CLS are unverified.
+- **No Lighthouse or PageSpeed run has been recorded.** TBT and INP are unverified; LCP and CLS are from a Playwright observer on localhost, above.
 - **No bundle analysis has been run.** The JS budgets in the first table are hand-set targets, not observations.
 - **No field data.** There is no RUM, no analytics, no error reporting.
-- **No frame-time capture on real hardware.** Tier behaviour has been checked by forcing tiers in a desktop browser and in the headless harness, not on a phone or an integrated-GPU laptop under load.
+- **No frame-time capture on a phone.** Tier behaviour has been measured on an integrated-GPU laptop (above) and in the headless harness, not on a phone.
 - The video total on disk exceeds its target line; nothing has been re-encoded to bring it under.
 
 ## Not in Stage 1

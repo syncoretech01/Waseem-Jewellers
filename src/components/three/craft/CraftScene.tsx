@@ -36,6 +36,12 @@ export function CraftScene({ onReady, onLost }: CraftSceneProps) {
   const tier = useQualityStore((s) => s.tier);
   const dprCap = useQualityStore((s) => s.dprCap);
   const [lost, setLost] = useState(false);
+  // never, until the programs are linked: a frame drawn before that blocks the main thread
+  // for the whole compile (1.4 s measured on an Intel GPU, in the middle of the window chapter).
+  // Held as state rather than a constant prop, because the Canvas re-applies its prop on
+  // every reconfigure and would otherwise freeze the loop again on a demotion.
+  const [loop, setLoop] = useState<'never' | 'demand'>('never');
+  const handleLinked = useCallback(() => setLoop('demand'), []);
   const handleLost = useCallback(() => {
     setLost(true);
     onLost?.();
@@ -43,21 +49,24 @@ export function CraftScene({ onReady, onLost }: CraftSceneProps) {
   if (lost) return null;
   return (
     <Canvas
-      frameloop="demand"
+      frameloop={loop}
       dpr={[1, Math.max(1, Math.min(dprCap, tier === 'HIGH' ? 1.75 : 1.5))]}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       camera={{ fov: 26, near: 0.1, far: 60, position: [0, 2.6, 8.6] }}
       style={{ position: 'absolute', inset: 0 }}
       onCreated={({ gl }) => {
         gl.setClearColor(0x000000, 0);
+        // the info-log queries three makes on a program's first use are a sync point with the
+        // driver; with the programs linked in parallel and polled, they have nothing to add
+        gl.debug.checkShaderErrors = process.env.NODE_ENV !== 'production';
       }}
     >
-      <CraftObject tier={tier} onReady={onReady} onLost={handleLost} />
+      <CraftObject tier={tier} onReady={onReady} onLinked={handleLinked} onLost={handleLost} />
     </Canvas>
   );
 }
 
-function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => void; onLost: () => void }) {
+function CraftObject({ tier, onReady, onLinked, onLost }: { tier: string; onReady?: () => void; onLinked: () => void; onLost: () => void }) {
   useStudioEnvironment(256);
   const tent = useGemEnvironment(256);
   useContextLoss(onLost);
@@ -82,6 +91,8 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  const frameloop = useThree((s) => s.frameloop);
+  const invalidate = useThree((s) => s.invalidate);
   // a portrait stage stands further back: the camera's field of view is vertical, so on a
   // phone the band would otherwise fill the width and run behind the labels
   const size = useThree((s) => s.size);
@@ -93,22 +104,33 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
   const dirty = useRef(true);
   const lastProgress = useRef(-1);
 
+  /**
+   * The programs are linked in parallel (KHR_parallel_shader_compile, polled by three) while
+   * the canvas draws nothing; only once every material reports ready does the frame loop
+   * start and the first frame is asked for. The fallback timer is for a driver that never
+   * reports — it is long enough that a normal compile is never cut short by it.
+   */
   useEffect(() => {
     bindPointer();
-    void gl.compileAsync(scene, camera).then(() => {
-      if (!ready.current) {
-        ready.current = true;
-        onReady?.();
-      }
-    });
-    const t = window.setTimeout(() => {
-      if (!ready.current) {
-        ready.current = true;
-        onReady?.();
-      }
-    }, 900);
-    return () => window.clearTimeout(t);
-  }, [gl, scene, camera, onReady]);
+    let cancelled = false;
+    const start = () => {
+      if (cancelled || ready.current) return;
+      ready.current = true;
+      onLinked();
+      onReady?.();
+    };
+    void gl.compileAsync(scene, camera).then(start);
+    const t = window.setTimeout(start, 4000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [gl, scene, camera, onReady, onLinked]);
+
+  // the first frame, once the loop is allowed to run
+  useEffect(() => {
+    if (frameloop === 'demand') invalidate();
+  }, [frameloop, invalidate]);
 
   useEffect(
     () => () => {

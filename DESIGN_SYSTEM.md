@@ -348,6 +348,14 @@ The register is held in `src/data/copy.ts`, `src/concierge/copy.ts` and the conc
 - Prices are on request unless the piece's data carries a fixed figure, in which case it is labelled indicative and subject to the gold rate.
 - The concierge answers in the visitor's language, English or Roman Urdu, in one or two sentences, and never invents a piece, price, specification or history.
 - Urdu script appears only where the house's own material shows it — the two accents in §4.
+- No counts where a visitor reads. The hero's department doors, the chapter titles, the window's tiles and the kinds lists name what Waseem makes, never how many are in the back; counts stay on the department and category pages, where a visitor is choosing among them.
+- Every claim on a jewellery moment is a plain fact about the piece or what Waseem publishes about it (`src/data/moments.ts`, `src/data/semantic.ts`). "Crafted to endure" is the only line the craft chapter closes on; no "made only once", no "unique".
+
+## 13. The window and the gate
+
+**The window by kind** (`Ch02Kinds`) is a shop window, not a grid: nine tiles in a twelve-column composition read in three rows, the first kind large and the rest set off one another with offsets of a few svh, so the eye travels. A tile is one kind on one real packshot — the bridal tile on a jewellery-only crop of a suite, never a bride's face — with the kind's name in the display face and *Explore* beside it; a second piece of the kind fades in over the first under the hand or on focus, the tile scales 1.035 over a second, and a hairline sweeps its top edge. Beneath, the piece is named in micro type with its published tag and is a door of its own. A kind the concierge was asked about is lit for a moment with a gold hairline frame (`data-lit`). On a phone the composition stacks to two columns, the first tile spanning both.
+
+**The gate** (`Ch03Gate`) is dark ink between the ivory window and the ivory gold chapter: one frame, two materials. Gold beneath (the satlada haar on velvet, `p05-macro`), diamond above (`p07-macro`, the sapphire pendant and its pavé) behind a mask whose edge follows the pointer and breathes ±2.5% at rest. GOLD sits upper-left and DIAMOND lower-right at `clamp(3rem, 8.5vw, 9.5rem)` so they never collide; their weight (`wght` 400–580) and scale follow the split. Each side carries a one-line description, *Enter Gold / Enter Diamond*, and an *In frame* credit naming the piece photographed, which opens the piece. Choosing a side lets it fill the frame, lifts its word, and the curtain carries the visitor into the department. On a phone the split is horizontal and follows the scroll through the chapter; under reduced motion the frame is held at the middle and the two sides are two doors. The studio film is deliberately not used here: its only jewellery-only stretch is under three seconds and the rest is a face.
 
 ---
 
