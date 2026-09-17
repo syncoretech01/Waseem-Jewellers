@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { gsap, useGSAP } from '@/lib/motion/gsap';
+import { useQualityStore } from '@/state/qualityStore';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useSiteStore } from '@/state/siteStore';
@@ -34,8 +36,40 @@ export function Ch05Bridal({ suite, choker }: { suite?: PieceRow; choker?: Piece
   const scope = useRef<HTMLDivElement>(null);
   const openConsultation = useSiteStore((s) => s.openConsultation);
   const [lit, setLit] = useState<string | null>(null);
+  const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
   useRise(scope);
+
+  /**
+   * The suite arrives from behind velvet: two dark textile-like fields part from the centre as
+   * the frame comes up the page, and a light crosses the suite once it is bare. Transform and
+   * opacity only, one scrub, no pin; under reduced motion the fields are simply not there.
+   */
+  useGSAP(
+    () => {
+      const root = scope.current;
+      if (!root) return;
+      const reveal = root.querySelector<HTMLElement>('.bridal-reveal');
+      const left = root.querySelector<HTMLElement>('.velvet-l');
+      const right = root.querySelector<HTMLElement>('.velvet-r');
+      const light = root.querySelector<HTMLElement>('.bridal-light');
+      if (!reveal || !left || !right || !light) return;
+      const mm = gsap.matchMedia(root);
+      // both conditions named: a conditions object only fires when one of them matches
+      mm.add({ motion: '(prefers-reduced-motion: no-preference)', reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+        const { reduce } = ctx.conditions as { reduce: boolean };
+        if (reduce || reduced) {
+          gsap.set([left, right], { scaleX: 0 });
+          return;
+        }
+        const tl = gsap.timeline({ scrollTrigger: { trigger: reveal, start: 'top 88%', end: 'top 30%', scrub: 0.4, invalidateOnRefresh: true } });
+        tl.fromTo([left, right], { scaleX: 1 }, { scaleX: 0, ease: 'power2.inOut', duration: 0.7 }, 0)
+          .fromTo(light, { xPercent: -80, opacity: 0 }, { xPercent: 80, opacity: 1, ease: 'none', duration: 0.3 }, 0.55)
+          .to(light, { opacity: 0, duration: 0.1 }, 0.9);
+      });
+    },
+    { scope, dependencies: [reduced] },
+  );
   const suiteDescriptor = suite ? semanticFor(suite.s) : undefined;
   const chokerDescriptor = choker ? semanticFor(choker.s) : undefined;
   const suiteSizes = '(min-width: 768px) 50vw, 92vw';
@@ -43,7 +77,7 @@ export function Ch05Bridal({ suite, choker }: { suite?: PieceRow; choker?: Piece
 
   return (
     <section ref={ref} id="ch05-bridal" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="bridal-title">
-      <div ref={scope}>
+      <div ref={scope} className="wj-content">
         <div className="grid grid-cols-1 gap-x-[4vw] gap-y-6 md:grid-cols-12 md:items-end">
           <div className="flex flex-col gap-4 md:col-span-7">
             <Eyebrow className="text-ink/60">{COPY.bridal.eyebrow}</Eyebrow>
@@ -59,7 +93,13 @@ export function Ch05Bridal({ suite, choker }: { suite?: PieceRow; choker?: Piece
         <div className="mt-[8svh] grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:mt-[10svh] md:grid-cols-12 md:items-start">
           {/* the suite, named in place */}
           {suite && suiteDescriptor && (
-            <div className="md:col-span-7" data-rise>
+            <div className="bridal-reveal relative md:col-span-7" data-rise>
+              {/* the velvet: two fields over the frame, parting from the centre; a light crosses the suite once it is bare */}
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
+                <div className="velvet velvet-l absolute inset-y-0 left-0 w-1/2 origin-left will-change-transform" />
+                <div className="velvet velvet-r absolute inset-y-0 right-0 w-1/2 origin-right will-change-transform" />
+                <div className="bridal-light absolute inset-0 opacity-0 will-change-transform" style={{ background: 'linear-gradient(100deg, transparent 40%, rgb(255 250 235 / 0.22) 50%, transparent 60%)' }} />
+              </div>
               <PieceLink
                 product={pieceRefOf(suite)}
                 sizes={suiteSizes}

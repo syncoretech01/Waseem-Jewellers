@@ -201,60 +201,66 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
       </div>
 
       <div className="hero-type absolute inset-0 flex flex-col justify-end px-gutter pb-[8svh] md:pb-[9svh]">
-        <div className="hero-sub flex flex-col gap-3">
-          <p className="intro-eyebrow micro text-champagne opacity-0">{COPY.hero.eyebrow}</p>
-          <span className="intro-hairline hairline block w-16 origin-left" />
-        </div>
-        <div className="hero-title-wrap mt-4 tracking-[0.02em]">
-          <h1 id="hero-title" className="intro-title display text-[clamp(2.5rem,11.5vw,8.75rem)] leading-[0.92] tracking-[inherit] text-ivory opacity-0 md:whitespace-nowrap md:text-[clamp(3rem,7.4vw,8.75rem)]">
-            {/* two words on a phone, one line on a desk — never a word broken across lines */}
-            {COPY.hero.name.map((word, i) => (
-              <span key={word}>
-                {i > 0 && ' '}
-                <span className="block md:inline">{word}</span>
-              </span>
-            ))}
-          </h1>
-        </div>
-        <div className="hero-sub mt-5 max-w-[34rem]">
-          <p className="intro-line font-display italic text-[clamp(1.0625rem,1.45vw,1.375rem)] leading-snug text-ivory/85 opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
-            {COPY.hero.line}
-          </p>
-        </div>
-        {/* the departments: what is sold — the first doors on the page */}
-        {departments.length > 0 && (
-          <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
-            <ul className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-1 opacity-0 md:gap-x-10">
-              {departments.map(({ department }) => (
-                <li key={department}>
-                  <TransitionLink href={`/${department}`} className="group/dept flex items-baseline py-2" data-cursor="explore">
-                    <span className="relative font-display text-[clamp(1.25rem,1.6vw,1.625rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
-                      {DEPARTMENT_LABEL[department]}
-                      <span aria-hidden className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100" />
-                    </span>
-                  </TransitionLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
-        <div className="hero-tail mt-6 md:mt-7">
-          <div className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-3 opacity-0">
-            {/* the film's credit: the listed piece worn in it, and the door to it */}
-            {credit && (
-              <TransitionLink href={`/jewellery/${credit.s}`} className="group/credit flex flex-wrap items-baseline gap-x-4 gap-y-1" data-cursor="view">
-                <span className="micro text-champagne">{COPY.hero.credit}</span>
-                <span className="font-display italic text-[1.0625rem] text-ivory/90 transition-colors group-hover/credit:text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
-                  {credit.t}
-                </span>
-                <span className="micro text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
-              </TransitionLink>
-            )}
+        {/* the name, the line, the doors, the credit and the concierge all start on the content box's left edge — the column every chapter's title starts on */}
+        <div className="wj-content">
+          <div className="hero-sub flex flex-col gap-3">
+            <p className="intro-eyebrow micro text-champagne opacity-0">{COPY.hero.eyebrow}</p>
+            <span className="intro-hairline hairline block w-16 origin-left" />
           </div>
-        </div>
-        <div className="hero-tail mt-8 md:mt-10">
-          <div className="intro-tail opacity-0">
-            <ConciergeInvitation />
+          <div className="hero-title-wrap mt-4 tracking-[0.02em]">
+            <h1 id="hero-title" className="intro-title display text-[clamp(2.5rem,11.5vw,8.75rem)] leading-[0.92] tracking-[inherit] text-ivory opacity-0 md:whitespace-nowrap md:text-[clamp(3rem,7.4vw,8.75rem)]">
+              {/* two words on a phone, one line on a desk — never a word broken across lines */}
+              {COPY.hero.name.map((word, i) => (
+                <span key={word}>
+                  {i > 0 && ' '}
+                  <span className="block md:inline">{word}</span>
+                </span>
+              ))}
+            </h1>
+          </div>
+          <div className="hero-sub mt-5 max-w-[34rem]">
+            <p className="intro-line font-display italic text-[clamp(1.0625rem,1.45vw,1.375rem)] leading-snug text-ivory/85 opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
+              {COPY.hero.line}
+            </p>
+          </div>
+          {/* the departments: what is sold — the first doors on the page */}
+          {departments.length > 0 && (
+            <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
+              <ul className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-1 opacity-0 md:gap-x-10">
+                {departments.map(({ department }) => (
+                  <li key={department}>
+                    <TransitionLink href={`/${department}`} className="group/dept flex items-baseline py-2" data-cursor="explore">
+                      <span className="relative font-display text-[clamp(1.25rem,1.6vw,1.625rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+                        {DEPARTMENT_LABEL[department]}
+                        <span
+                          aria-hidden
+                          className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100"
+                        />
+                      </span>
+                    </TransitionLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+          <div className="hero-tail mt-6 md:mt-7">
+            <div className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-3 opacity-0">
+              {/* the film's credit: the listed piece worn in it, and the door to it */}
+              {credit && (
+                <TransitionLink href={`/jewellery/${credit.s}`} className="group/credit flex flex-wrap items-baseline gap-x-4 gap-y-1" data-cursor="view">
+                  <span className="micro text-champagne">{COPY.hero.credit}</span>
+                  <span className="font-display italic text-[1.0625rem] text-ivory/90 transition-colors group-hover/credit:text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
+                    {credit.t}
+                  </span>
+                  <span className="micro text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
+                </TransitionLink>
+              )}
+            </div>
+          </div>
+          <div className="hero-tail mt-8 md:mt-10">
+            <div className="intro-tail opacity-0">
+              <ConciergeInvitation />
+            </div>
           </div>
         </div>
       </div>

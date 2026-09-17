@@ -74,8 +74,12 @@ export function SuiteLight({ moment, slug, sizes, className, driven, ref, onLit,
       // the lit piece is read back from the playhead, so a scrub backwards un-lights correctly
       tl.eventCallback('onUpdate', () => {
         const p = tl.progress();
-        if (p < holdFrom || p >= holdTo) {
+        if (p < holdFrom) {
           light(null);
+          return;
+        }
+        if (p >= holdTo) {
+          light('closing');
           return;
         }
         const i = Math.min(lights.length - 1, Math.floor((p - holdFrom) / per));

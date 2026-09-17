@@ -1,8 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Eyebrow } from '@/components/ui/primitives';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { Img } from '@/components/media/Img';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
@@ -12,13 +10,13 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { COPY } from '@/data/copy';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
-import { KindsList, PieceCluster, tagOf } from './showcase';
+import { DepartmentRow, tagOf } from './showcase';
 
 /**
  * CH03 — Gold.
  *
- * The largest department, shown as a department: the count, the karat, the kinds with their
- * numbers, and the pieces themselves on pearl. Then gold looked at closely — the goldwork
+ * The largest department, shown as a department: the karat, the kinds, and the pieces
+ * themselves on the tray every department shares. Then gold looked at closely — the goldwork
  * figure on a set Waseem publishes, its worked surfaces named where they sit — and the door
  * to the set. Everything here is a door: a piece, a kind, or the department.
  */
@@ -26,50 +24,29 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
   const { ref } = useChapter({ id: 'gold', theme: 'ivory' });
   const scope = useRef<HTMLDivElement>(null);
   const [lit, setLit] = useState<string | null>(null);
-  useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
+  useSplitReveal(scope, {
+    selector: '[data-split]',
+    type: 'lines',
+    stagger: 0.07,
+  });
   useRise(scope);
   const descriptor = figure ? semanticFor(figure.s) : undefined;
   const figureSizes = '(min-width: 768px) 50vw, 92vw';
   if (!department) return null;
 
   return (
-    <section ref={ref} id="ch03-gold" data-theme="ivory" className="relative bg-ivory px-gutter py-[9svh] text-ink md:py-[12svh]" aria-labelledby="gold-title">
-      <div ref={scope}>
-        <div className="grid grid-cols-1 gap-x-[4vw] gap-y-[7svh] md:grid-cols-12 md:items-start">
-          {/* the words, the kinds, the door — on a phone the title leads, the pieces follow, the kinds close */}
-          <div className="contents md:top-[calc(var(--nav-h)+4svh)] md:col-span-4 md:flex md:flex-col md:gap-9 md:[@media(min-height:800px)]:sticky">
-            <div className="order-1 flex flex-col gap-4 md:order-none">
-              <Eyebrow className="text-ink/60">{COPY.departments.gold.eyebrow}</Eyebrow>
-              <h2 id="gold-title" data-split className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ink opacity-0 [text-wrap:balance]">
-                {COPY.departments.gold.title}
-              </h2>
-              <p className="max-w-[28em] text-[0.9375rem] leading-relaxed text-ink/70" data-rise>
-                {COPY.departments.gold.line}
-              </p>
-            </div>
-            <div className="order-3 md:order-none">
-              <KindsList department={department} heading={COPY.departments.kinds} />
-            </div>
-            <div className="order-4 md:order-none" data-rise>
-              <Button variant="bracket" href="/gold" cursor="explore">
-                {COPY.departments.gold.cta}
-              </Button>
-            </div>
-          </div>
+    <section ref={ref} id="ch03-gold" data-theme="ivory" className="relative bg-ivory px-gutter py-[var(--chapter-y)] text-ink" aria-labelledby="gold-title">
+      <div ref={scope} className="wj-content">
+        <DepartmentRow department={department} copy={COPY.departments.gold} href="/gold" titleId="gold-title" kindsHeading={COPY.departments.kinds} />
 
-          {/* the pieces */}
-          <div className="order-2 md:order-none md:col-span-8">
-            <PieceCluster rows={department.rows} />
-          </div>
-        </div>
-
-        {/* gold, closely: the worked surface named where it sits, on a set that can be opened */}
+        {/* gold, closely: the worked surface named where it sits, on a set that can be opened — a square hero, the figure's own frame */}
         {figure && descriptor && (
-          <div className="mt-[10svh] grid grid-cols-1 gap-x-[4vw] gap-y-[6svh] border-t border-ink/10 pt-[8svh] md:mt-[11svh] md:grid-cols-12 md:items-center md:pt-[9svh]">
+          <div className="wj-grid mt-[var(--chapter-y)] border-t border-ink/10 pt-[var(--block-y)] md:items-center">
             <div className="md:col-span-7" data-rise>
               <PieceLink
                 product={pieceRefOf(figure)}
                 sizes={figureSizes}
+                scale="hero"
                 aspect="1 / 1"
                 cursor="view"
                 figure={
@@ -86,15 +63,13 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
                   />
                 }
               >
-                <div className="mt-5 flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
-                  <div className="flex flex-col gap-1">
-                    <p className="font-display text-[1.375rem] leading-tight text-ink" style={{ fontVariationSettings: '"opsz" 22' }}>
-                      {figure.t}
-                    </p>
-                    <p className="micro text-ink/55">{tagOf(figure)}</p>
-                  </div>
+                <span className="wj-caption md:flex-row md:items-baseline md:justify-between md:gap-6">
+                  <span className="flex flex-col gap-1">
+                    <span className="wj-caption-name">{figure.t}</span>
+                    <span className="wj-caption-tag">{tagOf(figure)}</span>
+                  </span>
                   <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.departments.gold.figure.view}</span>
-                </div>
+                </span>
               </PieceLink>
             </div>
             <div className="order-first flex flex-col gap-5 md:order-none md:col-span-4 md:col-start-9" data-rise>

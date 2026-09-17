@@ -149,7 +149,7 @@ export function MenuOverlay() {
           </div>
 
           {/* items */}
-          <div className="relative flex min-h-full flex-col justify-between px-gutter pb-10 pt-[calc(var(--nav-h)+2vh)]">
+          <div className="wj-row relative flex min-h-full flex-col justify-between px-gutter pb-10 pt-[calc(var(--nav-h)+2vh)]">
             <motion.ul className="flex flex-col" initial="closed" animate="open" exit="closed" variants={{ open: { transition: { staggerChildren: 0.022, delayChildren: 0.015 } }, closed: { transition: { staggerChildren: 0.025, staggerDirection: -1 } } }}>
               {MENU.map((item) => {
                 const isActive = active === item.id;

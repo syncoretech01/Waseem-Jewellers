@@ -1,6 +1,6 @@
 # Design System — Waseem Jewellers
 
-Everything in this document is declared in `src/app/globals.css`, `src/app/layout.tsx`, `src/components/ui/*`, `src/components/media/*`, `src/components/chrome/Monogram.tsx` and `src/concierge/orb/*`. Motion (GSAP, Lenis, ScrollTrigger, the transition layer) is documented separately in `MOTION_SYSTEM.md`.
+Everything in this document is declared in `src/app/globals.css`, `src/styles/cards.css`, `src/app/layout.tsx`, `src/components/ui/*`, `src/components/media/*`, `src/components/chrome/Monogram.tsx` and `src/concierge/orb/*`. Motion (GSAP, Lenis, ScrollTrigger, the transition layer) is documented separately in `MOTION_SYSTEM.md`.
 
 Tailwind v4 reads the tokens directly from `globals.css` — there is no `tailwind.config`. `@theme` tokens generate utilities (`bg-ink`, `text-champagne`, `px-gutter`, `text-display-m`); `:root` tokens do not, and are used through `var()`.
 
@@ -148,14 +148,29 @@ Nothing functional renders below 11px.
 
 ## 5. Spacing and the gutter
 
-| Token | Value | Utility |
-| --- | --- | --- |
-| `--spacing-gutter` | `clamp(1.25rem, 4vw, 4.5rem)` | `px-gutter`, `p-gutter`, `pl-gutter`, `gap-gutter`, `w-gutter` |
-| `--spacing-section` | `clamp(6rem, 12vw, 14rem)` | `py-section`, `pb-section` |
-| `--spacing-measure` | `34em` | `max-w-measure` — declared, not currently used |
-| `--nav-h` | `72px` | `var(--nav-h)`, via `calc()` in the nav, the menu overlay and product page offsets |
+The layout discipline is declared in `src/styles/cards.css` (imported by `globals.css`, inside `@layer components` so a utility on the same element still wins) and documented here. Structure is shared; variation is authored.
 
-The gutter is the single horizontal margin of the site. Full-bleed chapters bleed; everything measured sits inside `px-gutter`. Horizontal rails scroll with `no-scrollbar`; the concierge result tray also sets `scrollPaddingLeft: var(--spacing-gutter)` so a snapped tile lines up with the gutter.
+| Token | Value | Use |
+| --- | --- | --- |
+| `--spacing-gutter` | `clamp(1.25rem, 4vw, 4.5rem)` | `px-gutter`, `inset-x-gutter` — the single horizontal margin of the site |
+| `--content-max` | `none` for now; `1600px` once every surface carries the wrapper | `.wj-content` — the measured width every chapter's content sits within, centred inside the gutter. The card pass's chapters (hero, kinds, gold, diamond, worlds, men and kids, invitation) carry it; the nav, footer, menu overlay and the pinned chapters (craft, study, gate, goldwork, light, bridal, heritage, bespoke) do not yet, and a cap on half a page misaligns the other half on a wide monitor, so the token stays `none` until they do. At 1600px it has no effect below a 1744px viewport. |
+| `--gap` | `clamp(1rem, 1.667vw, 1.5rem)` | the one column gap (24px at 1440, never under 16) — `.wj-grid`, `.wj-cluster`, the worlds' columns |
+| `--gap-y` | `var(--gap)` | the row gap between cards; equal to the column gap so a tray's gutters are square |
+| `--chapter-y` | `clamp(4.5rem, 12svh, 8rem)` | a chapter's padding above and below, and the space between two department rows |
+| `--block-y` | `clamp(2.5rem, 8svh, 5rem)` | the space between a chapter's title block and its tray |
+| `--caption-gap` | `0.875rem` | a caption's distance beneath its plate — the same on every card |
+| `--caption-h` | `4rem` | the height every caption is given, so a row's plates share a baseline whether or not a kind line is present |
+| `--lift` | `6svh` | the one editorial offset a composition may use, at most once per cluster — currently unused; nothing is offset with a negative margin |
+| `--spacing-section` | `clamp(6rem, 12vw, 14rem)` | `py-section` on non-home pages |
+| `--nav-h` | `72px` | `var(--nav-h)` in the nav, the menu overlay, the sticky words column and product page offsets |
+
+**The grid.** `.wj-grid` is one column on a phone and twelve from `md`, with `--gap` between columns; place with `md:col-start-*` / `md:col-span-*`. Every home chapter's title starts on column 1; a chapter's secondary column — the window's line and its rail, the goldwork notes, the concierge examples — starts on column 9. A department row (`DepartmentRow`, `src/components/home/chapters/showcase.tsx`) is the words in columns 1–4 (sticky beside the tray on a screen 800px tall or more) and the tray in columns 5–12; `reverse` mirrors it (tray 1–8, words 9–12), so gold and diamond, men and kids alternate sides the way the chapters alternate ivory and ink. Both are pinned to row 1 (`md:row-start-1`), because grid auto-placement would otherwise drop the tray to a second row when the words come first in the DOM but last in the columns.
+
+**Vertical rhythm.** A chapter is `py-[var(--chapter-y)]`; its title block is followed by `mt-[var(--block-y)]`; inside a tray every gap is `--gap`. Two department rows in one chapter (men, kids) are separated by `--chapter-y` above and below a hairline rule. The pinned chapters (hero, worlds, light, bespoke) keep their own viewport-sized geometry.
+
+**CTAs.** A department's door is the `bracket` Button at the foot of its words column, on column 1 (or column 9 in a reversed row); the window's doors are its rail items and the *Explore* beside the active kind; the concierge's are the ring button and *Write instead* on column 1.
+
+Horizontal rails scroll with `no-scrollbar` (or `.wj-rail` on a phone); the concierge result tray also sets `scrollPaddingLeft: var(--spacing-gutter)` so a snapped tile lines up with the gutter.
 
 Easing and duration tokens (`--ease-out-expo`, `--ease-in-out-quart`, `--ease-silk`, `--ease-luxe`, `--duration-micro|ui|scene|cinema`) are mirrored for JS in `src/lib/motion/easings.ts` as `EASE` and `DUR`; see `MOTION_SYSTEM.md`.
 
@@ -351,9 +366,25 @@ The register is held in `src/data/copy.ts`, `src/concierge/copy.ts` and the conc
 - No counts where a visitor reads. The hero's department doors, the chapter titles, the window's tiles and the kinds lists name what Waseem makes, never how many are in the back; counts stay on the department and category pages, where a visitor is choosing among them.
 - Every claim on a jewellery moment is a plain fact about the piece or what Waseem publishes about it (`src/data/moments.ts`, `src/data/semantic.ts`). "Crafted to endure" is the only line the craft chapter closes on; no "made only once", no "unique".
 
-## 13. The window and the gate
+## 13. The product presentation system, the window and the gate
 
-**The window by kind** (`Ch02Kinds`) is a shop window, not a grid: nine tiles in a twelve-column composition read in three rows, the first kind large and the rest set off one another with offsets of a few svh, so the eye travels. A tile is one kind on one real packshot — the bridal tile on a jewellery-only crop of a suite, never a bride's face — with the kind's name in the display face and *Explore* beside it; a second piece of the kind fades in over the first under the hand or on focus, the tile scales 1.035 over a second, and a hairline sweeps its top edge. Beneath, the piece is named in micro type with its published tag and is a door of its own. A kind the concierge was asked about is lit for a moment with a gold hairline frame (`data-lit`). On a phone the composition stacks to two columns, the first tile spanning both.
+**A card** is `PieceLink` (`src/components/commerce/PieceLink.tsx`): a plate (`.wj-plate`, the photograph's ground) and a caption beneath it (`.wj-caption`). The link registers the piece for the concierge (`useProductVisibility`), carries the FLIP source (`<img data-flip-source="<slug>">` inside the plate) and the VIEW cursor; hover and keyboard focus are a 1.03 scale over 700ms and the hairline along the plate's top edge, nothing more. The caption is the house caption — kind in micro type where the name does not already say it, the name in the display face, the published tag in micro beneath — always left-aligned under the plate at `--caption-gap`, given `--caption-h` so every plate in a row shares a baseline. `captionOf(row)` in `showcase.tsx` builds it from a `PieceRow`; the caption's colour is `currentColor`, so a tray on ink is captioned in ivory without a prop.
+
+**Three scales**, set with `scale="hero" | "editorial" | "standard"` (`data-card` on the link), each fixing the plate's aspect, the packshot's inset and the name's size:
+
+| Scale | Plate | Packshot inset | Name | Where |
+| --- | --- | --- | --- | --- |
+| `hero` | 4/5 (a square is allowed where the frame is the piece's own: the window's plate, the goldwork figure) | 10% | 1.375rem, opsz 22 | one per composition |
+| `editorial` | 4/5 | 12% | 1.0625rem, opsz 16 | the pair beside a hero |
+| `standard` | 1/1 | 14% | 1rem, opsz 14 | the row beneath |
+
+The width is the composition's to give; the scale never sets it. No card is narrower than three columns of the grid it sits in.
+
+**Packshots on pearl.** A packshot (`role: 'packshot'`) always sits on `--color-pearl` — the plate is pearl (`.wj-plate[data-packshot]`) and so is the `.wj-packshot` span the image sits in, which is inset from the plate's edge by the card's `--packshot-inset`; the image is `object-contain` (never cropped) and multiplied into the pearl, so the shop's white grounds never read as cut-outs and every plate in a tray is the same temperature. A frame that sets no inset — the concierge's tiles, the ledger, a product gallery — shows the photograph edge to edge as before. A figure (`SemanticFigure`) resets the inset to zero, because its hotspots are measured on the photograph's own frame. Campaign photography (`campaign`, `macro`) fills its frame `object-cover` and may break the grid; packshots do not.
+
+**The tray** (`PieceCluster`, `.wj-cluster`) is one composition for every department — gold, diamond, men and kids: twelve columns, two rows. The HERO stands in columns 1–6 across both rows as a flex column whose plate takes the height the other four leave it (so its bottom edge is the row's bottom edge, whatever the captions do); two EDITORIAL plates stand in columns 7–9 and 10–12 of the first row; two STANDARD plates stand beneath them in the second. Every plate's bottom and every caption's top share a line. `reverse` mirrors it. On a phone the tray is two columns with the hero across both, then the editorials, then the standards. Slots are `data-slot="hero | editorial-1 | editorial-2 | standard-1 | standard-2"` on the list items; a department with fewer than five qualifying pieces fills the slots it can in reading order.
+
+**The window by kind** (`Ch02Kinds`, section `ch02-kinds`, chapter `vitrine`) is a structured category system, not a board: one square hero plate in columns 1–7 and a rail of every kind in columns 9–12, as tall as the plate so the two close on one line. The plate stacks every kind's packshot on one pearl ground (`.wj-kind-layer`, opacity only, 700ms); a hand or a keyboard focus on a rail item changes the active kind, and the plate crossfades to its piece, the rail's hairline draws beneath its name with *Explore* beside it, and beneath the plate the kind's name in display type (a door to the kind) and the piece's name and tag (a door to the piece) change with it (`stage-word`). The plate itself opens the kind. The rail's order is rings, necklaces, earrings, bangles, bracelets, pendants, chains, bridal sets, cufflinks, where the showcase has them; the bridal kind fronts on a jewellery-only crop of a suite (`kind.image`), never a bride's face. On a phone the rail is a horizontal row beneath the plate's caption; the first tap chooses a kind (the row scrolls it into view), the second opens it — a keyboard's focus chooses, a tap's focus does not. A kind the concierge lights (`highlightedCategory`, `data-lit`) becomes the active kind and is framed in gold for a moment. No counts anywhere.
 
 **The gate** (`Ch03Gate`) is dark ink between the ivory window and the ivory gold chapter: one frame, two materials. Gold beneath (the satlada haar on velvet, `p05-macro`), diamond above (`p07-macro`, the sapphire pendant and its pavé) behind a mask whose edge follows the pointer and breathes ±2.5% at rest. GOLD sits upper-left and DIAMOND lower-right at `clamp(3rem, 8.5vw, 9.5rem)` so they never collide; their weight (`wght` 400–580) and scale follow the split. Each side carries a one-line description, *Enter Gold / Enter Diamond*, and an *In frame* credit naming the piece photographed, which opens the piece. Choosing a side lets it fill the frame, lifts its word, and the curtain carries the visitor into the department. On a phone the split is horizontal and follows the scroll through the chapter; under reduced motion the frame is held at the middle and the two sides are two doors. The studio film is deliberately not used here: its only jewellery-only stretch is under three seconds and the rest is a face.
 

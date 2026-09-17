@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { runtime, type FlipKey } from '@/state/runtime';
 import { useSiteStore } from '@/state/siteStore';
+import { findFlipSource } from '@/lib/motion/transition';
 
 /**
  * Navigates through the TransitionLayer (FLIP when a source image is given, curtain otherwise),
@@ -26,14 +27,24 @@ export function navigateTo(href: string, opts?: { kind?: 'curtain' | 'veil' }) {
   return Promise.resolve();
 }
 
-/** Records the opened product for the concierge and back-link logic. */
+/** `/jewellery/<slug>` → the slug, for doors that name a piece without carrying its photograph. */
+export function productSlugOf(href: string): string | null {
+  const m = /^\/jewellery\/([^/?#]+)/.exec(href);
+  return m ? decodeURIComponent(m[1]!) : null;
+}
+
+/**
+ * Records the opened product for the concierge and back-link logic, and flies its photograph
+ * into the piece's page: the one the door was opened from, or — for a door that is only words,
+ * a name beneath a tile or a credit beside a frame — the piece's image wherever it is on screen.
+ */
 export function useOpenProduct() {
   const go = useFlipNavigate();
   const setLast = useSiteStore((s) => s.setLastOpenedProduct);
   return useCallback(
     (slug: string, sourceEl?: HTMLElement | null) => {
       setLast(slug);
-      go(`/jewellery/${slug}`, sourceEl, 'product-hero');
+      go(`/jewellery/${slug}`, sourceEl ?? findFlipSource(slug), 'product-hero');
     },
     [go, setLast],
   );

@@ -84,13 +84,13 @@ export function Ch05Light({ suite }: { suite?: PieceRow }) {
 
   return (
     <section ref={ref} id="ch05-light" className="relative bg-ink text-ivory md:h-svh md:overflow-hidden" aria-labelledby="light-title">
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-8 md:absolute md:inset-x-0 md:top-0 md:pt-[calc(var(--nav-h)+1.25rem)]">
+      <div className="wj-row relative z-10 flex items-start justify-between px-gutter pt-8 md:absolute md:inset-x-0 md:top-0 md:pt-[calc(var(--nav-h)+1.25rem)]">
         <p className="micro text-champagne">{COPY.light.eyebrow}</p>
         <p className="micro hidden text-ivory/50 md:block">{suite.t}</p>
       </div>
 
       {/* desktop: the words at the left, the suite at the right, one pin */}
-      <div className="hidden h-full grid-cols-12 items-center gap-x-[4vw] px-gutter pt-[calc(var(--nav-h)+3.5rem)] pb-[6svh] md:grid">
+      <div className="hidden h-full wj-row grid-cols-12 items-center gap-x-[var(--gap)] px-gutter pt-[calc(var(--nav-h)+3.5rem)] pb-[6svh] md:grid">
         <div className="col-span-5 flex flex-col gap-7">
           <h2 id="light-title" className="display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] text-ivory [text-wrap:balance]">
             {COPY.light.title}
@@ -117,7 +117,7 @@ export function Ch05Light({ suite }: { suite?: PieceRow }) {
       </div>
 
       {/* a phone: stacked, the frame reads as it travels, with its captions inside */}
-      <div className="flex flex-col gap-8 px-gutter pb-16 pt-8 md:hidden">
+      <div className="wj-row flex flex-col gap-8 px-gutter pb-16 pt-8 md:hidden">
         <div className="flex flex-col gap-4">
           <h2 className="display text-[2.25rem] leading-[1.04] text-ivory">{COPY.light.title}</h2>
           <p className="max-w-[30em] text-[0.9375rem] leading-relaxed text-ivory/70">{COPY.light.line}</p>

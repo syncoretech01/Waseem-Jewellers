@@ -84,6 +84,8 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
     const video = el.current;
     if (!video) return;
     return () => {
+      // StrictMode runs this on a mounted element too: only a detached video may lose its sources, or React fails to remove them itself later
+      if (video.isConnected) return;
       for (const source of [...video.querySelectorAll('source')]) source.remove();
       video.removeAttribute('src');
       video.load();

@@ -1,7 +1,9 @@
 'use client';
 
-import { PieceLink } from '@/components/commerce/PieceLink';
+import { PieceLink, type CardScale, type PieceCaption } from '@/components/commerce/PieceLink';
 import { TransitionLink } from '@/components/motion/TransitionLink';
+import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/ui/primitives';
 import { pieceRefOf } from '@/data/clientIndex';
 import type { PieceRow, ShowcaseDepartment } from '@/lib/facets';
 import { CATEGORY_LABEL } from '@/data/labels';
@@ -23,47 +25,126 @@ export function kindOf(r: PieceRow): string {
   return named ? '' : kind;
 }
 
+/** The house caption for a row: kind where the name needs it, the name, the published tag. */
+export function captionOf(r: PieceRow): PieceCaption {
+  return {
+    kind: kindOf(r) || undefined,
+    name: r.t,
+    tag: tagOf(r) || undefined,
+  };
+}
+
 /**
- * The pieces a department chapter puts forward: one large plate and four beside it, set off
- * one another. The same five positions serve gold, diamond, men and kids, so the departments
- * read as one shop with different trays rather than four designs.
+ * The tray's five positions, in reading order. One HERO across both rows, two EDITORIAL
+ * beside it, two STANDARD beneath those — the composition is in src/styles/cards.css and is
+ * the same in gold, diamond, men and kids, so the departments read as one shop with
+ * different trays rather than four designs.
  */
-export function PieceCluster({ rows, tone = 'ink', reverse = false }: { rows: PieceRow[]; tone?: 'ink' | 'ivory'; reverse?: boolean }) {
-  const [lead, ...rest] = rows;
-  if (!lead) return null;
-  const fg = tone === 'ink' ? 'text-ink' : 'text-ivory';
-  const muted = tone === 'ink' ? 'text-ink/50' : 'text-ivory/50';
-  const hover = tone === 'ink' ? 'group-hover/piece:text-ink' : 'group-hover/piece:text-ivory';
-  const label = (row: PieceRow, size: 'lg' | 'sm') => (
-    <div className="mt-3 flex flex-col gap-1 md:mt-4">
-      {kindOf(row) && <p className={cn('micro', muted)}>{kindOf(row)}</p>}
-      <p className={cn('font-display leading-tight', fg, size === 'lg' ? 'text-[1.25rem] md:text-[1.375rem]' : 'text-[1rem]')} style={{ fontVariationSettings: size === 'lg' ? '"opsz" 22' : '"opsz" 14' }}>
-        {row.t}
-      </p>
-      <p className={cn('micro', muted, hover, 'transition-colors')}>{tagOf(row)}</p>
-    </div>
-  );
+const SLOTS: { slot: string; scale: CardScale; sizes: string }[] = [
+  { slot: 'hero', scale: 'hero', sizes: '(min-width: 768px) 30vw, 92vw' },
+  {
+    slot: 'editorial-1',
+    scale: 'editorial',
+    sizes: '(min-width: 768px) 15vw, 46vw',
+  },
+  {
+    slot: 'editorial-2',
+    scale: 'editorial',
+    sizes: '(min-width: 768px) 15vw, 46vw',
+  },
+  {
+    slot: 'standard-1',
+    scale: 'standard',
+    sizes: '(min-width: 768px) 15vw, 46vw',
+  },
+  {
+    slot: 'standard-2',
+    scale: 'standard',
+    sizes: '(min-width: 768px) 15vw, 46vw',
+  },
+];
+
+/** The pieces a department chapter puts forward, on the tray every department shares. */
+export function PieceCluster({ rows, reverse = false, label = 'Pieces' }: { rows: PieceRow[]; reverse?: boolean; label?: string }) {
+  const shown = rows.slice(0, SLOTS.length);
+  if (shown.length === 0) return null;
   return (
-    <div className="grid grid-cols-2 gap-x-[4vw] gap-y-8 md:grid-cols-12 md:gap-x-[2vw] md:gap-y-[5svh]">
-      <div className={cn('col-span-2 md:col-span-6 md:row-start-1', reverse ? 'md:col-start-7' : 'md:col-start-1')} data-rise>
-        <PieceLink product={pieceRefOf(lead)} sizes="(min-width: 768px) 30vw, 92vw" aspect="4 / 5" cursor="view">
-          {label(lead, 'lg')}
-        </PieceLink>
-      </div>
-      <ul className={cn('col-span-2 grid grid-cols-2 gap-x-[4vw] gap-y-8 md:col-span-6 md:row-start-1 md:gap-x-[2vw] md:gap-y-[4svh]', reverse ? 'md:col-start-1' : 'md:col-start-7')} aria-label="More pieces">
-        {rest.slice(0, 4).map((row, i) => (
-          <li key={row.s} className={cn(i % 2 === 1 && 'md:mt-[8svh]')} data-rise>
-            <PieceLink product={pieceRefOf(row)} sizes="(min-width: 768px) 16vw, 44vw" aspect="1 / 1" cursor="view">
-              {label(row, 'sm')}
-            </PieceLink>
+    <ul className="wj-cluster" data-reverse={reverse ? '' : undefined} aria-label={label}>
+      {shown.map((row, i) => {
+        const { slot, scale, sizes } = SLOTS[i]!;
+        return (
+          <li key={row.s} data-slot={slot} data-rise>
+            {/* the hero stands across both rows: a column whose plate takes the height the other four leave it */}
+            <PieceLink product={pieceRefOf(row)} sizes={sizes} scale={scale} caption={captionOf(row)} cursor="view" className={scale === 'hero' ? 'md:flex md:h-full md:flex-col' : undefined} />
           </li>
-        ))}
-      </ul>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * A department, as every department chapter shows one: the words in four columns — eyebrow,
+ * title, line, the kinds, the door — and the tray in the other eight. The words stand still
+ * beside the tray on a tall enough screen. `reverse` puts the tray first, so gold and diamond,
+ * men and kids alternate sides the way the chapters alternate ink and ivory. On a phone the
+ * title leads, the pieces follow, the kinds and the door close.
+ */
+export function DepartmentRow({
+  department,
+  copy,
+  href,
+  tone = 'ink',
+  reverse = false,
+  titleId,
+  level = 'h2',
+  kindsHeading,
+}: {
+  department: ShowcaseDepartment;
+  copy: { eyebrow: string; title: string; line: string; cta: string };
+  href: string;
+  tone?: 'ink' | 'ivory';
+  reverse?: boolean;
+  titleId: string;
+  level?: 'h2' | 'h3';
+  kindsHeading: string;
+}) {
+  const Title = level;
+  const fg = tone === 'ink' ? 'text-ink' : 'text-ivory';
+  const muted = tone === 'ink' ? 'text-ink/70' : 'text-ivory/70';
+  const eyebrow = tone === 'ink' ? 'text-ink/60' : 'text-champagne';
+  return (
+    <div className="wj-grid md:items-start">
+      {/* the words, the kinds, the door */}
+      <div className={cn('contents md:top-[calc(var(--nav-h)+4svh)] md:col-span-4 md:flex md:flex-col md:gap-9 md:row-start-1 md:[@media(min-height:800px)]:sticky', reverse ? 'md:col-start-9' : 'md:col-start-1')}>
+        <div className="order-1 flex flex-col gap-4 md:order-none">
+          <Eyebrow className={eyebrow}>{copy.eyebrow}</Eyebrow>
+          <Title id={titleId} data-split className={cn('display max-w-[9em] text-[clamp(2rem,3.6vw,3.75rem)] leading-[1.04] opacity-0 [text-wrap:balance]', fg)}>
+            {copy.title}
+          </Title>
+          <p className={cn('max-w-[28em] text-[0.9375rem] leading-relaxed', muted)} data-rise>
+            {copy.line}
+          </p>
+        </div>
+        <div className="order-3 md:order-none">
+          <KindsList department={department} tone={tone} heading={kindsHeading} />
+        </div>
+        <div className="order-4 md:order-none" data-rise>
+          <Button variant="bracket" href={href} cursor="explore">
+            {copy.cta}
+          </Button>
+        </div>
+      </div>
+
+      {/* the pieces */}
+      <div className={cn('order-2 md:order-none md:col-span-8 md:row-start-1', reverse ? 'md:col-start-1' : 'md:col-start-5')}>
+        <PieceCluster rows={department.rows} reverse={reverse} label={`${department.label} — pieces`} />
+      </div>
     </div>
   );
 }
 
-/** The kinds a department is made of, counted — each a door into that kind. */
+/** The kinds a department is made of — each a door into that kind. */
 export function KindsList({ department, tone = 'ink', heading }: { department: ShowcaseDepartment; tone?: 'ink' | 'ivory'; heading: string }) {
   if (department.categories.length === 0) return null;
   const fg = tone === 'ink' ? 'text-ink' : 'text-ivory';

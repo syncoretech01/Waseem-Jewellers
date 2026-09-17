@@ -42,7 +42,8 @@
     "secret:scan": "node scripts/dev/secret-scan.mjs",
     "assets:variants": "node scripts/assets/variants.mjs",
     "ring:check": "node scripts/dev/ring-check.mjs",
-    "bespoke:check": "node scripts/dev/bespoke-check.mjs"
+    "bespoke:check": "node scripts/dev/bespoke-check.mjs",
+    "flip:check": "node scripts/dev/flip-check.mjs"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",

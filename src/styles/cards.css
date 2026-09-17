@@ -1,1 +1,320 @@
-/* The product presentation system: the three card scales and the shared layout discipline. Owned by the card-system pass; imported by globals.css. */
+/*
+  The product presentation system and the layout discipline it sits in.
+  Imported by globals.css after Tailwind; documented in DESIGN_SYSTEM.md §5 and §13.
+
+  Structure is shared — one gutter, one content width, one twelve-column grid, one gap, one
+  caption offset — and variation is authored: three card scales, one composition per tray,
+  one named lift. Nothing is offset with a negative margin.
+*/
+
+@layer components {
+  /* ── the layout discipline ─────────────────────────────────────────────── */
+  :root {
+    /* the measured width every chapter's content sits within; the gutter is outside it. The
+       chapters of the card pass carry .wj-content; the nav, the footer, the menu and the pinned
+       chapters do not yet, and a cap on half a page misaligns the other half on a wide monitor —
+       so the cap is `none` until every surface carries the wrapper, and 1600px then. */
+    --content-max: 1600px;
+    /* the one column gap — 24px at 1440, never under 16 */
+    --gap: clamp(1rem, 1.667vw, 1.5rem);
+    /* the one row gap between cards; equal to the column gap so a tray's gutters are square */
+    --gap-y: var(--gap);
+    /* the space a chapter keeps above and below itself, and between its title block and its tray */
+    --chapter-y: clamp(4.5rem, 12svh, 8rem);
+    --block-y: clamp(2.5rem, 8svh, 5rem);
+    /* the caption's distance beneath its plate, and the height every caption is given so a row's plates share a baseline */
+    --caption-gap: 0.875rem;
+    --caption-h: 4rem;
+    /* the one editorial offset a composition may use, at most once */
+    --lift: 6svh;
+  }
+
+  /* the content box: gutter outside, a shared maximum inside */
+  .wj-content {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+  /* a padded row that carries no background may cap itself: the same maximum, the gutter included */
+  .wj-row {
+    max-width: calc(var(--content-max) + 2 * var(--spacing-gutter));
+    margin-inline: auto;
+  }
+
+  /* the twelve-column grid — one column on a phone, twelve from md; place with col-start/col-span utilities */
+  .wj-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: var(--gap);
+    row-gap: var(--gap-y);
+  }
+  @media (min-width: 768px) {
+    .wj-grid {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+  }
+
+  /* ── the three card scales ─────────────────────────────────────────────────
+   A card is a link: a plate (the photograph on pearl) and a caption beneath it. The scale
+   sets the plate's aspect, the packshot's inset from the plate's edge, and the name's size;
+   the width is the composition's to give. HERO 4/5, EDITORIAL 4/5, STANDARD 1/1. */
+  [data-card] {
+    --packshot-inset: 12%;
+    --card-name: 1rem;
+    --card-opsz: 14;
+  }
+  [data-card="hero"] {
+    --packshot-inset: 10%;
+    --card-name: 1.375rem;
+    --card-opsz: 22;
+  }
+  [data-card="editorial"] {
+    --packshot-inset: 12%;
+    --card-name: 1.0625rem;
+    --card-opsz: 16;
+  }
+  [data-card="standard"] {
+    --packshot-inset: 14%;
+    --card-name: 1rem;
+    --card-opsz: 14;
+  }
+
+  /* the plate: the photograph's ground. A scene waits on the warm plate; a packshot sits on pearl.
+   Position and width are the component's (a plate may fill its box), so they are not set here. */
+  .wj-plate {
+    overflow: hidden;
+    background: var(--plate);
+  }
+  .wj-plate[data-packshot] {
+    background: var(--color-pearl);
+  }
+  [data-card="hero"] > .wj-plate,
+  [data-card="editorial"] > .wj-plate {
+    aspect-ratio: 4 / 5;
+  }
+  [data-card="standard"] > .wj-plate {
+    aspect-ratio: 1 / 1;
+  }
+
+  /* the packshot's pearl, inset from the plate's edge by the card's scale so the jewellery keeps a
+   consistent distance from the frame; a plate that sets no inset shows the photograph edge to edge */
+  .wj-packshot {
+    position: absolute;
+    inset: var(--packshot-inset, 0);
+    display: block;
+    background: var(--color-pearl);
+  }
+
+  /* the caption: kind in micro, name in the display face, tag in micro — left-aligned beneath the
+   plate at one offset, and never shorter than the height a row's plates need to share a baseline */
+  .wj-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: var(--caption-gap);
+    min-height: var(--caption-h);
+    text-align: left;
+  }
+  .wj-caption-kind,
+  .wj-caption-tag {
+    font-family: var(--font-sans);
+    font-size: var(--text-micro);
+    letter-spacing: var(--tracking-micro);
+    text-transform: uppercase;
+    color: color-mix(in oklab, currentColor 55%, transparent);
+    transition: color 500ms var(--ease-silk);
+  }
+  .wj-caption-name {
+    font-family: var(--font-display);
+    font-size: var(--card-name);
+    line-height: 1.2;
+    font-variation-settings: "opsz" var(--card-opsz);
+    color: currentColor;
+  }
+  .group\/piece:hover .wj-caption-tag,
+  .group\/piece:focus-visible .wj-caption-tag {
+    color: currentColor;
+  }
+
+  /* ── the tray: one composition for every department ────────────────────────
+   Twelve columns, two rows. The HERO stands in columns 1–6 across both rows and fills the height
+   the other four give it; two EDITORIAL plates stand beside it in the first row, two STANDARD
+   plates beneath them in the second, so every plate's bottom edge and every caption share a
+   line. The reverse variant mirrors it. On a phone: two columns, the hero across both. */
+  .wj-cluster {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--gap);
+    row-gap: var(--gap-y);
+    align-items: start;
+  }
+  .wj-cluster > [data-slot="hero"] {
+    grid-column: 1 / -1;
+  }
+  @media (min-width: 768px) {
+    .wj-cluster {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-template-rows: auto auto;
+    }
+    .wj-cluster > [data-slot="hero"] {
+      grid-column: 1 / 7;
+      grid-row: 1 / 3;
+      align-self: stretch;
+    }
+    .wj-cluster > [data-slot="editorial-1"] {
+      grid-column: 7 / 10;
+      grid-row: 1;
+    }
+    .wj-cluster > [data-slot="editorial-2"] {
+      grid-column: 10 / 13;
+      grid-row: 1;
+    }
+    .wj-cluster > [data-slot="standard-1"] {
+      grid-column: 7 / 10;
+      grid-row: 2;
+    }
+    .wj-cluster > [data-slot="standard-2"] {
+      grid-column: 10 / 13;
+      grid-row: 2;
+    }
+    .wj-cluster[data-reverse] > [data-slot="hero"] {
+      grid-column: 7 / 13;
+    }
+    .wj-cluster[data-reverse] > [data-slot="editorial-1"],
+    .wj-cluster[data-reverse] > [data-slot="standard-1"] {
+      grid-column: 1 / 4;
+    }
+    .wj-cluster[data-reverse] > [data-slot="editorial-2"],
+    .wj-cluster[data-reverse] > [data-slot="standard-2"] {
+      grid-column: 4 / 7;
+    }
+    /* the hero fills both rows: the link is a column (md:flex md:h-full md:flex-col, set by the tray) and its plate takes the height left over its caption */
+    .wj-cluster > [data-slot="hero"] > [data-card] > .wj-plate {
+      flex: 1 1 auto;
+      min-height: 0;
+      aspect-ratio: auto;
+    }
+  }
+
+  /* ── the window by kind: one plate, and a rail of kinds ───────────────────
+   The active kind's packshot is one of several layers stacked on one pearl plate; only opacity
+   moves, and only here — the layers carry no transform, so the plate's hover scale on the
+   stack above them is the other writer's. */
+  .wj-kind-layer {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 700ms var(--ease-silk);
+  }
+  .wj-kind-layer[data-active="1"] {
+    opacity: 1;
+  }
+  /* the rail: a column of kinds from md; a row that scrolls on a phone */
+  .wj-rail {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .wj-rail::-webkit-scrollbar {
+    display: none;
+  }
+  .wj-rail > li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+  @media (min-width: 768px) {
+    .wj-rail {
+      flex-direction: column;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+    .wj-rail > li {
+      flex: initial;
+    }
+  }
+  /* a rail item: the kind's name, a hairline that draws beneath the active one, and Explore beside it */
+  .wj-rail-item {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    width: 100%;
+    padding-block: 0.625rem;
+    padding-inline-end: 1.25rem;
+    color: currentColor;
+    transition: opacity 500ms var(--ease-silk);
+    opacity: 0.58;
+  }
+  .wj-rail-item[aria-current="true"],
+  .wj-rail-item:hover,
+  .wj-rail-item:focus-visible {
+    opacity: 1;
+  }
+  .wj-rail-item > .wj-rail-name {
+    position: relative;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.6vw, 1.625rem);
+    line-height: 1.1;
+    font-variation-settings: "opsz" 24;
+    white-space: nowrap;
+  }
+  .wj-rail-item > .wj-rail-name::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: -0.2em;
+    height: 1px;
+    background: var(--gold-hairline);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 700ms var(--ease-out-expo);
+  }
+  .wj-rail-item[aria-current="true"] > .wj-rail-name::after {
+    transform: scaleX(1);
+  }
+  /* Explore beside the active kind — from md only; in the phone's row the hairline marks it */
+  .wj-rail-item > .wj-rail-go {
+    display: none;
+    flex: 0 0 auto;
+    opacity: 0;
+    transition: opacity 500ms var(--ease-silk);
+  }
+  .wj-rail-item[aria-current="true"] > .wj-rail-go {
+    opacity: 1;
+  }
+  @media (min-width: 768px) {
+    .wj-rail-item {
+      padding-inline-end: 0;
+      border-bottom: 1px solid
+        color-mix(in oklab, currentColor 10%, transparent);
+    }
+    .wj-rail-item > .wj-rail-go {
+      display: block;
+    }
+  }
+  /* a kind the concierge was asked about is lit for a moment */
+  .wj-rail-item[data-lit="1"] > .wj-rail-name {
+    color: var(--color-gold-deep);
+  }
+
+  /* ── the one thing that stops ─────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .wj-kind-layer,
+    .wj-rail-item,
+    .wj-rail-item > .wj-rail-name::after,
+    .wj-rail-item > .wj-rail-go,
+    .wj-caption-kind,
+    .wj-caption-tag {
+      transition: none;
+    }
+  }
+  html[data-rm="1"] .wj-kind-layer,
+  html[data-rm="1"] .wj-rail-item,
+  html[data-rm="1"] .wj-rail-item > .wj-rail-name::after,
+  html[data-rm="1"] .wj-rail-item > .wj-rail-go {
+    transition: none;
+  }
+}

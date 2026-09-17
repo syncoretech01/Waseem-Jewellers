@@ -24,7 +24,8 @@ interface OpeningProps {
 export function CollectionOpening({ collection, still }: OpeningProps) {
   const { ref, ready } = useChapter({ id: 'collection-opening', theme: 'dark', pinned: true });
   const scope = useRef<HTMLDivElement>(null);
-  const flipTarget = useFlipTarget<HTMLDivElement>('collection-hero');
+  // the still changes with ?world=, and the same instance serves every world: the still is the report's key
+  const flipTarget = useFlipTarget<HTMLDivElement>('collection-hero', `${collection.slug}:${still}`);
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
 
   useGSAP(

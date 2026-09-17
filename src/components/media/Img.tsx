@@ -59,9 +59,15 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
   // White-background packshots sit on a pearl tile and multiply into it, so they never read as catalogue cut-outs.
   const packshot = asset.role === 'packshot';
   const blend = packshot ? ({ mixBlendMode: 'multiply' } as const) : undefined;
+  /**
+   * A packshot sits on a pearl plate inset from the frame's edge by `--packshot-inset`, which
+   * the card around it sets by its scale (src/styles/cards.css) — a frame that sets none shows
+   * the photograph edge to edge, as the concierge's tiles do. The plate is the same pearl on
+   * every card, so a tray never changes temperature from one piece to the next.
+   */
   if (packshot && fill) {
     return (
-      <span className="absolute inset-0 block bg-pearl" aria-hidden={alt === ''}>
+      <span className="wj-packshot" aria-hidden={alt === ''}>
         <Image
           src={src}
           alt={alt ?? asset.alt}
@@ -125,7 +131,7 @@ export function Img({ id, image, sizes, className, fill = true, priority, qualit
         {...dataAttrs}
       />
     );
-    return packshot && fill ? <span className="absolute inset-0 block bg-pearl">{img}</span> : img;
+    return packshot && fill ? <span className="wj-packshot">{img}</span> : img;
   }
 
   if (fill) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Img } from '@/components/media/Img';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { pieceRefOf } from '@/data/clientIndex';
@@ -8,70 +8,70 @@ import { Eyebrow } from '@/components/ui/primitives';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useProductVisibility } from '@/motion/hooks/useProductVisibility';
+import { useQualityStore } from '@/state/qualityStore';
 import { useSiteStore } from '@/state/siteStore';
 import { COPY } from '@/data/copy';
 import type { ShowcaseCategory } from '@/lib/facets';
 import { tagOf } from './showcase';
 import { cn } from '@/lib/cn';
 
+/** The order a jeweller lays a window: rings first, then what is worn at the neck, the ear, the wrist, and the rest. */
+const ORDER = ['ring', 'necklace', 'earrings', 'bangle', 'bracelet', 'pendant', 'chain', 'bridal-set', 'cufflink'];
+
+/** the one plate spans seven of twelve columns */
+const PLATE_SIZES = '(min-width: 768px) 54vw, 92vw';
+
 /**
- * Nine places in a twelve-column composition, read in three rows: the first kind large, the
- * rest set off one another so the eye travels. Bridal sets stand as a portrait; every other
- * kind is a piece on pearl. The asymmetry is the point — this is a shop window, not a grid.
+ * The plate: every kind's packshot stacked on one pearl ground, the active one shown. Only
+ * opacity changes between them (src/styles/cards.css), so a change of kind is a crossfade on
+ * one plate rather than a new plate. The plate is the door into the kind; the piece it shows
+ * is named beneath and has a door of its own. The bridal kind fronts on a jewellery-only crop
+ * of a suite, never a bride's face.
  */
-const SLOTS = [
-  { col: 'md:col-start-1 md:col-span-5', aspect: '4 / 5', offset: '', size: 'lg', sizes: '(min-width: 768px) 40vw, 92vw' },
-  { col: 'md:col-start-7 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[9svh]', size: 'sm', sizes: '(min-width: 768px) 24vw, 46vw' },
-  { col: 'md:col-start-10 md:col-span-3', aspect: '4 / 5', offset: 'md:mt-[2svh]', size: 'sm', sizes: '(min-width: 768px) 24vw, 46vw' },
-  { col: 'md:col-start-2 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[6svh]', size: 'sm', sizes: '(min-width: 768px) 24vw, 46vw' },
-  { col: 'md:col-start-5 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[5svh]', size: 'md', sizes: '(min-width: 768px) 32vw, 46vw' },
-  { col: 'md:col-start-10 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[11svh]', size: 'sm', sizes: '(min-width: 768px) 24vw, 46vw' },
-  { col: 'md:col-start-1 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[7svh]', size: 'md', sizes: '(min-width: 768px) 32vw, 46vw' },
-  { col: 'md:col-start-6 md:col-span-3', aspect: '1 / 1', offset: 'md:mt-[1svh]', size: 'sm', sizes: '(min-width: 768px) 24vw, 46vw' },
-  { col: 'md:col-start-9 md:col-span-4', aspect: '4 / 5', offset: 'md:mt-[3svh]', size: 'md', sizes: '(min-width: 768px) 32vw, 46vw' },
-];
-
-/** The order a jeweller lays a window: the heavy gold and the rings first, the stones and the small things after. */
-const ORDER = ['ring', 'necklace', 'earrings', 'bangle', 'bridal-set', 'pendant', 'bracelet', 'chain', 'cufflink'];
-
-function KindTile({ kind, slot, lit }: { kind: ShowcaseCategory; slot: (typeof SLOTS)[number]; lit: boolean }) {
-  // the piece on the tile is a piece in view for the concierge, though the tile itself opens the kind
-  const ref = useProductVisibility<HTMLLIElement>(kind.hero.s);
-  const hero = pieceRefOf(kind.hero);
-  const alt = kind.alt ? pieceRefOf(kind.alt) : null;
+function KindPlate({ kinds, active, lit }: { kinds: ShowcaseCategory[]; active: ShowcaseCategory; lit: boolean }) {
+  // the piece on the plate is a piece in view for the concierge, though the plate itself opens the kind
+  const ref = useProductVisibility<HTMLDivElement>(active.hero.s);
   return (
-    <li ref={ref} className={cn('col-span-1', slot.col, slot.offset, slot.size === 'lg' && 'col-span-2')} data-rise data-kind={kind.category} data-lit={lit ? '1' : '0'}>
-      <TransitionLink href={kind.href} className="group/kind relative block" data-cursor="explore" aria-label={`${kind.label} — explore`}>
-        <div className="relative w-full overflow-hidden bg-bg-2" style={{ aspectRatio: slot.aspect }}>
-          {/* the piece, drawn a little closer under the hand — and a second piece of the kind surfacing beneath it */}
-          <div className="absolute inset-0 transition-transform duration-1000 ease-[var(--ease-out-expo)] group-hover/kind:scale-[1.035] group-focus-visible/kind:scale-[1.035]">
-            <div className="absolute inset-0">
-              {kind.image ? <Img id={kind.image} sizes={slot.sizes} plain className="h-full w-full object-cover" /> : <Img image={hero.media.hero} sizes={slot.sizes} plain />}
+    <>
+      <div ref={ref} className="md:col-span-7 md:row-start-1" data-kind={active.category} data-lit={lit ? '1' : '0'} data-rise>
+        <TransitionLink href={active.href} className="group/kind relative block" data-card="hero" data-cursor="explore" aria-label={`${active.label} — ${COPY.window.explore}`}>
+          {/* a square hero: the shop photographs every piece square, and the window is the one place a piece is shown at its own frame */}
+          <div className="wj-plate relative w-full" data-packshot="" style={{ aspectRatio: '1 / 1' }}>
+            <div className="absolute inset-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/kind:scale-[1.03] group-focus-visible/kind:scale-[1.03]">
+              {kinds.map((kind, i) => {
+                const on = kind.category === active.category;
+                return (
+                  <div key={kind.category} className="wj-kind-layer" data-active={on ? '1' : '0'} aria-hidden={!on}>
+                    {kind.image ? (
+                      <Img id={kind.image} sizes={PLATE_SIZES} plain alt="" eager={i === 0} className="h-full w-full object-cover" data={{ 'flip-source': kind.hero.s }} />
+                    ) : (
+                      <Img image={pieceRefOf(kind.hero).media.hero} sizes={PLATE_SIZES} plain alt="" eager={i === 0} data={{ 'flip-source': kind.hero.s }} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            {/* a packshot carries its own pearl plate, so the second piece fades in as a whole layer over the first */}
-            {alt && (
-              <div className="absolute inset-0 opacity-0 transition-opacity duration-700 group-hover/kind:opacity-100 group-focus-visible/kind:opacity-100" aria-hidden>
-                <Img image={alt.media.hero} sizes={slot.sizes} plain alt="" />
-              </div>
-            )}
+            <span aria-hidden className="hairline absolute inset-x-0 top-0 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/kind:scale-x-100 group-focus-visible/kind:scale-x-100" />
+            {/* a kind the concierge was asked about is lit for a moment */}
+            <span aria-hidden className={cn('pointer-events-none absolute inset-0 border border-gold-hi transition-opacity duration-700', lit ? 'opacity-100' : 'opacity-0')} />
           </div>
-          <span aria-hidden className="hairline absolute inset-x-0 top-0 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/kind:scale-x-100 group-focus-visible/kind:scale-x-100" />
-          {/* a kind the concierge was asked about is lit for a moment */}
-          <span aria-hidden className={cn('pointer-events-none absolute inset-0 border border-gold-hi transition-opacity duration-700', lit ? 'opacity-100' : 'opacity-0')} />
-        </div>
-        <div className="mt-4 flex items-baseline justify-between gap-4">
-          <span className={cn('display leading-none text-ink transition-colors group-hover/kind:text-gold-deep', slot.size === 'lg' ? 'text-[clamp(2rem,3.4vw,3.5rem)]' : 'text-[clamp(1.5rem,2.2vw,2.25rem)]')}>{kind.label}</span>
-          <span className={cn('micro shrink-0 text-ink/45 transition-colors group-hover/kind:text-ink', slot.size !== 'lg' && 'max-md:hidden')}>{COPY.window.explore}</span>
-        </div>
-      </TransitionLink>
-      {/* the piece on the tile, named, and a door of its own */}
-      <p className="micro mt-2 flex flex-wrap items-baseline gap-x-3 text-ink/55">
-        <TransitionLink href={`/jewellery/${kind.hero.s}`} className="transition-colors hover:text-ink" data-cursor="view">
-          {kind.hero.t}
         </TransitionLink>
-        {tagOf(kind.hero) && <span>{tagOf(kind.hero)}</span>}
-      </p>
-    </li>
+      </div>
+
+      {/* beneath the plate, at the caption's offset: the kind, named large, and the piece shown, named as a piece — each a door */}
+      <div className="wj-caption gap-3 md:col-span-7 md:col-start-1 md:row-start-2 md:flex-row md:items-end md:justify-between md:gap-6" data-rise>
+        <TransitionLink key={`kind-${active.category}`} href={active.href} className="stage-word group/door flex items-baseline gap-4" data-cursor="explore">
+          <span className="display text-[clamp(1.75rem,2.6vw,2.75rem)] leading-none text-ink transition-colors group-hover/door:text-gold-deep">{active.label}</span>
+          <span className="micro text-ink/45 transition-colors group-hover/door:text-ink">{COPY.window.explore}</span>
+        </TransitionLink>
+        <TransitionLink key={`piece-${active.hero.s}`} href={`/jewellery/${active.hero.s}`} className="stage-word group/piece flex flex-col gap-1 md:items-end md:text-right" data-cursor="view">
+          <span className="wj-caption-name" style={{ '--card-name': '1.0625rem', '--card-opsz': 16 } as CSSProperties}>
+            {active.hero.t}
+          </span>
+          {tagOf(active.hero) && <span className="wj-caption-tag">{tagOf(active.hero)}</span>}
+        </TransitionLink>
+      </div>
+    </>
   );
 }
 
@@ -79,25 +79,61 @@ function KindTile({ kind, slot, lit }: { kind: ShowcaseCategory; slot: (typeof S
  * CH02 — the collection, by kind.
  *
  * The first thing after the film is what a jeweller keeps in the glass, arranged the way a
- * visitor thinks: rings, necklaces, earrings, bangles. Every tile is one kind, shown on one of
- * its pieces photographed as a piece, and is the door into that kind; the piece itself is
- * named beneath and has a door of its own. A second piece of the kind surfaces under the hand.
- * No counts: a window says what is made, not how many are in the back.
+ * visitor thinks: one plate, and beside it the kinds. The plate shows the active kind on one
+ * of its pieces photographed as a piece; a hand or a focus on a kind in the rail changes what
+ * the plate shows, and choosing one opens it. On a phone the rail is a row beneath the plate
+ * and a tap chooses the kind before a second tap opens it. No counts: a window says what is
+ * made, not how many are in the back.
  */
 export function Ch02Kinds({ kinds }: { kinds: ShowcaseCategory[] }) {
   const { ref } = useChapter({ id: 'vitrine', theme: 'ivory' });
   const scope = useRef<HTMLDivElement>(null);
   const highlighted = useSiteStore((s) => (s as unknown as { highlightedCategory?: string | null }).highlightedCategory ?? null);
-  useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.07 });
+  const coarse = useQualityStore((s) => s.coarse);
+  const reduced = useQualityStore((s) => s.tier === 'REDUCED');
+  useSplitReveal(scope, {
+    selector: '[data-split]',
+    type: 'lines',
+    stagger: 0.07,
+  });
   useRise(scope);
   const byKind = new Map(kinds.map((k) => [k.category, k]));
-  const tiles = ORDER.map((c) => byKind.get(c)).filter((k): k is ShowcaseCategory => Boolean(k)).slice(0, SLOTS.length);
-  if (tiles.length === 0) return null;
+  const rail = ORDER.map((c) => byKind.get(c)).filter((k): k is ShowcaseCategory => Boolean(k));
+  const [chosen, setChosen] = useState<string | null>(null);
+  // a kind the concierge lights is the kind the plate shows — taken in the render that first sees it, not an effect after it
+  const [lastLit, setLastLit] = useState<string | null>(null);
+  if (highlighted !== lastLit) {
+    setLastLit(highlighted);
+    if (highlighted && kinds.some((k) => k.category === highlighted)) setChosen(highlighted);
+  }
+  const active = rail.find((k) => k.category === chosen) ?? rail[0];
+  const railRef = useRef<HTMLUListElement>(null);
+
+  // on a phone the rail is a row: the chosen kind is brought into it, and only the row moves — never the page
+  useEffect(() => {
+    const rail = railRef.current;
+    const item = rail?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!rail || !item || rail.scrollWidth <= rail.clientWidth) return;
+    const left = item.offsetLeft - (rail.clientWidth - item.offsetWidth) / 2;
+    rail.scrollTo({ left: Math.max(0, left), behavior: reduced ? 'auto' : 'smooth' });
+  }, [active?.category, reduced]);
+
+  if (!active) return null;
+
+  // on a touch screen the first tap chooses the kind and the second opens it; a pointer has hover for that
+  const tap = (kind: ShowcaseCategory) => (e: MouseEvent<HTMLAnchorElement>) => {
+    const type = (e.nativeEvent as Partial<PointerEvent>).pointerType;
+    const touch = type === 'touch' || (type === undefined && coarse);
+    if (touch && kind.category !== active.category) {
+      e.preventDefault();
+      setChosen(kind.category);
+    }
+  };
 
   return (
-    <section ref={ref} id="ch02-kinds" data-theme="ivory" className="relative bg-ivory px-gutter pb-[9svh] pt-[10svh] text-ink md:pb-[11svh] md:pt-[12svh]" aria-labelledby="kinds-title">
-      <div ref={scope}>
-        <div className="grid grid-cols-1 gap-x-[4vw] gap-y-6 md:grid-cols-12 md:items-end">
+    <section ref={ref} id="ch02-kinds" data-theme="ivory" className="relative bg-ivory px-gutter py-[var(--chapter-y)] text-ink" aria-labelledby="kinds-title">
+      <div ref={scope} className="wj-content">
+        <div className="wj-grid md:items-end">
           <div className="flex flex-col gap-4 md:col-span-7">
             <Eyebrow className="text-ink/60">{COPY.window.eyebrow}</Eyebrow>
             <h2 id="kinds-title" data-split className="display max-w-[13em] text-[clamp(2.25rem,4.4vw,4.75rem)] leading-[1.02] text-ink opacity-0 [text-wrap:balance]">
@@ -109,11 +145,43 @@ export function Ch02Kinds({ kinds }: { kinds: ShowcaseCategory[] }) {
           </p>
         </div>
 
-        <ul className="mt-[7svh] grid grid-cols-2 gap-x-[4vw] gap-y-10 md:mt-[8svh] md:grid-cols-12 md:gap-x-[2.2vw] md:gap-y-[4svh]" aria-label={COPY.window.kinds} data-kinds>
-          {tiles.map((kind, i) => (
-            <KindTile key={kind.category} kind={kind} slot={SLOTS[i]!} lit={highlighted === kind.category} />
-          ))}
-        </ul>
+        {/* the plate in seven columns, its caption beneath at the caption's offset, and the rail in the last four — as tall as the plate, so the two close on one line */}
+        <div className="wj-grid mt-[var(--block-y)] gap-y-0 md:items-stretch">
+          <KindPlate kinds={rail} active={active} lit={highlighted === active.category} />
+
+          {/* the rail: every kind, in the order a window is laid — a hand or a focus shows it, a choice opens it */}
+          <nav className="mt-6 flex flex-col md:col-span-4 md:col-start-9 md:row-start-1 md:mt-0" aria-label={COPY.window.kinds} data-rise>
+            <ul ref={railRef} className="wj-rail md:flex-1" data-kinds>
+              {rail.map((kind) => {
+                const on = kind.category === active.category;
+                return (
+                  <li key={kind.category} className="md:flex md:flex-1 md:flex-col" data-kind={kind.category} data-lit={highlighted === kind.category ? '1' : '0'}>
+                    <TransitionLink
+                      href={kind.href}
+                      className="wj-rail-item md:flex-1"
+                      aria-current={on ? 'true' : undefined}
+                      data-cursor="explore"
+                      data-lit={highlighted === kind.category ? '1' : '0'}
+                      onPointerEnter={(e) => {
+                        if (e.pointerType !== 'touch') setChosen(kind.category);
+                      }}
+                      // a keyboard's focus chooses the kind; a tap's focus must not, or the click that follows it would find its kind already chosen and open it
+                      onFocus={(e) => {
+                        if (e.currentTarget.matches(':focus-visible')) setChosen(kind.category);
+                      }}
+                      onClick={tap(kind)}
+                    >
+                      <span className="wj-rail-name">{kind.label}</span>
+                      <span className="wj-rail-go micro text-ink/60" aria-hidden>
+                        {COPY.window.explore}
+                      </span>
+                    </TransitionLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
       </div>
     </section>
   );

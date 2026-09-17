@@ -10,6 +10,7 @@ import { Ch02Craft } from './chapters/Ch02Craft';
 import { Ch02Study } from './chapters/Ch02Study';
 import { Ch03Gate } from './chapters/Ch03Gate';
 import { Ch03Gold } from './chapters/Ch03Gold';
+import { Ch06Goldwork } from './chapters/Ch06Goldwork';
 import { Ch04Diamond } from './chapters/Ch04Diamond';
 import { Ch05Light } from './chapters/Ch05Light';
 import { Ch05Bridal } from './chapters/Ch05Bridal';
@@ -62,6 +63,7 @@ export function Home({ showcase, departments, doors }: { showcase: Showcase; dep
       <Ch02Study piece={doors['lavender-halo-ring-r11912']} />
       <Ch03Gate goldPiece={doors['aks-e-noor-satlada-haar']} diamondPiece={doors['diamond-bridal-sapphire-suite']} />
       <Ch03Gold department={dept('gold')} figure={doors['gold-bridal-set-2']} />
+      <Ch06Goldwork piece={doors['aks-e-noor-satlada-haar']} />
       <Ch04Diamond department={dept('diamond')} />
       <Ch05Light suite={doors['diamond-bridal-sapphire-suite']} />
       <Ch05Bridal suite={doors['rang-e-jamal-emerald-suite']} choker={doors['naqsh-e-gul-pearl-blossom-choker']} />

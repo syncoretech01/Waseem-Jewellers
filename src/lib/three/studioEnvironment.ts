@@ -35,8 +35,8 @@ export function createStudioEnvironment(gl: THREE.WebGLRenderer, size = 256): St
     depthWrite: false,
     uniforms: {
       top: { value: new THREE.Color('#3a3126') },
-      mid: { value: new THREE.Color('#15110d') },
-      bottom: { value: new THREE.Color('#080706') },
+      mid: { value: new THREE.Color('#241d16') },
+      bottom: { value: new THREE.Color('#0a0806') },
     },
     vertexShader: `varying vec3 vWorld; void main(){ vWorld = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bottom; varying vec3 vWorld;
@@ -74,6 +74,13 @@ export function createStudioEnvironment(gl: THREE.WebGLRenderer, size = 256): St
   strip.lookAt(0, 0, 0);
   scene.add(strip);
 
+  // the sweep: a broad, dim, warm card at the front near the horizon, so the walls of a
+  // bezel and the inside of a band hold a soft warm reflection rather than the dark
+  const sweep = panel('#8a7250', 0.9, 30, 8);
+  sweep.position.set(2, -2.5, 16);
+  sweep.lookAt(0, 0, 0);
+  scene.add(sweep);
+
   const target = new THREE.WebGLCubeRenderTarget(size, {
     type: THREE.HalfFloatType,
     generateMipmaps: true,
@@ -106,8 +113,9 @@ export function createStudioEnvironment(gl: THREE.WebGLRenderer, size = 256): St
 }
 
 /**
- * The stone's light tent: bright, warm and striped, so refraction has light to bend and
+ * The stone's light tent: soft, near-white and striped, so refraction has light to bend and
  * dark bands to contrast it against — the way gems are photographed, not the way rooms look.
+ * No panel is bright enough to bleach the green: the deep colour is the point.
  */
 export function createGemEnvironment(gl: THREE.WebGLRenderer, size = 256): StudioEnvironment {
   const cached = gemCache.get(gl);
@@ -118,9 +126,9 @@ export function createGemEnvironment(gl: THREE.WebGLRenderer, size = 256): Studi
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      top: { value: new THREE.Color('#fff8ea') },
-      mid: { value: new THREE.Color('#8a847a') },
-      bottom: { value: new THREE.Color('#6a635a') },
+      top: { value: new THREE.Color('#f6f3ec') },
+      mid: { value: new THREE.Color('#4a4743') },
+      bottom: { value: new THREE.Color('#2a2826') },
     },
     vertexShader: `varying vec3 vWorld; void main(){ vWorld = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bottom; varying vec3 vWorld;
@@ -128,18 +136,18 @@ export function createGemEnvironment(gl: THREE.WebGLRenderer, size = 256): Studi
         vec3 n = normalize(vWorld); float h = n.y;
         vec3 c = h > 0.0 ? mix(mid, top, smoothstep(0.0, 0.85, h)) : mix(mid, bottom, smoothstep(0.0, 0.7, -h));
         float a = atan(n.z, n.x);
-        float bands = 0.5 + 0.5 * sin(a * 7.0 + h * 2.0);
-        c *= mix(0.35, 1.45, smoothstep(0.3, 0.7, bands));
+        float bands = 0.5 + 0.5 * sin(a * 5.0 + h * 2.0);
+        c *= mix(0.22, 1.35, smoothstep(0.3, 0.7, bands));
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
   scene.add(new THREE.Mesh(roomGeo, roomMat));
   const strips: [THREE.ColorRepresentation, number, THREE.Vector3, number, number][] = [
-    ['#ffffff', 10, new THREE.Vector3(-8, 14, 10), 16, 1.2],
-    ['#f1e2bf', 8, new THREE.Vector3(12, 10, 6), 12, 1.6],
-    ['#ffffff', 7, new THREE.Vector3(0, 6, -16), 20, 0.9],
-    ['#e4cfa3', 6, new THREE.Vector3(-14, 2, -4), 8, 6],
-    ['#ffffff', 9, new THREE.Vector3(6, 15, -2), 14, 0.7],
+    ['#ffffff', 3.1, new THREE.Vector3(-8, 14, 10), 16, 1.2],
+    ['#f4ecdc', 2.7, new THREE.Vector3(12, 10, 6), 12, 1.6],
+    ['#ffffff', 2.4, new THREE.Vector3(0, 6, -16), 20, 0.9],
+    ['#eadfc8', 1.1, new THREE.Vector3(-14, 7, -4), 8, 5],
+    ['#ffffff', 2.8, new THREE.Vector3(6, 15, -2), 14, 0.7],
     ['#0b0a09', 0.02, new THREE.Vector3(10, -4, 10), 10, 4],
     ['#0b0a09', 0.02, new THREE.Vector3(-6, -3, 14), 8, 5],
   ];

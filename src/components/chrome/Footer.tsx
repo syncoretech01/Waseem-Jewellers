@@ -62,6 +62,7 @@ export function Footer() {
       className="fixed inset-x-0 bottom-0 z-0 flex h-svh flex-col justify-between bg-ink px-gutter pb-8 pt-[10svh] text-ivory"
       aria-label="Footer"
     >
+      <div className="wj-content flex flex-1 flex-col justify-between">
       <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <h2 className="display max-w-[11em] text-display-m">{COPY.footer.invitation}</h2>
         <Button variant="bracket" onClick={() => openConsultation({ topic: 'general', source: 'cta' })}>
@@ -142,6 +143,7 @@ export function Footer() {
       <TransitionLink href="/" className="sr-only">
         Home
       </TransitionLink>
+      </div>
     </footer>
   );
 }

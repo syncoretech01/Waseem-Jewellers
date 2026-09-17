@@ -85,12 +85,12 @@ export function Ch02Study({ piece }: { piece?: PieceRow }) {
 
   return (
     <section ref={ref} id="ch02-study" data-theme="ivory" className="relative bg-ivory text-ink md:h-svh md:overflow-hidden" aria-labelledby="study-title">
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-8 md:absolute md:inset-x-0 md:top-0 md:pt-[calc(var(--nav-h)+1.25rem)]">
+      <div className="wj-row relative z-10 flex items-start justify-between px-gutter pt-8 md:absolute md:inset-x-0 md:top-0 md:pt-[calc(var(--nav-h)+1.25rem)]">
         <p className="micro text-ink/60">{COPY.study.eyebrow}</p>
         <p className="micro hidden text-ink/45 md:block">{piece.t}</p>
       </div>
 
-      <div className="hidden h-full grid-cols-12 items-center gap-x-[4vw] px-gutter pt-[calc(var(--nav-h)+3.5rem)] pb-[6svh] md:grid">
+      <div className="hidden h-full wj-row grid-cols-12 items-center gap-x-[var(--gap)] px-gutter pt-[calc(var(--nav-h)+3.5rem)] pb-[6svh] md:grid">
         <div className="col-span-6">
           <div className="mx-auto w-[min(44vw,calc(100svh-16rem))]">{desktop ? frame(true) : null}</div>
         </div>
@@ -115,7 +115,7 @@ export function Ch02Study({ piece }: { piece?: PieceRow }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-8 px-gutter pb-16 pt-8 md:hidden">
+      <div className="wj-row flex flex-col gap-8 px-gutter pb-16 pt-8 md:hidden">
         <div className="flex flex-col gap-4">
           <h2 className="display text-[2.25rem] leading-[1.04] text-ink">{COPY.study.title}</h2>
           <p className="max-w-[30em] text-[0.9375rem] leading-relaxed text-ink/70">{COPY.study.line}</p>

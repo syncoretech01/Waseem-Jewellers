@@ -23,7 +23,12 @@ import { cn } from '@/lib/cn';
  */
 export function Gallery({ product, mode = 'campaign' }: { product: Product; mode?: PdpMode }) {
   const scope = useRef<HTMLDivElement>(null);
-  const flipTarget = useFlipTarget<HTMLDivElement>('product-hero');
+  /**
+   * The FLIP lands on whichever opening frame is displayed — the desktop plate or the phone
+   * track's first slide — so the target is found inside the gallery rather than pinned to one
+   * layout. The slug re-arms it when this instance is reused for a related piece.
+   */
+  const flipTargetRef = useFlipTarget<HTMLDivElement>('product-hero', product.slug);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const frames = product.media.gallery;
   useMaskReveal(scope, { selector: '[data-reveal]', from: 'bottom' });
@@ -77,11 +82,16 @@ export function Gallery({ product, mode = 'campaign' }: { product: Product; mode
         : '(min-width: 1280px) 62vw, (min-width: 768px) 55vw, 100vw';
 
   return (
-    <div ref={scope}>
+    <div
+      ref={(el) => {
+        scope.current = el;
+        flipTargetRef.current = el;
+      }}
+    >
       {/* desktop / tablet */}
       <div className={cn('hidden md:grid md:gap-6', mode === 'studio' ? 'md:grid-cols-2' : 'md:grid-cols-1')} data-frames>
         {frames.map((img, i) => (
-          <div key={`${img.order}-${i}`} ref={i === 0 ? flipTarget : undefined} data-reveal={i === 0 ? undefined : 'bottom'} data-frame={i} className="relative">
+          <div key={`${img.order}-${i}`} data-reveal={i === 0 ? undefined : 'bottom'} data-frame={i} className="relative">
             <InspectImage
               image={img}
               slug={product.slug}

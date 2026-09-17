@@ -109,11 +109,11 @@ The layer is a single `pointer-events-none fixed inset-0` div at `--z-transition
 
 ```
 kind = REDUCED                                        -> 'veil'
-     : opts.kind === 'flip' && sourceEl && HIGH|MEDIUM -> 'flip'
+     : opts.kind === 'flip' && sourceEl -> 'flip'   (every tier but REDUCED)
      : opts.kind ?? 'curtain'
 ```
 
-A `flip` that cannot find an `<img>` with a `currentSrc` inside its source element downgrades itself to `curtain` before the timeline is built.
+A `flip` that cannot find a loaded `<img>` in its frame (see FLIP frames) downgrades itself to `curtain` before the timeline is built.
 
 ### The cover half
 
@@ -169,17 +169,71 @@ When the new href has the same pathname as the current one — `/collections/bri
 | `useFlipNavigate()` | FLIP when given a source element and key, curtain otherwise; falls back to a router push before the layer has mounted |
 | `useOpenProduct()` | `useFlipNavigate` plus recording the opened slug for the concierge and back-link logic |
 | `navigateTo(href, { kind })` | Imperative curtain or veil navigation from outside React |
-| `useFlipTarget(key)` | Destination side. No-ops unless a flight is in progress; on a FLIP flight it hides the hero image in a layout effect, awaits `decode()` (or a 1600 ms timeout), then calls `ready(key, el)`. Used by `CollectionOpening` and the product `Gallery` |
+| `useFlipTarget(key, dep)` | Destination side. Reports the first laid-out `[data-flip-target=key]` in its scope from a layout effect, hides its image for a FLIP flight, restores it via `whenReady().finally`. |
 | `<Arrive />` | Destinations with no FLIP hero (home, 404). Calls `ready()` on mount so the curtain lifts |
 
 ## FLIP frames
 
-The clone starts flying before the destination exists, so it needs a destination rect in advance. `src/lib/motion/flipFrames.ts` computes one from the viewport alone:
+The morph from a product card to its page. A door that carries the piece's photograph flies that photograph — the pixels on screen, not the file — into the frame the destination draws it in; a door that is only words gets the curtain; reduced motion gets the plain veil. Everything below lives in `src/lib/motion/transition.ts` and is checked by `npm run flip:check`.
 
-- `collection-hero` — a centred portrait box, 62 × 82 % of the viewport on desktop, 78 × 70 % below 768 px;
-- `product-hero` — gutter-aligned under the 72 px nav, 62 % of the grid at ≥ 1280 px and 55 % below, capped to a 4:5 ratio; full-bleed on mobile.
+### Which doors fly
 
-Destinations size their hero box with the same rules, so the predicted frame is close. `ready()` then absorbs whatever delta remains by flying the clone to the real element's measured rect over 0.45 s before it fades.
+- `PieceLink` passes its bare `<img data-flip-source>` to `useOpenProduct(slug, img)`; a figure standing in for the photograph (`RingStudy`, `SuiteLight`, `PartedPiece`, a `SemanticFigure`) is read as a whole, see below.
+- `TransitionLink` to `/jewellery/<slug>` with no image of its own asks `findFlipSource(slug)` for the largest `img[data-flip-source="<slug>"]` at least 40 % on screen — a name beneath a tile, a credit beside a frame — and flies it when there is one. Hrefs with a query or hash, departments, kinds and every other route keep the curtain.
+- `Ch04Worlds` passes the portrait tile to `useFlipNavigate(href, img, 'collection-hero')`.
+- Every tier but REDUCED flies: the flight is transform-only, so LOW and a 390 px phone get the same morph from their own layout. REDUCED gets the veil, an opacity fade with nothing moving.
+- Back and forward are history steps and never fly: `arrivePlain` lifts the veil over whatever the browser restored.
+
+### The source, measured once
+
+`measureSource(el)` reads, in one pass before anything is written:
+
+- **the frame** — the closest `[data-moment]` or `[data-figure]`, else the image itself. Its box is `visibleBox()`: the bounding rect cut by every ancestor with `overflow` other than `visible` and by every `clip-path: inset(...)` (parsed in px or %, as Chrome computes it), so a tile under a hover scale, a band of the parted pair, a still behind the collection mask all measure as what the visitor can see;
+- **the photograph** — of the frame's loaded `<img>`s, the topmost one whose effective opacity (its own and its ancestors' up to the frame) is at least 0.5: the second angle after the ring has turned, the drawing before it has developed, the band images of the parted pair. Fallback: the `data-flip-source` image, then the first loaded one;
+- **where its pixels are** — `fitBox()` applies the image's computed `object-fit` and `object-position` to its own rect and natural size, so a packshot on a pearl plate is cloned as the plate plus the contained cut-out, not as a stretched plate;
+- **its plate and blend** — the first painted `background-color` at or above the image, and its `mix-blend-mode` (packshots multiply into pearl);
+- **its identity** — `assetKey(currentSrc)`: the asset path with the width-variant suffix removed, so the same photograph at 640 and 1080 px is one asset.
+
+Every `<img>` of the frame is hidden with `visibility` for the flight and restored if the flight is superseded.
+
+### The clone
+
+One `div[data-flip-clone]` in the flip host: `position: fixed` at the origin, sized to the larger of the source and predicted boxes, `overflow: hidden`, the plate colour, `isolation: isolate`. Inside it the source photograph as `img[data-flip-clone-img="source"]`, sized to the larger of its two drawn boxes, with the source's blend mode. The flight is a tween on a plain state object — the clip box and the drawn box in viewport px — whose `onUpdate` writes exactly three transform strings: the outer's `translate3d + scale` and each inner image's counter-scaled `translate3d + scale`. Nothing lays out; the layer is rasterised at its largest size and only ever scaled down.
+
+### Cover, flight, landing
+
+```
+0 ms      clone built at the source pixels; source images hidden; veil 0 → 1 over 0.3 s (power2.out)
+0 ms      state → predicted frame over FLIGHT = 0.5 s (power2.inOut); router.prefetch(href) already issued
+160 ms    router.push
+commit    useFlipTarget hides the destination image and reports the frame in its layout effect
+ready()   sectionsReady (≤ 600 ms) → scroll restore → ScrollTrigger.refresh → one tick → measureTarget()
+glide     state → measured frame over max(0.2, min(0.36, FLIGHT − elapsed)) (power2.out); veil 1 → 0 over 0.45 s
+landing   destination image decoded (≤ 700 ms) → shown; clone fades over 0.14 s; settle
+```
+
+The moving time is bounded by FLIGHT + 0.2 s; a fast destination lands in ≈ 0.5 s and a slow one parks at the prediction and settles in 0.2 s once it arrives. `gsap.ticker.lagSmoothing(120, 33)` is on from cover to settle — scrolling is frozen anyway — because the route commit is a long frame and a tween running through it on the unsmoothed clock would jump to its end (the same trap as the loading ritual); the glide is also built one tick after the commit so it starts on a painted frame.
+
+### The prediction
+
+`predictFrame(key, source)` is where the clone flies before the destination exists:
+
+- `collection-hero` — the opening mask, 62 × 82 % of the viewport (78 × 70 % below 768 px), with the still drawn `cover` across the whole viewport behind it;
+- `product-hero` — under `--nav-h` + 2 rem. A localised photograph belongs to an authored piece with a gallery and opens in the 62/38 split (55/45 below 1280 px); one from the shop's CDN opens in the single centred column (64 rem). A `contain` source is a cut-out and lands on a 5:4 plate with the image at the mount's insets (18 % / 9 %); a `cover` source is a scene and lands on a 4:5 frame, capped to the viewport. On a phone: the track's first slide, 88 vw wide at 4:5, under the nav. The studio pair (two cut-outs abreast) is the one layout this cannot foresee; the glide absorbs it.
+
+### The target, measured once
+
+`useFlipTarget(key, dep)` takes the ref on the frame itself or on a scope holding `[data-flip-target=key]` elements — the product `Gallery` puts it on its root, because the desktop plate and the phone track's first slide both carry the attribute and only one is displayed; the first laid-out one is the target. `dep` (the slug; the collection's still) re-runs the report when the same page instance is reused for a related piece. The hook hides the target's image and reports immediately; the controller waits for the image to decode before showing it, and the hook's `whenReady().finally` is the net beneath — a flight that ends any other way cannot leave a hero invisible.
+
+`measureTarget(el)` reads the plate (`visibleBox(el)` — the collection still is the mask's window, not the viewport) and where the destination draws its own photograph (`fitBox` on its `<img>`, natural size or `width`/`height` attributes when it has not loaded). The source photograph lands where the destination's rule puts an image of the source's aspect.
+
+### The crossfade
+
+When `assetKey` differs between source and destination — a tile's jewellery-only crop and the piece's hero, a moment's second angle, the drawing — the destination's photograph is appended as `img[data-flip-clone-img="target"]`, starts on the source's drawn box, glides to the destination's own, and fades 0 → 1 over the glide, the last part of the flight; the plate colour tweens between the two plates over the same time. When the asset is the same the clone simply lands. Either way the destination's image is shown underneath before the clone fades, so the hand-over is never a cut.
+
+### The check
+
+`scripts/dev/flip-check.mjs` (`npm run flip:check [base] [headed] [WxH] [reduced] [shots] [only=<door>] [tier=HIGH]`) clicks a cluster card, the kinds piece door, the study, light and parted figures, the gate credit, the hero credit, a department kind link, a worlds column and a related piece on a product page, samples the layer every animation frame, and prints per door: when the clone appeared, when the route committed, how long the clone parked waiting for it, the moving time, the landing delta against the destination's visible frame, blank frames (veil or curtain up with no clone), whether a crossfade ran, whether the hero was shown, and the longest frozen frame. It fails on a curtain for an image door, a clone for a word door, a landing off by more than 2 px, a flight over 800 ms, a blank frame, a page error, or a clone on the way back. Under `reduced` it expects the veil everywhere. `headed` is the real GPU; the harness brings its window to the front before every click because an occluded Chromium draws one frame a second.
 
 ## The pointer model
 
@@ -307,7 +361,12 @@ same way: nothing is shown that was not photographed.
 | **The study** (`RingStudy`) | A pencil drawing of the ring, traced from its own photograph by `scripts/assets/sketch.mjs` (greyscale, inverted blur, dodge — every line is a line the photograph has), develops into the photograph: tone first, then colour. Then the frame tilts on its vertical axis and the first photograph gives way to the second angle Waseem shot at the deepest point of the tilt, so the eye reads a turn. | the drawing is this photograph; both angles are photographs | the craft coda (Lavender Halo Ring: `p09-hero` → `p09-second`) |
 | **The light** (`SuiteLight`) | The photograph never moves. A dark veil settles over the room and one soft light — a radial mask on the veil — finds the chandelier earring, travels to the necklace, then the pendant, naming each, before the whole suite is lit again as the studio shot it. | these ellipses are where the pieces are in this frame | the diamond chapter (the sapphire suite, `p07-hero`) |
 | **The parted piece** (`PartedPiece`) | One photograph of a pair is cut into horizontal bands at the joints a jeweller names — crown, bell, tassel — and the bands draw apart by a few percent of the frame so each part reads on its own with its name beside it, then close into the one photograph. Nothing is redrawn, mirrored or moved sideways. | the cut is a reading, not a claim that the parts come away | Bespoke (Emerald Tassel Earrings, `p08-hero`), driven by the chapter's pin |
+| **The journey** (`GoldJourney`) | The camera opens on the pattern of one collar panel of the Satlada Haar filling the frame, travels down the piece to the relief of its links and the edge of its medallion, and pulls back until the whole haar is in view — one photograph at scales its 2250 px source carries in a frame no wider than ~60vw (`capFor` caps the scale by the negative). On the whole piece four hotspots become live: rest on one and the camera drifts closer and says what it is. The transform is derived from the point looked at: `translate((0.5 − c) · scale)` after `scale` about the centre. | these are places in this photograph | the goldwork chapter (`Ch06Goldwork`), driven by its pin |
 | **The gate** (`Ch03Gate`) | Two material worlds in one frame: gold beneath, diamond above behind a mask whose edge follows the pointer and breathes at rest; the words weigh with their side; choosing fills the frame and the curtain carries the visitor into the department. A phone scrolls the split; reduced motion holds it at the middle. | both halves are photographs of pieces Waseem publishes | after the craft chapter |
+
+**Each moment is a chapter.** The study (`Ch02Study`), the goldwork (`Ch06Goldwork`), the light (`Ch05Light`) and bespoke (`Ch09Bespoke`) are pinned chapters of their own on a desktop — 150–180% of a viewport each — with the frame at one side and the words at the other, so a moment is read as an event with a beginning, a progression, a closing state and a door, not as a treatment on a card. On a phone the same moments read unpinned as they travel through the viewport, with their captions inside the frame.
+
+**One stage word at a time.** Every chapter's words are one React node whose content is keyed by the beat (`stage-word` / `stage-note`): a change replaces the node, the new text fades in by a CSS keyframe, and the old one is simply gone — two stage words can never share the screen. The bespoke chapter used to keep five absolutely-positioned words and crossfade them on the scrub, which on a 768px-high laptop collided with the eyebrow band and on a fast reversal let two show at once; `npm run bespoke:check` samples the pin slowly, fast, backwards, in a zigzag and across a resize, and fails on any two visible text boxes overlapping by more than a fifth.
 
 **One timeline, one driver.** `useMoment` builds a paused timeline once against the moment's own
 DOM and gives it exactly one driver: a scrubbed ScrollTrigger as the moment travels through the
@@ -321,6 +380,8 @@ the three images, whose opacities are tweened one each; the light's mask and opa
 composed from one state object and written in one `onUpdate`; each band of the parted piece is
 translated by this timeline and nothing else, and its labels' transforms belong to GSAP (no
 inline `translateY` for a tween to trample).
+
+**The conditions trap.** `gsap.matchMedia().add({ reduce: '(prefers-reduced-motion: reduce)' }, fn)` never calls `fn` on a machine that does not prefer reduced motion — a conditions object fires only when one of its conditions matches. Always name both: `{ motion: '(prefers-reduced-motion: no-preference)', reduce: '(prefers-reduced-motion: reduce)' }`. The bridal velvet was invisible for exactly this reason on its first build.
 
 **The refresh-order trap.** A moment is a child of its chapter, and React runs a child's effects
 before the parent's — so a moment's ScrollTrigger exists before the chapter's pin does.

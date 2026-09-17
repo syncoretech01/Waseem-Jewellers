@@ -73,6 +73,8 @@ export function Nav() {
       transition={{ duration: 0.5, ease: EASE.silk }}
       aria-label="Primary"
     >
+      {/* one content width across the site: the row inside the gutter is capped like every chapter */}
+      <div className="wj-content flex items-center justify-between">
       {/* the hero's veil: a soft ground while the film is under the mark; gone once the nav has a surface */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[140%] bg-gradient-to-b from-ink/50 to-transparent opacity-0 transition-opacity duration-700" style={{ opacity: surfaced ? 0 : 'var(--header-veil, 0)' }} />
       <TransitionLink href="/" className="relative flex h-10 items-center" aria-label="Waseem Jewellers — home">
@@ -152,6 +154,7 @@ export function Nav() {
           <span aria-hidden className="ml-3 hidden h-px w-6 bg-line-strong transition-all duration-500 ease-[var(--ease-out-expo)] group-hover/sel:w-10 group-hover/sel:bg-gold-hi sm:inline-block" />
         </button>
       </nav>
+      </div>
     </motion.header>
   );
 }

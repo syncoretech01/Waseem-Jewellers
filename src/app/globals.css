@@ -434,6 +434,29 @@ html.is-transitioning #page-root {
   100% { transform: translateX(70%); opacity: 0; }
 }
 
+/* ── the bridal velvet: a dark textile-like field, parted by transform alone (src/components/home/chapters/Ch05Bridal.tsx) ── */
+.velvet {
+  background:
+    radial-gradient(120% 90% at 30% 15%, rgb(74 16 24 / 0.9) 0%, rgb(38 7 11) 48%, rgb(14 4 5) 100%),
+    #0e0405;
+}
+.velvet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/waseem/brand/grain-256.png");
+  background-size: 256px 256px;
+  opacity: 0.08;
+}
+.velvet-l::before,
+.velvet-r::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 60%, rgb(255 236 210 / 0.06) 100%);
+}
+.velvet-r::before { transform: scaleX(-1); }
+
 /* ── a stage word: one node whose text changes by state; the new text fades in, the old is simply gone ── */
 .light-word, .light-note, .stage-word, .stage-note { animation: stage-word-in 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both; }
 @keyframes stage-word-in {

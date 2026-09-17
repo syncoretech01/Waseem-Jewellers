@@ -116,7 +116,7 @@ export function Ch02Craft() {
         const index = root.querySelector<HTMLElement>('.craft-index');
         const posterImg = root.querySelector<HTMLElement>('.craft-poster img');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
-        const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
+        const eyebrow = root.querySelectorAll<HTMLElement>('.craft-eyebrow');
         if (!wrap || !halo) return;
 
         if (still) {
@@ -208,12 +208,14 @@ export function Ch02Craft() {
         </div>
 
         {/* editorial labels — the eyebrow sits beneath the nav band, never inside it */}
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-gutter pb-[9svh] pt-[calc(var(--nav-h)+1.25rem)] md:pb-[10svh]">
-          <div className="flex items-start justify-between">
+        <div className="wj-row pointer-events-none absolute inset-0 flex flex-col justify-between px-gutter pb-[9svh] pt-[calc(var(--nav-h)+1.25rem)] md:pb-[10svh]">
+          <div className="flex items-start justify-between gap-6">
             <p className="craft-eyebrow micro text-champagne opacity-0">{COPY.craft.eyebrow}</p>
             <h2 id="craft-title" className="sr-only">
               {COPY.craft.title}
             </h2>
+            {/* the object is a study; the ring Waseem sells follows in the next chapter */}
+            <p className="craft-eyebrow micro hidden max-w-[30em] text-right text-ivory/50 opacity-0 md:block">{COPY.craft.note}</p>
           </div>
           <div className="craft-index grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
             <ol className="flex flex-col gap-2 md:gap-3">

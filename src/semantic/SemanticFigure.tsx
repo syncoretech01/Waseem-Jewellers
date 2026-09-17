@@ -129,12 +129,13 @@ export function SemanticFigure({ descriptor, fallback, className, sizes, driven 
           const displayPx = root.clientWidth || DEFAULT_DISPLAY_PX;
           const honest = honestScale(beat.region, asset.width, displayPx);
           const scale = magnify ? honest : Math.min(1.35, honest);
-          // the region's centre, expressed as a translation of the frame behind a fixed box
+          // the region's centre, expressed as a translation of the frame behind a fixed box —
+          // the element scales about its centre and is translated after, so the move is scaled too
           const cx = rx + rw / 2;
           const cy = ry + rh / 2;
           gsap.to(state, {
-            x: (0.5 - cx) * 100,
-            y: (0.5 - cy) * 100,
+            x: (0.5 - cx) * 100 * scale,
+            y: (0.5 - cy) * 100 * scale,
             scale,
             duration: 1.1,
             ease: 'wj.out',

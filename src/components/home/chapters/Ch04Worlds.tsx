@@ -138,30 +138,28 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
         ))}
       </div>
 
-      <div className="relative z-10 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
-        <p className="micro text-champagne">{COPY.collections.eyebrow}</p>
-        <h2 id="worlds-title" className="sr-only">
-          Signature Collections
-        </h2>
-        <p className="micro hidden text-ivory/50 md:block">{activeWorld ? activeWorld.mood : 'Five collections'}</p>
+      <div className="relative z-10 px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
+        <div className="wj-content flex items-start justify-between">
+          <p className="micro text-champagne">{COPY.collections.eyebrow}</p>
+          <h2 id="worlds-title" className="sr-only">
+            Signature Collections
+          </h2>
+          <p className="micro hidden text-ivory/50 md:block">{activeWorld ? activeWorld.mood : 'Five collections'}</p>
+        </div>
       </div>
 
       {/* desktop columns */}
       <div className="worlds-columns absolute inset-0 z-[5] hidden md:block">
         {/* the row is capped by the viewport's height, so two tiles, the labels and the travel fit a wide, short screen */}
-        <div className="absolute inset-x-[3vw] top-[calc(var(--nav-h)+2.5rem)] mx-auto flex h-full max-w-[calc(250svh-750px+8vw)] gap-[2vw]">
+        <div className="absolute inset-x-gutter top-[calc(var(--nav-h)+2.5rem)] mx-auto flex h-full max-w-[min(var(--content-max),calc(250svh-750px+8vw))] gap-[var(--gap)]">
           {WORLDS.map((w, i) => (
             <div key={w.slug} className="relative flex-1">
               <span className="world-toplight hairline absolute inset-x-0 top-0 z-10" />
-              <div
-                className={cn('world-col relative flex flex-col gap-[2vw] transition-opacity duration-700', active !== null && active !== i && 'opacity-50')}
-                onPointerEnter={() => !coarse && hover(i)}
-                onPointerLeave={() => !coarse && hover(null)}
-              >
+              <div className={cn('world-col relative flex flex-col transition-opacity duration-700', active !== null && active !== i && 'opacity-50')} onPointerEnter={() => !coarse && hover(i)} onPointerLeave={() => !coarse && hover(null)}>
                 {[w.imagery.piece, w.imagery.hero].map((id, k) => {
                   const isHero = k === 1;
                   const tile = (
-                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero')} style={{ aspectRatio: isHero ? '4 / 5' : '4 / 3' }}>
+                    <div className={cn('relative w-full overflow-hidden bg-charcoal', isHero && 'world-hero mt-[var(--gap)]')} style={{ aspectRatio: isHero ? '4 / 5' : '4 / 3' }}>
                       <div className={cn('absolute inset-0 transition-transform duration-1000 ease-[var(--ease-out-expo)]', active === i && 'scale-[1.06]')}>
                         <Img id={id} sizes="18vw" plain className="h-full w-full object-cover" style={!isHero && w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} data={isHero ? { world: w.slug } : undefined} />
                       </div>
@@ -192,24 +190,24 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                   );
                 })}
                 {/* the world is named at rest, and the listed piece from it is a door — no hover required */}
-                <div className="flex flex-col gap-1.5 pt-1">
-                <p className="flex items-baseline gap-3">
-                  <span className="font-display text-[0.875rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 14' }}>
-                    {w.numeral}
-                  </span>
-                  <span className="display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory">{w.name}</span>
-                </p>
-                {doors[w.pieces[0] ?? ''] && (
-                  <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door flex w-fit flex-col gap-0.5" data-cursor="view">
-                    <span className="font-display text-[0.9375rem] leading-tight text-ivory/85 transition-colors group-hover/door:text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
-                      {doors[w.pieces[0] ?? '']!.t}
+                <div className="flex flex-col gap-1.5 pt-[var(--caption-gap)]">
+                  <p className="flex items-baseline gap-3">
+                    <span className="font-display text-[0.875rem] text-champagne/70" style={{ fontVariationSettings: '"opsz" 14' }}>
+                      {w.numeral}
                     </span>
-                    <span className="micro text-champagne/60">{[tagOf(doors[w.pieces[0] ?? '']!), COPY.hero.view].filter(Boolean).join(' · ')}</span>
-                  </TransitionLink>
-                )}
-                <p className={cn('font-display italic text-[0.875rem] text-ivory/60 transition-opacity duration-500', active === i ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 14' }}>
-                  {w.mood}
-                </p>
+                    <span className="display text-[clamp(1.125rem,1.5vw,1.5rem)] leading-none text-ivory">{w.name}</span>
+                  </p>
+                  {doors[w.pieces[0] ?? ''] && (
+                    <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door flex w-fit flex-col gap-0.5" data-cursor="view">
+                      <span className="font-display text-[0.9375rem] leading-tight text-ivory/85 transition-colors group-hover/door:text-ivory" style={{ fontVariationSettings: '"opsz" 14' }}>
+                        {doors[w.pieces[0] ?? '']!.t}
+                      </span>
+                      <span className="micro text-champagne/60">{[tagOf(doors[w.pieces[0] ?? '']!), COPY.hero.view].filter(Boolean).join(' · ')}</span>
+                    </TransitionLink>
+                  )}
+                  <p className={cn('font-display italic text-[0.875rem] text-ivory/60 transition-opacity duration-500', active === i ? 'opacity-100' : 'opacity-0')} style={{ fontVariationSettings: '"opsz" 14' }}>
+                    {w.mood}
+                  </p>
                 </div>
               </div>
             </div>
@@ -220,14 +218,14 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
       </div>
 
       {/* mobile: rows headed by names */}
-      <div className="flex flex-col gap-14 px-gutter pb-20 pt-10 md:hidden">
+      <div className="flex flex-col gap-[var(--block-y)] px-gutter pb-[var(--chapter-y)] pt-10 md:hidden">
         {WORLDS.map((w, i) => (
           <div key={w.slug} className="world-row">
             <div className="mb-4 flex items-baseline justify-between">
               <p className="display text-[2.4rem] leading-none text-ivory">{w.name}</p>
               <span className="font-display text-[0.875rem] text-champagne/70">{w.numeral}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-[var(--gap)]">
               <a
                 href={w.href}
                 className="world-tile relative block overflow-hidden bg-charcoal"
@@ -244,7 +242,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
                 <Img id={w.imagery.piece} sizes="45vw" plain className="h-full w-full object-cover" style={w.imagery.pieceFocus ? { objectPosition: w.imagery.pieceFocus } : undefined} />
               </div>
             </div>
-            <p className="mt-3 font-display italic text-[0.9375rem] text-ivory/60" style={{ fontVariationSettings: '"opsz" 14' }}>
+            <p className="mt-[var(--caption-gap)] font-display italic text-[0.9375rem] text-ivory/60" style={{ fontVariationSettings: '"opsz" 14' }}>
               {w.mood}
             </p>
             {doors[w.pieces[0] ?? ''] && (

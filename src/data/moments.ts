@@ -11,6 +11,9 @@ import type { ImageRef } from './types';
  *             them, before the whole suite is lit again. The photograph never moves.
  *   parted    one photograph of a pair, cut at the joints a jeweller would name — crown, bell,
  *             tassel — and drawn apart so each part can be read on its own, then closed.
+ *   journey   the goldwork, from the work to the piece: the camera opens on the pattern of one
+ *             panel, travels down the piece and pulls back until the whole is in view, where
+ *             a few places can be looked at more closely.
  *
  * Every rectangle, band and ellipse below is a fraction of the one frame it belongs to. The
  * captions say what is in the frame and what Waseem publishes; they never narrate a making.
@@ -99,6 +102,60 @@ export const PARTED: Record<string, PartedMoment> = {
   },
 };
 
+/** A hold of the journey's camera: where it looks and how close, as fractions of the frame and a scale. */
+export interface Hold {
+  key: string;
+  label: string;
+  note: string;
+  cx: number;
+  cy: number;
+  scale: number;
+}
+
+/** A place on the whole piece a visitor can look at more closely — inspection, not a tooltip. */
+export interface Hotspot {
+  key: string;
+  label: string;
+  note: string;
+  cx: number;
+  cy: number;
+  scale: number;
+}
+
+export interface JourneyMoment {
+  image: ImageRef;
+  lede: string;
+  /** The holds in order; the last is the whole piece, where the hotspots become live. */
+  holds: Hold[];
+  hotspots: Hotspot[];
+}
+
+/**
+ * The goldwork journey: the camera opens on the work itself — the pattern of one collar
+ * panel filling the frame — travels down the piece, and pulls back until the whole haar is
+ * in view. Every hold is a rectangle of one photograph at a scale its source can carry
+ * (2250 px across a frame no wider than ~60vw); the captions say what is in the frame.
+ */
+export const JOURNEYS: Record<string, JourneyMoment> = {
+  'aks-e-noor-satlada-haar': {
+    image: { kind: 'local', id: 'p05-hero' },
+    lede: 'Gold, from the work to the piece.',
+    holds: [
+      { key: 'pattern', label: 'The pattern', note: 'Filigree panels worked with one repeating motif, set flat against the collar, with drops hung along the edge.', cx: 0.5, cy: 0.55, scale: 2.6 },
+      { key: 'relief', label: 'The relief', note: 'Each link of the haar is raised and chased so the light catches its edges rather than its face.', cx: 0.5, cy: 0.63, scale: 2.0 },
+      { key: 'edge', label: 'The edge', note: 'The medallion at the end of the haar, bordered and finished with drops, as the piece closes.', cx: 0.5, cy: 0.8, scale: 2.2 },
+      { key: 'whole', label: 'The whole piece', note: 'Collar and haar together, on velvet, as the Aks-e-Noor campaign photographed them.', cx: 0.5, cy: 0.68, scale: 1.55 },
+    ],
+    hotspots: [
+      { key: 'collar', label: 'The collar', note: 'Filigree panels, worked flat, with drops along the edge.', cx: 0.5, cy: 0.47, scale: 2.3 },
+      { key: 'links', label: 'The links', note: 'The links of the haar, chased in relief, graded to fall as one curve.', cx: 0.4, cy: 0.62, scale: 2.1 },
+      { key: 'medallion', label: 'The medallion', note: 'The pendant that closes the haar, bordered and finished with drops.', cx: 0.5, cy: 0.8, scale: 2.2 },
+      { key: 'drops', label: 'The drops', note: 'Hung from the edge of the collar and from the medallion, so the piece moves with the wearer.', cx: 0.6, cy: 0.52, scale: 2.4 },
+    ],
+  },
+};
+
 export const studyFor = (slug: string) => STUDY[slug];
+export const journeyFor = (slug: string) => JOURNEYS[slug];
 export const lightsFor = (slug: string) => LIGHTS[slug];
 export const partedFor = (slug: string) => PARTED[slug];

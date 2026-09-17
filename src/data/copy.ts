@@ -57,8 +57,10 @@ export const COPY = {
     write: 'Write instead',
   },
   craft: {
-    eyebrow: 'The Craft',
+    eyebrow: 'The Craft · a study in emerald',
     title: 'The anatomy of a piece',
+    /** What the object is, said plainly beside the eyebrow: a study, not a piece for sale. */
+    note: 'A craft object, not a listed piece: an emerald cut and set in gold to show how a ring is made.',
     coda: {
       eyebrow: 'The same anatomy, in one piece',
       title: 'Drawn, made, and turned in the hand.',
@@ -86,6 +88,14 @@ export const COPY = {
       { key: 'made', label: 'Then made', note: 'In rose gold, stamped 21K on the inside. Reference R11912, 9.444 grams.' },
       { key: 'turned', label: 'Seen from above', note: 'The halo of small white diamonds, and the four claws that hold the stone clear of it.' },
     ],
+    view: 'View the piece',
+  },
+  /** The goldwork — a chapter of its own after Gold: from the work to the piece. */
+  goldwork: {
+    eyebrow: 'Goldwork',
+    title: 'From the work to the piece.',
+    line: 'Gold looked at the way a jeweller looks at it: the pattern of one panel, the relief of the links, the edge of the medallion — and then the whole haar, on velvet, as the campaign photographed it.',
+    hint: 'Rest on a point to look closer.',
     view: 'View the piece',
   },
   /** One suite, in one light — a chapter of its own after Diamond. */
@@ -153,10 +163,12 @@ export const COPY = {
   bespoke: {
     eyebrow: 'Bespoke',
     title: 'Made for one person.',
-    line: 'Every piece leaves the workshop once. Bring an idea, a stone or a photograph, and our jewellers take it from there.',
-    /** The words that open and close the figure; the middle ones are the regions' own names. */
-    opening: 'One pair',
-    closing: 'Yours',
+    line: 'Every piece leaves the workshop once. Bring an idea, a stone or a photograph; our jewellers draw it, set it and finish it with you.',
+    /** The four things bespoke means here, said once each, beneath the title. */
+    tenets: ['Personal craft', 'Precision', 'One-to-one design', 'Finish'],
+    /** The stage line while the pair is whole, then while each part is read, then when it is whole again. */
+    opening: { label: 'One pair', note: 'Read at the joints, as a jeweller reads it: crown, bell, tassel.' },
+    closing: { label: 'Whole again', note: 'The parts are one photograph; a bespoke pair begins the same way, as a drawing of the parts.' },
     cta: 'Begin your bespoke journey',
     view: 'View the pair',
   },
