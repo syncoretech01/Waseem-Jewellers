@@ -70,7 +70,8 @@ function CraftObject({ tier, onReady, onLost }: { tier: string; onReady?: () => 
   const gold = useMemo(() => createGoldMaterial(), []);
   const goldSoft = useMemo(() => createGoldMaterial({ roughness: 0.34 }), []);
   const fallback = useMemo(() => createStoneFallbackMaterial(), []);
-  const refract = tier === 'HIGH' || tier === 'MEDIUM';
+  // decided once: a tier demoted mid-scroll must not swap the stone's material while it is being looked at
+  const [refract] = useState(() => tier === 'HIGH' || tier === 'MEDIUM');
 
   const group = useRef<THREE.Group>(null);
   const stone = useRef<THREE.Mesh>(null);

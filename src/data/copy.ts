@@ -69,9 +69,10 @@ export const COPY = {
       { key: 'setting', numeral: '02', name: 'Setting', note: 'A closed bezel and four claws hold the stone above the light.' },
       { key: 'metal', numeral: '03', name: 'Metal', note: 'Gold shaped to sit against the skin and carry the weight.' },
       { key: 'finish', numeral: '04', name: 'Hand finishing', note: 'Surfaces brought from matte to mirror, edge by edge.' },
-      { key: 'craft', numeral: '05', name: 'Craft', note: 'Assembled once, worn for a lifetime.' },
+      { key: 'craft', numeral: '05', name: 'Craft', note: 'Set, polished and finished by hand, to be worn for years.' },
     ],
-    closing: ['MADE', 'ONLY ONCE.'],
+    /** The line the sequence closes on: what the craft is for, in Waseem's own register. */
+    closing: ['CRAFTED', 'TO ENDURE.'],
   },
   heritage: {
     eyebrow: 'Since 1952',

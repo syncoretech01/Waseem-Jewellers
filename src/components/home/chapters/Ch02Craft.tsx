@@ -7,7 +7,6 @@ import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise } from '@/motion/hooks/useReveals';
 import { useQualityStore } from '@/state/qualityStore';
 import { Img } from '@/components/media/Img';
-import { LoaderStone } from '@/components/loader/LoaderStone';
 import { PieceLink } from '@/components/commerce/PieceLink';
 import { SemanticFigure } from '@/semantic/SemanticFigure';
 import { pieceRefOf } from '@/data/clientIndex';
@@ -26,8 +25,12 @@ const CraftScene = dynamic(() => import('@/components/three/craft/CraftScene'), 
  *
  * The stage is pinned while the stone condenses out of the dark, then stone, setting, metal
  * and hand finishing separate beneath fixed editorial labels. The WebGL object mounts in
- * `.craft-scene` on every tier that has WebGL at all; only a browser without it keeps the
- * drawn stone in SVG, filling with light as the visitor scrolls.
+ * `.craft-scene` on every tier that has WebGL at all. Beneath it, at every moment the object
+ * is not yet — or no longer — rendering, stands a still of the same object rendered once
+ * from the same scene: the visitor sees the ring, or the ring. The loading ritual's drawn
+ * stone used to stand in here, and a drawing of the shop's own stone surfacing over the ring
+ * for a second — while the scene compiled, or after a lost context — read as a second brand
+ * mark appearing where none was meant to be. It is gone from this chapter for good.
  *
  * Then the pin releases and the coda answers the drawing with a photograph: a ring Waseem
  * actually sells, its stone, halo and shank named where they sit in the one frame. The
@@ -48,13 +51,13 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
   /**
    * The ring is for everyone. It used to mount only on HIGH and MEDIUM, which left every
    * phone, every 4 GB laptop, every touch-first device and every reduced-motion visitor with
-   * the drawn stone — a diagram where the client had been promised the object. LOW gets the
-   * same geometry at DPR 1 with the non-refractive stone; REDUCED gets it settled and still.
-   * Only a browser with no WebGL at all keeps the drawing.
+   * a diagram where the client had been promised the object. LOW gets the same geometry at
+   * DPR 1 with the non-refractive stone; REDUCED, and a browser with no WebGL, get the still.
    */
   const wantsScene = webgl && !reduced && loaderDone && near && lostOnce < 2;
-  // no WebGL, or a request for stillness: the same object, rendered once from the same scene
-  const poster = !webgl || reduced;
+  // the still stands whenever the object is not on stage: before it compiles, after a lost
+  // context, under reduced motion, without WebGL — never a third thing
+  const stillShown = !(wantsScene && sceneReady);
   const descriptor = coda ? semanticFor(coda.s) : undefined;
   useRise(codaScope);
 
@@ -83,23 +86,19 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
         // the media query is the source of truth: gsap reverts the other branch when it flips
         const still = reduce || reduced;
         const wrap = root.querySelector<HTMLElement>('.craft-stage-wrap');
-        const stone = root.querySelector<HTMLElement>('.craft-stone');
         const halo = root.querySelector<HTMLElement>('.craft-halo');
-        const ring = root.querySelector<HTMLElement>('.craft-ring');
-        const band = root.querySelector<HTMLElement>('.craft-band');
         const labels = root.querySelectorAll<HTMLElement>('.craft-label');
         const notes = root.querySelectorAll<HTMLElement>('.craft-note');
         const index = root.querySelector<HTMLElement>('.craft-index');
         const posterImg = root.querySelector<HTMLElement>('.craft-poster img');
         const closing = root.querySelector<HTMLElement>('.craft-closing');
         const eyebrow = root.querySelector<HTMLElement>('.craft-eyebrow');
-        if (!stone || !wrap) return;
-        const setReveal = gsap.quickSetter(stone, '--reveal');
+        if (!wrap || !halo) return;
 
         if (still) {
           // composed still: the object lit, every label named, and one closing note
           // (the notes share one absolute box, so only the last may show)
-          setReveal(1);
+          gsap.set(halo, { opacity: 0.55 });
           gsap.set([labels, eyebrow], { autoAlpha: 1 });
           gsap.set(closing, { autoAlpha: 0 });
           gsap.set(notes, { autoAlpha: 0 });
@@ -117,7 +116,6 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           if (n) n.dataset.lit = on ? '1' : '0';
         };
 
-        const proxy = { p: 0 };
         const tl = gsap.timeline({
           scrollTrigger: {
             // the stage pins, not the section: the coda beneath it scrolls in when the pin releases
@@ -137,25 +135,14 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
           },
         });
 
-        // 0 – .16: the stone condenses out of the dark
-        tl.fromTo(stone, { scale: 0.72, opacity: 0.35 }, { scale: 1, opacity: 1, ease: 'none', duration: 0.16 }, 0)
-          .to(proxy, { p: 1, ease: 'none', duration: 0.64, onUpdate: () => setReveal(proxy.p) }, 0.04)
-          .fromTo(halo, { opacity: 0, scale: 0.8 }, { opacity: 0.55, scale: 1.1, ease: 'none', duration: 0.3 }, 0.1)
+        // the light rises as the object condenses out of the dark; the object itself is the
+        // scene's (or the still's) — nothing drawn stands beside it
+        tl.fromTo(halo, { opacity: 0, scale: 0.8 }, { opacity: 0.55, scale: 1.1, ease: 'none', duration: 0.3 }, 0.1)
           .fromTo(eyebrow, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: 0.06 }, 0.1)
-          // .12 – .30 the stone lifts
-          .to(stone, { y: mobile ? '-6svh' : '-9svh', ease: 'none', duration: 0.18 }, 0.12)
-          // .30 – .48 the setting separates
-          .fromTo(ring, { opacity: 0, scale: 0.9 }, { opacity: 0.9, scale: 1, ease: 'none', duration: 0.1 }, 0.26)
-          .to(ring, { y: mobile ? '6svh' : '9svh', ease: 'none', duration: 0.18 }, 0.3)
-          // .48 – .64 the band drops
-          .fromTo(band, { opacity: 0, scaleX: 0.7 }, { opacity: 0.8, scaleX: 1, ease: 'none', duration: 0.1 }, 0.44)
-          .to(band, { y: mobile ? '14svh' : '22svh', ease: 'none', duration: 0.16 }, 0.48)
-          // .64 – .82 hand finishing: the stone brightens, rotates a breath
-          .to(stone, { rotate: 12, filter: 'brightness(1.18)', ease: 'none', duration: 0.18 }, 0.64)
+          // .64 – .82 hand finishing: the light brightens
           .to(halo, { opacity: 0.85, ease: 'none', duration: 0.18 }, 0.64)
           // .82 – 1 hold + pull back + closing line
-          .to([stone, ring, band, halo, posterImg].filter(Boolean), { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
-          .to([ring, band], { opacity: 0.12, ease: 'none', duration: 0.12 }, 0.86)
+          .to([halo, posterImg].filter(Boolean), { scale: 0.86, y: '-6svh', ease: 'none', duration: 0.18 }, 0.82)
           .to(halo, { opacity: 0.35, ease: 'none', duration: 0.12 }, 0.86)
           // the closing line takes the index's place rather than printing over it — the index
           // fades as one box, so the labels and notes keep their own lit states beneath it
@@ -173,9 +160,9 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
     <section ref={ref} id="ch02-craft" className="relative bg-ink text-ivory" aria-labelledby="craft-title">
       <div className="craft-stage-wrap relative h-svh overflow-hidden">
         {/* the stage */}
-        <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={sceneReady || poster ? '1' : '0'} data-tier={tier}>
-          {poster && (
-            <div className="craft-poster pointer-events-none absolute left-1/2 top-1/2 h-[min(64vw,64svh)] w-[min(64vw,64svh)] -translate-x-1/2 -translate-y-1/2">
+        <div ref={stage} className="craft-scene absolute inset-0" data-craft-scene data-webgl={wantsScene && sceneReady ? '1' : '0'} data-still={stillShown ? '1' : '0'} data-tier={tier}>
+          {/* the still is always in the DOM; it fades under the object rather than being swapped for it */}
+          <div className={cn('craft-poster pointer-events-none absolute left-1/2 top-1/2 h-[min(64vw,64svh)] w-[min(64vw,64svh)] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-700', stillShown ? 'opacity-100' : 'opacity-0')} aria-hidden={!stillShown}>
               {/* eslint-disable-next-line @next/next/no-img-element -- a still of the scene, cut by scripts/assets/craft-poster.mjs; it is not in the asset map because it is not a photograph */}
               <img
                 src="/assets/waseem/images/craft/ring-1080w.webp"
@@ -184,23 +171,17 @@ export function Ch02Craft({ coda }: { coda?: PieceRow }) {
                 alt="An emerald-cut stone in a closed gold bezel with four claws, on a comfort-fit band — the object the chapter takes apart"
                 width={1243}
                 height={1243}
-                loading="lazy"
+                loading="eager"
                 decoding="async"
                 className="h-full w-full object-contain"
               />
             </div>
-          )}
           {wantsScene && (
             <div className={cn('absolute inset-0 transition-opacity duration-700', sceneReady ? 'opacity-100' : 'opacity-0')}>
               <CraftScene key={lostOnce} onReady={onSceneReady} onLost={onSceneLost} />
             </div>
           )}
           <div className="craft-halo pointer-events-none absolute left-1/2 top-1/2 h-[min(70vw,70svh)] w-[min(70vw,70svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ background: 'radial-gradient(circle, rgba(228,207,163,0.22) 0%, rgba(228,207,163,0.06) 38%, transparent 66%)' }} />
-          <div className="craft-band pointer-events-none absolute left-1/2 top-1/2 h-[min(9vw,9svh)] w-[min(58vw,58svh)] -translate-x-1/2 -translate-y-1/2 rounded-[100%] opacity-0" style={{ background: 'linear-gradient(180deg, #f1e2bf 0%, #a8894f 45%, #4a3818 100%)', boxShadow: '0 12px 40px -10px rgba(0,0,0,.8)' }} />
-          <div className="craft-ring pointer-events-none absolute left-1/2 top-1/2 h-[min(40vw,40svh)] w-[min(40vw,40svh)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0" style={{ border: '2px solid transparent', background: 'linear-gradient(#0b0a09,#0b0a09) padding-box, conic-gradient(from 200deg, #6e5527, #f1e2bf 30%, #a8894f 55%, #f1e2bf 80%, #6e5527) border-box', boxShadow: '0 0 40px -8px rgba(228,207,163,0.35)' }} />
-          <div className="craft-stone absolute left-1/2 top-1/2 h-[min(46vw,46svh)] w-[min(46vw,46svh)] -translate-x-1/2 -translate-y-1/2" style={{ ['--reveal' as string]: 0 }}>
-            <LoaderStone id="craft" />
-          </div>
         </div>
 
         {/* editorial labels — the eyebrow sits beneath the nav band, never inside it */}

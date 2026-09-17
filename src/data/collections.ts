@@ -58,7 +58,7 @@ export const COLLECTIONS: Collection[] = [
         numeral: 'IV',
         title: 'The Close',
         theme: 'ivory',
-        blocks: [{ kind: 'solo', piece: 'emerald-tassel-earrings-t06768', scale: 'wide', caption: 'MADE ONLY ONCE' }],
+        blocks: [{ kind: 'solo', piece: 'emerald-tassel-earrings-t06768', scale: 'wide', caption: 'CRAFTED TO ENDURE' }],
       },
     ],
     wornTogether: ['lavender-halo-ring-r11912', 'timeless-feathered-cluster-ring', 'aks-e-noor-satlada-haar'],
