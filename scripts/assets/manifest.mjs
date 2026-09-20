@@ -60,6 +60,9 @@ export const IMAGES = [
   // ── p10 Feathered Cluster Ring (2250px, styled macro) ──
   { id: 'p10-hero', source: CDN + 'Dioman-ring_5916d888-f5fc-41c0-a0a3-95c9aa84ac4a.jpg', out: P('timeless-feathered-cluster-ring', 'hero'), role: 'campaign', maxWidth: 2250, focal: [0.5, 0.52], alt: 'Diamond cluster ring resting on white feathers' },
   { id: 'p10-macro', source: CDN + 'Dioman-ring_5916d888-f5fc-41c0-a0a3-95c9aa84ac4a.jpg', out: P('timeless-feathered-cluster-ring', 'macro'), role: 'macro', maxWidth: 2000, derive: { crop: [0.23, 0.24, 0.56, 0.56] }, focal: [0.5, 0.5], alt: 'Detail of the diamond cluster' },
+  // the bangle study: one set of bangles, the two angles the shop photographed — the stack on its side, and raised so the inside shows
+  { id: 'p11-profile', source: CDN + 'SourceBangelsDONE3_jpg.jpg', out: P('gold-bangles-k13798', 'profile'), role: 'packshot', maxWidth: 2000, focal: [0.5, 0.5], alt: 'A set of 21K gold bangles with a pierced lattice pattern, seen from the side, reference K13798' },
+  { id: 'p11-raised', source: CDN + 'SourceBangelsDONE2_jpg.jpg', out: P('gold-bangles-k13798', 'raised'), role: 'packshot', maxWidth: 2000, focal: [0.5, 0.5], alt: 'The same set of gold bangles raised, showing the inside of the stack' },
 
   // ── World column tiles not covered above ──
   { id: 'w-rukh-3', source: CDN + '0113_0197ffc1-b25a-4c0e-aeaf-bdaca50f54b8.png', out: 'images/worlds/rukh-e-jana-3', role: 'world', maxWidth: 960, focal: [0.5, 0.4], alt: 'Rukh-e-Jana diamond and sapphire fringe necklace on black velvet' },

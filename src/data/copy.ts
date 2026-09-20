@@ -78,17 +78,12 @@ export const COPY = {
     /** The line the sequence closes on: what the craft is for, in Waseem's own register. */
     closing: ['CRAFTED', 'TO ENDURE.'],
   },
-  /** The study — a chapter of its own after the craft: a drawing becomes the piece, and the piece turns. */
-  study: {
-    eyebrow: 'The Study',
-    title: 'Drawn, made, and turned in the hand.',
-    line: 'The craft object above is a study — an emerald cut and set in gold, made to show how a ring is put together. This is a ring Waseem sells: drawn from its own photograph, then the photograph, then a second angle as it was shot.',
-    beats: [
-      { key: 'drawn', label: 'Drawn first', note: 'The oval stone, the halo, the split shank — traced from the photograph itself.' },
-      { key: 'made', label: 'Then made', note: 'In rose gold, stamped 21K on the inside. Reference R11912, 9.444 grams.' },
-      { key: 'turned', label: 'Seen from above', note: 'The halo of small white diamonds, and the four claws that hold the stone clear of it.' },
-    ],
-    view: 'View the piece',
+  /** The bangle — a chapter of its own after the craft: one set of bangles, turned in the hand. */
+  bangle: {
+    eyebrow: 'The Bangle',
+    title: 'One set, turned in the hand.',
+    line: 'The craft object above is a study. This is a set of bangles Waseem sells, read the way a hand turns it: on its side, close on the surface, along the rhythm of the motif, then raised to show the inside — two photographs the shop took, and nothing else.',
+    view: 'View the set',
   },
   /** The goldwork — a chapter of its own after Gold: from the work to the piece. */
   goldwork: {

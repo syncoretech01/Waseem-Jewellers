@@ -68,7 +68,7 @@ export type SectionId =
   | 'hero'
   | 'vitrine'
   | 'craft'
-  | 'study'
+  | 'bangle'
   | 'goldwork'
   | 'light'
   | 'heritage'
@@ -77,7 +77,6 @@ export type SectionId =
   | 'gold'
   | 'diamond'
   | 'menkids'
-  | 'invitation'
   | 'bespoke'
   /** The Gold / Diamond gate chapter on the homepage. */
   | 'gate'

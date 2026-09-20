@@ -17,7 +17,7 @@ export default async function HomePage() {
    * the piece's name and published facts beside it. A withdrawn piece simply has no row, and
    * the chapter that would have opened onto it shows its photograph instead.
    */
-  const doorSlugs = [...new Set([...FIGURE_SLUGS, ...WORLDS.flatMap((w) => w.pieces), 'royal-wedding-polki-raani-haar', 'diamond-bridal-sapphire-suite'])];
+  const doorSlugs = [...new Set([...FIGURE_SLUGS, ...WORLDS.flatMap((w) => w.pieces), 'royal-wedding-polki-raani-haar', 'diamond-bridal-sapphire-suite', 'gold-bangles-k13798'])];
   const doors = Object.fromEntries(doorSlugs.flatMap((s) => (bySlug.has(s) ? [[s, bySlug.get(s)!]] : [])));
   return <Home showcase={showcase} departments={departments} doors={doors} />;
 }

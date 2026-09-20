@@ -380,6 +380,34 @@ export const IMAGES = {
     "role": "macro",
     "maxDisplayWidth": 630
   },
+  "p11-profile": {
+    "id": "p11-profile",
+    "src": "/assets/waseem/images/products/gold-bangles-k13798/profile.webp",
+    "width": 2000,
+    "height": 2000,
+    "alt": "A set of 21K gold bangles with a pierced lattice pattern, seen from the side, reference K13798",
+    "blurDataURL": "data:image/webp;base64,UklGRmgAAABXRUJQVlA4IFwAAABwAgCdASoQABAAA4BaJbACdGaAIYAmxMpGrEfAAP74GLdGk/4EmtFrqnlhpnNESjybU4b9UjLjexecVCAghjZ+A8rbfNpuczPyaDXPHOBWcPMbzT6dxFTMjAAAAA==",
+    "focal": [
+      0.5,
+      0.5
+    ],
+    "role": "packshot",
+    "maxDisplayWidth": 1000
+  },
+  "p11-raised": {
+    "id": "p11-raised",
+    "src": "/assets/waseem/images/products/gold-bangles-k13798/raised.webp",
+    "width": 2000,
+    "height": 2000,
+    "alt": "The same set of gold bangles raised, showing the inside of the stack",
+    "blurDataURL": "data:image/webp;base64,UklGRmIAAABXRUJQVlA4IFYAAAAQAgCdASoQABAAA4BaJbACdAEPhnczxOogAP74GXGRvGu69XUAuM8s+DjEVylrCeNy1uaSM31jQSyaJ3LQmCe9thGXixaB5avYufuFS+Eq/v4maPoAAA==",
+    "focal": [
+      0.5,
+      0.5
+    ],
+    "role": "packshot",
+    "maxDisplayWidth": 1000
+  },
   "w-rukh-3": {
     "id": "w-rukh-3",
     "src": "/assets/waseem/images/worlds/rukh-e-jana-3.webp",

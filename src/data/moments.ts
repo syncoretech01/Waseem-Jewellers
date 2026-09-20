@@ -155,7 +155,50 @@ export const JOURNEYS: Record<string, JourneyMoment> = {
   },
 };
 
+/** A hold of the bangle study's camera on one of the two angles. */
+export interface BangleHold {
+  key: string;
+  label: string;
+  note: string;
+  /** which of the two photographs the camera is on */
+  angle: 'profile' | 'raised';
+  cx: number;
+  cy: number;
+  scale: number;
+  /** a travel: the camera pans from `from` to (cx, cy) at the same scale while it holds */
+  from?: { cx: number; cy: number };
+}
+
+export interface BangleMoment {
+  profile: ImageRef;
+  raised: ImageRef;
+  lede: string;
+  holds: BangleHold[];
+}
+
+/**
+ * The bangle study: one set of bangles, the two angles the shop photographed — on its side,
+ * and raised so the inside shows. The camera reads the set the way a hand turns it: the
+ * profile, the surface close, the rhythm of the motif along the face, then the turn to the
+ * raised angle and the inside, and the complete set. Two photographs, nothing invented.
+ */
+export const BANGLES: Record<string, BangleMoment> = {
+  'gold-bangles-k13798': {
+    profile: { kind: 'local', id: 'p11-profile' },
+    raised: { kind: 'local', id: 'p11-raised' },
+    lede: 'One set, turned in the hand.',
+    holds: [
+      { key: 'profile', label: 'The set', note: 'Bangles in 21K gold, as the shop photographed them: on their side, the pattern running across every face.', angle: 'profile', cx: 0.5, cy: 0.5, scale: 1 },
+      { key: 'surface', label: 'The surface', note: 'A pierced lattice, cut through the gold so the light comes through it, worked in more than one finish.', angle: 'profile', cx: 0.4, cy: 0.5, scale: 2.4 },
+      { key: 'rhythm', label: 'The rhythm', note: 'The same motif repeated along the face of each bangle, and matched from one bangle to the next.', angle: 'profile', cx: 0.6, cy: 0.5, scale: 2.4, from: { cx: 0.3, cy: 0.5 } },
+      { key: 'inside', label: 'The inside', note: 'Raised, the stack shows its inside: the pierced rim, and the polished inner face that sits against the wrist.', angle: 'raised', cx: 0.5, cy: 0.3, scale: 2.0 },
+      { key: 'whole', label: 'The complete set', note: 'Reference K13798 — 21K, 83.124 grams, as published.', angle: 'raised', cx: 0.5, cy: 0.5, scale: 1 },
+    ],
+  },
+};
+
 export const studyFor = (slug: string) => STUDY[slug];
+export const bangleFor = (slug: string) => BANGLES[slug];
 export const journeyFor = (slug: string) => JOURNEYS[slug];
 export const lightsFor = (slug: string) => LIGHTS[slug];
 export const partedFor = (slug: string) => PARTED[slug];

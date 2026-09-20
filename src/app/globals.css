@@ -70,6 +70,11 @@
   --z-cursor: 100;
 
   --nav-h: 72px;
+  /* one authoritative clearance beneath the fixed header: the nav, the device's top inset, and
+     a breath. Every chapter's first line starts at --chapter-top; nothing sits behind the nav. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --chapter-top: calc(var(--nav-h) + var(--safe-top) + 1.25rem);
 
   /* the jewel's corner: 56px gem + its 28px inset. Nothing interactive may sit beneath it;
      a page column clears it with padding-right: max(0px, var(--orb-clear)). */
