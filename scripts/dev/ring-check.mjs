@@ -1,4 +1,4 @@
-// The craft chapter's one rule: over the ring there is the ring, or the still of the ring —
+// The craft chapter's one rule: over the ring there is the ring, its sequence, or the still of the ring —
 // never a drawing, never a second mark. This scrolls through the pinned sequence slowly, fast,
 // backwards and back and forth, sampling the DOM every 80 ms for anything brand-like or drawn
 // that is visible over the stage, and for the object and its still both being off at once.
@@ -66,6 +66,9 @@ const sample = () =>
     const canvasWrap = scene?.querySelector('canvas')?.parentElement;
     const posterOn = posterEl ? vis(posterEl) : false;
     const canvasOn = canvasWrap ? vis(canvasWrap) : false;
+    // the sequence (the frames of the same object, on a phone or without WebGL) counts as the object
+    const framesEl = document.querySelector('.craft-frames');
+    const framesOn = framesEl ? vis(framesEl) && [...framesEl.querySelectorAll('.craft-frame')].some((f) => vis(f)) : false;
     return {
       y: Math.round(window.scrollY),
       webgl: scene?.dataset.webgl,
@@ -74,9 +77,10 @@ const sample = () =>
       stoneVisible: stone ? vis(stone) : false,
       canvas: !!scene?.querySelector('canvas'),
       poster: posterOn,
-      objectOn: posterOn || canvasOn,
+      frames: framesOn,
+      objectOn: posterOn || canvasOn || framesOn,
       pinned: stage ? getComputedStyle(stage).position : null,
-      brand: brand.filter((b) => !/^canvas|^img\[An emerald-cut|^img\[Rose-gold/.test(b)),
+      brand: brand.filter((b) => !/^canvas|^img\[An emerald-cut|^img\[craft-frame|^img\[Rose-gold/.test(b)),
     };
   });
 
@@ -102,6 +106,9 @@ const scrollTo = async (y) => page.evaluate((yy) => window.scrollTo(0, yy), y);
 const start = geo.top - 700;
 const end = geo.top + geo.height + 200;
 
+// the first sample is taken settled, not inside anticipatePin's frame after the initial jump
+await scrollTo(start);
+await page.waitForTimeout(400);
 // 1. slow forward through the whole chapter
 for (let y = start; y <= end; y += 60) { await scrollTo(y); await page.waitForTimeout(80); await note('slow-fwd'); }
 // 2. fast backward

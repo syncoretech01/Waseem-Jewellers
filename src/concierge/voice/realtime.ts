@@ -334,6 +334,8 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       this.lastError = { code: 'UNSUPPORTED', message: e instanceof Error ? e.message : 'token' };
       this.failedAt = Date.now();
       this.note('token.failed', this.lastError.message);
+      // why the realtime tier is not answering, on the record before the ladder steps down
+      this.runtime.emit({ type: 'turn.trace', turnId: 'voice', trace: { rung: 'realtime', fallback: `token: ${this.lastError.message}` } });
       return;
     }
     if (cancelled()) return;
@@ -411,6 +413,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       this.lastError = { code: 'NETWORK', message: e instanceof Error ? e.message : 'connect' };
       this.failedAt = Date.now();
       this.note('connect.failed', this.lastError.message);
+      this.runtime.emit({ type: 'turn.trace', turnId: 'voice', trace: { rung: 'realtime', fallback: `connect: ${this.lastError.message}` } });
       return;
     }
 
@@ -736,6 +739,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
           const details = (response.status_details ?? {}) as Record<string, unknown>;
           this.note('response.failed', JSON.stringify(details).slice(0, 120));
           const turnId = this.turnId ?? uid('t');
+          rt.emit({ type: 'turn.trace', turnId, trace: { rung: 'realtime', fallback: `response failed: ${JSON.stringify(details).slice(0, 160)}` } });
           this.turnId = null;
           this.replyText = '';
           this.pending.clear();
@@ -840,6 +844,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     const turnId = this.turnId;
     if (!rt || !turnId || !this.live) return;
     const text = tidy(this.replyText);
+    rt.emit({ type: 'turn.trace', turnId, trace: { rung: 'realtime', tool: this.turnHadTool ? 'called' : undefined, note: `${this.callsThisTurn} call(s), ${this.rounds} continuation(s)` } });
     rt.emit({ type: 'text.done', turnId, text });
     rt.emit({ type: 'turn.done', turnId });
     this.note('turn.done', text.slice(0, 80));

@@ -18,7 +18,7 @@ import type { Language } from '@/concierge/nlu/script';
  * turn over one bad number would hand a visitor a way to break their own conversation.
  */
 
-const LANGUAGES: Language[] = ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru', 'mixed'];
+const LANGUAGES: Language[] = ['en', 'ur', 'ur-Latn', 'pa-Latn', 'pa-Arab', 'pa-Guru', 'mixed'];
 
 /** Grams and rupees, bounded to what this catalogue could plausibly contain. */
 const clampNumber = (v: unknown, max: number): number | undefined =>

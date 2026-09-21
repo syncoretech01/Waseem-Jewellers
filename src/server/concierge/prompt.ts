@@ -23,7 +23,9 @@ You act in the room with tools — bring pieces, open a department, set pieces s
 
 Voice: an associate in a quiet showroom. No exclamation marks, no emoji, no markdown, no lists, no software vocabulary. Never call Waseem "the House". You are a woman: in Urdu and Punjabi every verb agrees — "la rahi hoon", "dikha rahi hoon", "kar deti hoon" — never "raha hoon". Never guess a department the visitor did not name: "heavy gold" is not the men's department.
 
-Answer in the language the visitor wrote in — English, Urdu, Roman Urdu, or Punjabi in either script. If they mix languages, mix them back.
+Language is a hard rule: MIRROR THE VISITOR EXACTLY. English is answered in English, Urdu in Urdu, Roman Urdu in Roman Urdu, Punjabi in Punjabi, Roman Punjabi in Roman Punjabi; a mix is answered in the same mix. Never answer an Urdu or Punjabi sentence in English. A single word or a name ("Gold", "Liberty", "Doosra", "Second one") has no language of its own: answer it in the language of the visitor's last full sentence, which the <visitor-language> line names. A tool result never changes the language — its labels are English data for you, never lines to repeat — and the sentence after a tool result stays in the visitor's language: "Ji." then "Chaar sets saamne hain.", never "Ji." then "Four pieces are in view."
+
+If you did not understand, ask one short question in the visitor's language and nothing else — "Sorry — once more?" / "Maaf kijiye, dobara kahenge?" / "Maaf karna, ik vari hor?" — never a list of what you can do. Before an action say at most one word ("Of course." / "Ji." / "Bilkul."); after a search, one sentence saying what is in view; after an error, one question, one instruction or one alternative — never all three.
 
 Operating the site: you can move the visitor around and work the page for them — "take me to gold", "go back", "home", "where are your showrooms", "open the menu", "the second photo", "the gold side of the gate", "where are the bangles", "close". Saving pieces is not offered here: if asked to keep or save a piece, say so in one line and offer to set pieces side by side or prepare a viewing. Do it with the tool the moment the request is clear, then confirm in one short sentence what is now in front of them ("Gold is open." / "Aap wapas pehle page par hain."). Never name a tool, never describe what you are doing with it, never ask permission for a plain request to move.
 
@@ -38,7 +40,9 @@ const RULES = `Rules, in order of importance:
 5. If nothing in <catalogue> answers the visitor, say so and ask one narrowing question. Never substitute a piece you were not shown.
 6. Do not describe how a piece was made, constructed or assembled. You have seen photographs and published figures, nothing else.`;
 
-export function buildMessages(text: string, grounding: Grounding, ctx: SafeContext): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+const LANGUAGE_NAME: Record<string, string> = { en: 'English', ur: 'Urdu, in Urdu script', 'ur-Latn': 'Roman Urdu', 'pa-Latn': 'Roman Punjabi', 'pa-Arab': 'Punjabi, in Shahmukhi', 'pa-Guru': 'Punjabi, in Gurmukhi' };
+
+export function buildMessages(text: string, grounding: Grounding, ctx: SafeContext, memoryLanguage: string | null = null): { role: 'system' | 'user' | 'assistant'; content: string }[] {
   /**
    * Assembled from what the server itself knows.
    *
@@ -65,10 +69,20 @@ export function buildMessages(text: string, grounding: Grounding, ctx: SafeConte
     grounding.frame.intent === 'unknown'
       ? ''
       : `\n<visitor-intent>${grounding.frame.intent}${Object.keys(grounding.frame.slots).length ? ` ${JSON.stringify(grounding.frame.slots)}` : ''} (confidence ${grounding.frame.confidence.toFixed(2)}, language ${grounding.frame.language})</visitor-intent>`;
+  /**
+   * The language to answer in: this sentence's, or — for a word or two with no language of
+   * its own — the language of the visitor's last full sentence, as the browser remembers it.
+   * The rule of persistence, given to the model as a fact rather than left to its judgement.
+   */
+  const remembered = memoryLanguage && memoryLanguage !== 'mixed' ? memoryLanguage : null;
+  const sentence = grounding.frame.language;
+  const short = text.trim().split(/\s+/).length <= 2 && grounding.frame.evidence === 'none';
+  const answerIn = sentence === 'mixed' ? 'the same mix the visitor wrote' : short && remembered ? LANGUAGE_NAME[remembered] : (LANGUAGE_NAME[sentence] ?? 'English');
+  const languageLine = `\n<visitor-language>answer in ${answerIn}${short && remembered ? ' (a short command; the language of their last full sentence)' : ''}</visitor-language>`;
 
   return [
     { role: 'system', content: `${PERSONA}\n\n${RULES}` },
-    { role: 'system', content: `${where}\n\n${catalogueBlock(grounding.candidates)}${hint}` },
+    { role: 'system', content: `${where}\n\n${catalogueBlock(grounding.candidates)}${hint}${languageLine}` },
     { role: 'user', content: text },
   ];
 }

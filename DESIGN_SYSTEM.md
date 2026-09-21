@@ -445,16 +445,54 @@ listening ring and focus. The voice stage is a hairline ring with the crest at i
 second ring that breathes with the voice — no waveform, no sphere. Every voice condition is also
 a sentence beneath the ring, so the ring is never the only signal.
 
-## The nav's surface
+## The nav's mark and surface
 
-The nav is text and the crest, with no ground of its own at the top of a page. Once the page
-has moved beneath it (past 120px) and it returns on scroll-up, it brings a surface with it —
-`.wj-nav-surfaced`: the chapter's own `--bg` at 86% with a blur and a `--line` rule — so the
-mark is never floating over a photograph. While shown it publishes `--nav-offset` (its height,
-else `0px`) and the department refine bar sticks to that, standing beneath the nav rather than
-under it. Nothing else may sit in the nav band: chapter eyebrows begin at
-`calc(var(--nav-h) + 1.25rem)`, and a department masthead names the place ("LAHORE · SINCE
-1952"), not the brand the crest already says.
+The nav is text and the mark, with no ground of its own at the top of a page. The mark is
+Waseem's own and nothing else: `<WaseemMark variant="crest-monogram" tone="current">`, the
+crest over the WJW ligature in the authentic arrangement, with no written name beside it and
+no second mark to crossfade to. One element at two sizes — 44px tall from `sm`, 36px on a
+phone, at the top of a page; once the page has moved beneath it (`section` past the hero on
+the home page, `scroll > 120px` elsewhere) it settles to 32px / 28px by a `scale` transition
+on its wrapper from the left edge, so it stays on the gutter line. The link keeps
+`aria-label="Waseem Jewellers — home"`. The wrapper is lifted one pixel
+(`-translate-y-px`): the ink's centroid sits 2.7% of the mark's height below its box's centre
+(the ligature outweighs the crest), and on the box's centre-line the mark read low against
+the capitals of ASK and MENU. Measured, not judged — the probe is
+`.cache/s22/brand/header-probe.mjs`, and its numbers are the box centre exactly 1px above the
+buttons' and the ink centre within 0.25px of MENU's capitals at every width from 360 to 1920.
+Chrome alone writes that wrapper's transform; the header's own motion writes only the header.
+
+Once the page has moved beneath it (past 120px) and it returns on scroll-up, it brings a
+surface with it — `.wj-nav-surfaced`: the chapter's own `--bg` at 86% with a blur and a
+`--line` rule — so the mark is never floating over a photograph. While shown it publishes
+`--nav-offset` (its height, else `0px`) and the department refine bar sticks to that,
+standing beneath the nav rather than under it. Nothing else may sit in the nav band: chapter
+eyebrows begin at `calc(var(--nav-h) + 1.25rem)`, and a department masthead names the place
+("LAHORE · SINCE 1952"), not the brand the mark already says.
+
+## The footer
+
+Fixed beneath `#page-root` at `100svh` on a wide screen (§7), so the last chapter lifts off it
+from the foot upward: the legal line is seen first, then the directory, then the invitation,
+and the signature last at the head. Its content is composed on `.wj-content` as a letterhead
+in three groups spread by `justify-between`, so the ink between them is two equal pauses and
+never one hole: the signature at the head (`<WaseemLockup layout="tight" tone="gold">` at
+72px — 64px at `md` — with "Since 1952" in `micro` beneath it: a signature, not the page's
+headline; the crest in it is 20px, near the 24px the concierge wears), the invitation and
+`[ Book an appointment ]` in the body, and the directory at the foot — Explore, Visit,
+Contact and Correspondence as four equal columns of the twelve-column `.wj-grid` from `lg`,
+two by two at `md` — under one `champagne/15` rule, with the legal line and the socials under
+another, the socials clear of the orb's corner by `--orb-clear`. Correspondence stays: it is
+the fourth column that squares the grid, and the letters line is honest about what it does.
+The head clears the nav band at `max(10svh, 5.5rem)`.
+
+On a phone the footer is in flow at its own height (`globals.css`), read top to bottom: the
+signature as a row (the lockup at 52px, the year beside it on its baseline), the invitation
+and its button, Explore and Visit side by side and Contact beneath, then the socials and the
+legal line, which ends above the concierge's lane
+(`pb-[calc(var(--orb-lane)+var(--safe-bottom))]`). In the chrome the header carries the mark
+and the footer the signature, and nothing else does; the loader's ritual and the concierge's
+crest are their own.
 
 ## The cursor
 

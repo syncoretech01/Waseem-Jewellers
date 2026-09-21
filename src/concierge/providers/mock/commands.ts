@@ -1,16 +1,34 @@
 import { WORLDS } from '@/data/worlds';
 import { byName, getRow, similarRows, describeRow, priceLabelOf, specLineOf } from '@/data/clientIndex';
-import { countInWords, capitalise } from '@/lib/format';
-import { CONCIERGE } from '../../copy';
+import { useConciergeStore } from '@/state/conciergeStore';
+import { useSiteStore } from '@/state/siteStore';
 import { ordinalFromWord, resolveOrdinal } from '../../ordinals';
+import { parse, type IntentFrame } from '../../nlu/parse';
+import { tokenize, fold } from '../../nlu/script';
+import { nextAck, replies, resolveReplyLanguage, subjectIn, showroomNameIn, type Replies, type ReplyLanguage } from '../../replies';
+import { missingFields, resolveShowroom } from '../../tools/appointment';
+import { CONCIERGE } from '../../copy';
 import { corePlan } from './corePlan';
 import type { SiteContext, ToolName, ToolOutcome } from '../../types';
 
-/** A plan the mock executes: zero or more tool calls, then a reply built from their outcomes. */
+/**
+ * A plan the mock executes: zero or more tool calls, then a reply built from their outcomes.
+ *
+ * `ack` is the one word said as the action starts — "Ji." / "Of course." — streamed before
+ * the tools run, so the visitor hears it while the page moves. `reply` is what is said once
+ * the outcomes are known; for an action command it is empty, because the ack was the whole
+ * reply. `retry` is the same request with the carried conditions set aside, run only when
+ * the first tools brought nothing.
+ */
 export interface Plan {
   id: string;
   tools: { name: ToolName; args: Record<string, unknown> }[];
   reply: (outcomes: ToolOutcome[], ctx: SiteContext) => string;
+  ack?: string;
+  retry?: { name: ToolName; args: Record<string, unknown> }[];
+  /** The language the reply is written in, resolved once per sentence. */
+  language: ReplyLanguage;
+  intent?: string;
 }
 
 // ── normalisation ─────────────────────────────────────────────────────────────
@@ -103,50 +121,116 @@ function firstPieces(outcomes: ToolOutcome[]) {
   return o?.ui && o.ui.kind === 'pieces' ? o.ui.pieces : [];
 }
 
-function searchReply(outcomes: ToolOutcome[], what: string) {
-  const pieces = firstPieces(outcomes);
-  if (pieces.length === 0) return CONCIERGE.nothing;
-  const houses = [...new Set(pieces.map((p) => p.collection).filter(Boolean))];
-  return CONCIERGE.searchResult(capitalise(countInWords(pieces.length)), what, houses);
-}
-
 const specsLine = (slug: string) => {
   const r = getRow(slug);
   return r ? specLineOf(r) : '';
 };
 
+/**
+ * A piece, described: the authored English lede with what is published, or — in any other
+ * language, where no lede is written — the name and the published figures alone. Nothing is
+ * translated that was not written, and nothing is said that was not published.
+ */
+function tellAbout(language: ReplyLanguage, R: Replies, slug: string): string {
+  const p = getRow(slug);
+  if (!p) return R.clarify;
+  const specs = specsLine(slug);
+  if (language !== 'en') return R.tellAbout(p.t, specs);
+  return specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p));
+}
+
+/** The kind, as the entity table names it, in the shape the reply layer takes. */
+const CATEGORY_OF: Record<NonNullable<Entities['category']>, string> = { necklace: 'necklace', choker: 'necklace', set: 'bridal-set', earrings: 'earrings', ring: 'ring', bangle: 'bangle', bracelet: 'bracelet' };
+
+/** The one language-independent way to ask which piece: whether anything has been shown yet. */
+const anyShown = (ctx: SiteContext) => ctx.recentResults.length > 0 || ctx.visibleProducts.length > 0;
+
+/** "A showroom, named in the sentence" — Liberty, MM Alam, DHA, Gulberg — or nothing. */
+export function showroomIn(folded: string): string | undefined {
+  const m = folded.match(/\b(liberty|mm alam|m m alam|alam road|alam|dha|gulberg|defence)\b/);
+  return m ? resolveShowroom(m[1] === 'defence' ? 'dha' : m[1]!) : undefined;
+}
+
+/**
+ * The appointment's reply, after `fillAppointment` or `openAppointment`: what was noted, and
+ * the first thing still needed — one field, never a list. The form is on screen; the
+ * concierge asks only for what it lacks.
+ */
+export function appointmentReply(R: Replies, noted: string | undefined, outcome: ToolOutcome | undefined): string {
+  if (outcome && outcome.label === '') return R.error;
+  const missing = missingFields(useSiteStore.getState().consultation.draft);
+  const first = missing[0];
+  const ask = first && first in R.ask ? R.ask[first as keyof Replies['ask']] : undefined;
+  if (noted) return ask ? `${R.noted(noted)} — ${ask}` : R.allNoted;
+  return ask ? (first === 'name' ? R.formOpen : `${R.formOpen.split(' — ')[0]} — ${ask}`) : R.allNoted;
+}
+
 // ── the ordered command table (first match wins) ──────────────────────────────
 
-type Command = { id: string; test: (t: string, e: Entities, ctx: SiteContext) => boolean; plan: (t: string, e: Entities, ctx: SiteContext) => Plan };
+interface Reading {
+  t: string;
+  e: Entities;
+  ctx: SiteContext;
+  R: Replies;
+  language: ReplyLanguage;
+  folded: string;
+  tokens: string[];
+}
 
-const search = (id: string, args: Record<string, unknown>, what: string): Plan => ({ id, tools: [{ name: 'searchProducts', args }], reply: (o) => searchReply(o, what) });
+type Command = { id: string; test: (r: Reading) => boolean; plan: (r: Reading) => Plan };
+
+const action = (id: string, language: ReplyLanguage, tools: Plan['tools'], reply: Plan['reply'] = () => ''): Plan => ({ id, language, tools, ack: nextAck(language), reply });
+const say = (id: string, language: ReplyLanguage, text: string): Plan => ({ id, language, tools: [], reply: () => text });
+
+const search = (id: string, language: ReplyLanguage, args: Record<string, unknown>, subject: Parameters<typeof subjectIn>[1]): Plan => ({
+  id,
+  language,
+  tools: [{ name: 'searchProducts', args }],
+  reply: (o) => {
+    const R = replies(language);
+    const pieces = firstPieces(o);
+    return pieces.length === 0 ? R.nothing : R.searchResult(pieces.length, subjectIn(language, subject, pieces.length));
+  },
+});
+
+/** The chrome commands a visitor gives in one or two words: back, in five languages. */
+const BACK = new Set(['back', 'wapas', 'wapis', 'vapas', 'peeche', 'pichhe', 'piche', 'pichay', 'واپس', 'پچھے', 'ਵਾਪਸ', 'ਪਿੱਛੇ']);
 
 export const COMMANDS: Command[] = [
   {
     id: 'greeting',
-    test: (t) => /^(hi|hello|hey|salam|salaam|assalam\w*|as-salam\w*|good (morning|afternoon|evening))\b/.test(t) && t.length < 40,
-    plan: (_t, _e, ctx) => ({ id: 'greeting', tools: [], reply: () => CONCIERGE.greeting(ctx.localHour) }),
+    test: ({ t }) => /^(hi|hello|hey|salam|salaam|assalam\w*|as-salam\w*|good (morning|afternoon|evening))\b/.test(t) && t.length < 40,
+    plan: ({ ctx, R, language }) => say('greeting', language, R.greeting(ctx.localHour)),
   },
-  { id: 'thanks', test: (t, e) => /\b(thank\w*|thanks|lovely|perfect|wonderful)\b/.test(t) && !e.category && !e.material, plan: () => ({ id: 'thanks', tools: [], reply: () => CONCIERGE.thanks }) },
-  { id: 'close', test: (t) => /\b(close|bye|goodbye|khuda hafiz|allah hafiz|that'?s all|nothing else|that is all)\b/.test(t), plan: () => ({ id: 'close', tools: [], reply: () => CONCIERGE.close }) },
-  { id: 'help', test: (t) => /\b(what can you do|help|options|how does this work|what do you do)\b/.test(t), plan: () => ({ id: 'help', tools: [], reply: () => CONCIERGE.help }) },
-  { id: 'watches', test: (t) => /\b(watches|wrist ?watch|tag heuer|rado|tissot)\b/.test(t) || /\bwatch\b(?=\s*(department|brands?|collection))/.test(t), plan: () => ({ id: 'watches', tools: [], reply: () => CONCIERGE.watches }) },
+  { id: 'thanks', test: ({ t, e }) => /\b(thank\w*|thanks|lovely|perfect|wonderful)\b/.test(t) && !e.category && !e.material, plan: ({ R, language }) => say('thanks', language, R.thanks) },
+  { id: 'close', test: ({ t }) => /\b(close|bye|goodbye|khuda hafiz|allah hafiz|that'?s all|nothing else|that is all)\b/.test(t), plan: ({ R, language }) => say('close', language, R.close) },
+  {
+    id: 'back',
+    test: ({ tokens, e }) => tokens.length <= 4 && tokens.some((w) => BACK.has(w)) && !e.category && !e.material,
+    plan: ({ language }) => ({
+      ...action('back', language, [{ name: 'navigate', args: { target: 'back' } }]),
+      // there was nowhere to go back to: said, with the one alternative
+      reply: (o) => (o[0]?.label === '' ? replies(language).noEarlierPage : ''),
+    }),
+  },
+  { id: 'help', test: ({ t }) => /\b(what can you do|help|options|how does this work|what do you do)\b/.test(t), plan: ({ R, language }) => say('help', language, R.help) },
+  { id: 'watches', test: ({ t }) => /\b(watches|wrist ?watch|tag heuer|rado|tissot)\b/.test(t) || /\bwatch\b(?=\s*(department|brands?|collection))/.test(t), plan: ({ R, language }) => say('watches', language, R.watches) },
   {
     id: 'about_house',
     // copy-guard-allow: matches what a visitor might say, not what we say
-    test: (t) => (/\b(tell me about|about|who (are|is)|history|heritage|story|founder|founded|1952|generations?|the house)\b/.test(t) && /\b(waseem|house|you|yourself|jewellers|brand)\b/.test(t)) || /^(waseem|waseem jewellers)$/.test(t),
-    plan: () => ({ id: 'about_house', tools: [{ name: 'scrollToSection', args: { section: 'heritage' } }], reply: () => CONCIERGE.house }),
+    test: ({ t }) => (/\b(tell me about|about|who (are|is)|history|heritage|story|founder|founded|1952|generations?|the house)\b/.test(t) && /\b(waseem|house|you|yourself|jewellers|brand)\b/.test(t)) || /^(waseem|waseem jewellers)$/.test(t),
+    plan: ({ R, language }) => ({ id: 'about_house', language, tools: [{ name: 'scrollToSection', args: { section: 'heritage' } }], reply: () => R.house }),
   },
   {
     id: 'showrooms',
-    test: (t) => /\b(where are you|showrooms?|stores?|location|address|hours|timing|open (till|until)|contact|phone|whatsapp|visit you)\b/.test(t),
-    plan: () => ({ id: 'showrooms', tools: [{ name: 'scrollToSection', args: { section: 'footer' } }], reply: () => CONCIERGE.showrooms }),
+    test: ({ t }) => /\b(where are you|showrooms?|stores?|location|address|hours|timing|open (till|until)|contact|phone|whatsapp|visit you)\b/.test(t),
+    plan: ({ R, language }) => ({ id: 'showrooms', language, tools: [{ name: 'scrollToSection', args: { section: 'footer' } }], reply: () => R.showrooms }),
   },
   {
     id: 'compare',
     // copy-guard-allow: what a visitor might say
-    test: (t) => /\b(compare|comparison|side by side|versus|vs\.?|muqabla|farq)\b/.test(t),
-    plan: (t, _e, ctx) => {
+    test: ({ t }) => /\b(compare|comparison|side by side|versus|vs\.?|muqabla|farq)\b/.test(t),
+    plan: ({ t, ctx, R, language }) => {
       // "the first two" / "the second and the third" / "it with the second" / "these two":
       // the ordinals named, then the piece in view, then what was just shown
       const named = [...t.matchAll(/\b(first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|6th|last)\b/g)].map((m) => (m[1] === 'last' ? -1 : (ordinalFromWord(m[1]!) ?? 1)));
@@ -160,34 +244,58 @@ export const COMMANDS: Command[] = [
       const unique = [...new Set(slugs)].slice(0, 3);
       return {
         id: 'compare',
+        language,
         tools: unique.length >= 2 ? [{ name: 'comparePieces', args: { slugs: unique } }] : [],
         reply: (o) => {
           const ui = o[0]?.ui;
-          return ui && ui.kind === 'compare' ? CONCIERGE.compared(ui.pieces.map((p) => p.name)) : CONCIERGE.whichToCompare;
+          return ui && ui.kind === 'compare' ? R.compared(ui.pieces.map((p) => p.name)) : R.whichToCompare;
         },
       };
     },
   },
+  /**
+   * While the appointment form is open, a bare answer is the field it answers: a showroom by
+   * name, a telephone number, an occasion. A name is not read here — any sentence would then
+   * be a name — and stays the visitor's to type into the field on screen.
+   */
+  {
+    id: 'appointment_field',
+    test: ({ ctx, folded, tokens }) => ctx.appointmentOpen && tokens.length <= 4 && (Boolean(showroomIn(folded)) || /^\+?[\d\s-]{7,}$/.test(folded) || /^(gift|bridal|bespoke|viewing|a viewing)$/.test(folded)),
+    plan: ({ folded, language, R }) => {
+      const showroom = showroomIn(folded);
+      const phone = /^\+?[\d\s-]{7,}$/.test(folded) ? folded : undefined;
+      const occasion = /^(gift|bridal|bespoke|viewing|a viewing)$/.test(folded) ? folded.replace(/^a /, '') : undefined;
+      const args: Record<string, unknown> = {};
+      if (showroom) args.showroom = showroom;
+      if (phone) args.phone = phone;
+      if (occasion) args.occasion = occasion;
+      const noted = showroom ? showroomNameIn(language, showroom) : phone ? R.ask.phone.replace(/\?$/, '') : occasion ? occasion : undefined;
+      return { ...action('appointment_field', language, [{ name: 'fillAppointment', args }]), reply: (o) => appointmentReply(R, noted, o[0]) };
+    },
+  },
   {
     id: 'consultation',
-    test: (t) => /\b(book|arrange|schedule|reserve|appointment|consultation|consult|private viewing|viewing|meet (a|the) designer|visit .*designer)\b/.test(t),
-    plan: (t, e, ctx) => ({
-      id: 'consultation',
-      tools: [{ name: 'openPrivateConsultation', args: { topic: e.bridal ? 'bridal' : /\bbespoke|custom|design\b/.test(t) ? 'bespoke' : 'viewing', productSlug: ctx.currentProduct?.slug } }],
-      reply: () => CONCIERGE.consultation,
-    }),
+    // copy-guard-allow: what a visitor might say, in the words they use
+    test: ({ t }) => /\b(book|arrange|schedule|reserve|appointment|consultation|consult|private viewing|viewing|meet (a|the) designer|visit .*designer)\b/.test(t),
+    plan: ({ t, e, folded, language, R }) => {
+      const showroom = showroomIn(folded);
+      const occasion = e.bridal ? 'bridal' : /\bbespoke|custom|design\b/.test(t) ? 'bespoke' : undefined;
+      const args: Record<string, unknown> = {};
+      if (showroom) args.showroom = showroom;
+      if (occasion) args.occasion = occasion;
+      const noted = showroom ? showroomNameIn(language, showroom) : undefined;
+      return { ...action('consultation', language, [{ name: 'fillAppointment', args }]), reply: (o) => appointmentReply(R, noted, o[0]) };
+    },
   },
   {
     id: 'price',
-    test: (t) => /\b(price|cost|how much|rate|budget)\b/.test(t),
-    plan: (_t, _e, ctx) => {
+    test: ({ t }) => /\b(price|cost|how much|rate|budget)\b/.test(t),
+    plan: ({ ctx, R, language }) => {
       const slug = ctx.currentProduct?.slug ?? ctx.focusedProduct?.slug ?? ctx.recentResults[0]?.slug;
       const p = slug ? getRow(slug) : undefined;
-      return {
-        id: 'price',
-        tools: [],
-        reply: () => (p && p.p > 0 ? CONCIERGE.priceKnown(priceLabelOf(p), p.k) : CONCIERGE.priceOnRequest),
-      };
+      // a published price is said off the homepage only, where the pages themselves carry it
+      const priced = p && p.p > 0 && ctx.routeKind !== 'home';
+      return say('price', language, priced ? R.priceKnown(priceLabelOf(p)) : R.priceOnRequest);
     },
   },
   /**
@@ -197,114 +305,126 @@ export const COMMANDS: Command[] = [
    */
   {
     id: 'selection_not_offered',
-    test: (t) => /\b(my (selection|wishlist|saved|favou?rites|list)|what (have|did) i (save|keep)|show .*selection|in my selection)\b/.test(t),
-    plan: () => ({ id: 'selection_not_offered', tools: [], reply: () => CONCIERGE.selectionNotOffered }),
+    test: ({ t }) => /\b(my (selection|wishlist|saved|favou?rites|list)|what (have|did) i (save|keep)|show .*selection|in my selection)\b/.test(t),
+    plan: ({ R, language }) => say('selection_not_offered', language, R.selectionNotOffered),
   },
   {
     id: 'saving_not_offered',
-    test: (t, e) => !e.category && !e.material && /\b(save|keep|shortlist|wishlist|unsave|add .*(selection|wishlist)|remove .*(selection|wishlist))\b/.test(t),
-    plan: () => ({ id: 'saving_not_offered', tools: [], reply: () => CONCIERGE.savingNotOffered }),
+    test: ({ t, e }) => !e.category && !e.material && /\b(save|keep|shortlist|wishlist|unsave|add .*(selection|wishlist)|remove .*(selection|wishlist))\b/.test(t),
+    plan: ({ R, language }) => say('saving_not_offered', language, R.savingNotOffered),
   },
   {
     id: 'similar',
-    test: (_t, e) => e.similar,
-    plan: () => ({
+    test: ({ e }) => e.similar,
+    plan: ({ R, language }) => ({
       id: 'similar',
+      language,
       tools: [{ name: 'showSimilarPieces', args: {} }],
       reply: (o) => {
         const out = o[0];
-        if (!out || out.label === '') return CONCIERGE.whichPieceSimilar;
-        const pieces = firstPieces(o);
-        return pieces.length === 4 ? CONCIERGE.similar : CONCIERGE.similarCount(capitalise(countInWords(pieces.length)));
+        if (!out || out.label === '') return R.whichPieceSimilar;
+        return R.similar(firstPieces(o).length);
       },
     }),
   },
   {
     id: 'ordinal_open',
-    test: (_t, e) => e.ordinal !== null,
-    plan: (_t, e, ctx) => {
+    test: ({ e }) => e.ordinal !== null,
+    plan: ({ e, ctx, R, language }) => {
       const target = resolveOrdinal(e.ordinal ?? 1, ctx);
-      if (!target) return { id: 'ordinal_open', tools: [], reply: () => CONCIERGE.whichPiece };
-      if (target.kind === 'collection') return { id: 'ordinal_open', tools: [{ name: 'showCollection', args: { slug: target.slug } }], reply: (o) => o[0]?.label ?? CONCIERGE.whichPiece };
-      const p = getRow(target.slug);
-      return { id: 'ordinal_open', tools: [{ name: 'openProduct', args: { slug: target.slug } }], reply: () => (p ? CONCIERGE.opened(p.t) : CONCIERGE.whichPiece) };
+      if (!target) return say('ordinal_open', language, R.whichPiece(anyShown(ctx)));
+      if (target.kind === 'collection') return action('ordinal_open', language, [{ name: 'showCollection', args: { slug: target.slug } }], (o) => (o[0]?.label ? '' : R.whichPiece(anyShown(ctx))));
+      return action('ordinal_open', language, [{ name: 'openProduct', args: { slug: target.slug } }], (o) => (o[0]?.label ? '' : R.whichPiece(anyShown(ctx))));
     },
   },
   {
     id: 'named_open',
-    test: (t, e) => /\b(open|show|view|see|take me to|go to|tell me (more )?about|details)\b/.test(t) && !e.deictic && !!byName(t) && !e.world && !/\bcollections?\b/.test(t),
-    plan: (t) => {
+    test: ({ t, e }) => /\b(open|show|view|see|take me to|go to|tell me (more )?about|details)\b/.test(t) && !e.deictic && !!byName(t) && !e.world && !/\bcollections?\b/.test(t),
+    plan: ({ t, R, language }) => {
       const p = byName(t)!;
       if (/\btell me\b|\babout\b|\bdetails\b/.test(t)) {
-        const specs = specsLine(p.s);
-        return { id: 'named_tell', tools: [{ name: 'focusProduct', args: { slug: p.s } }], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p))) };
+        return { id: 'named_tell', language, tools: [{ name: 'focusProduct', args: { slug: p.s } }], reply: () => tellAbout(language, R, p.s) };
       }
-      return { id: 'named_open', tools: [{ name: 'openProduct', args: { slug: p.s } }], reply: () => CONCIERGE.opened(p.t) };
+      return action('named_open', language, [{ name: 'openProduct', args: { slug: p.s } }], (o) => (o[0]?.label ? '' : R.error));
     },
   },
   {
     id: 'deictic_tell',
-    test: (t, e, ctx) => e.deictic && /\b(tell me|about|details|what is|describe)\b/.test(t) && !!(ctx.currentProduct ?? ctx.focusedProduct),
-    plan: (_t, _e, ctx) => {
+    test: ({ t, e, ctx }) => e.deictic && /\b(tell me|about|details|what is|describe)\b/.test(t) && !!(ctx.currentProduct ?? ctx.focusedProduct),
+    plan: ({ ctx, R, language }) => {
       const slug = (ctx.currentProduct ?? ctx.focusedProduct)!.slug;
-      const p = getRow(slug)!;
-      const specs = specsLine(slug);
-      return { id: 'deictic_tell', tools: [], reply: () => (specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p))) };
+      return say('deictic_tell', language, tellAbout(language, R, slug));
     },
   },
   {
     id: 'deictic_open',
-    test: (t, e, ctx) => e.deictic && /\b(open|view|see)\b/.test(t) && !!(ctx.focusedProduct ?? ctx.recentResults[0]),
-    plan: (_t, _e, ctx) => {
+    test: ({ t, e, ctx }) => e.deictic && /\b(open|view|see)\b/.test(t) && !!(ctx.focusedProduct ?? ctx.recentResults[0]),
+    plan: ({ ctx, R, language }) => {
       const slug = (ctx.focusedProduct ?? ctx.recentResults[0])!.slug;
-      const p = getRow(slug);
-      return { id: 'deictic_open', tools: [{ name: 'openProduct', args: { slug } }], reply: () => (p ? CONCIERGE.opened(p.t) : CONCIERGE.whichPiece) };
+      return action('deictic_open', language, [{ name: 'openProduct', args: { slug } }], (o) => (o[0]?.label ? '' : R.whichPiece(anyShown(ctx))));
     },
   },
   {
     id: 'collection_named',
-    test: (_t, e) => !!e.world,
-    plan: (_t, e) => {
+    test: ({ e }) => !!e.world,
+    plan: ({ e, language }) => {
       const w = WORLDS.find((x) => x.slug === e.world)!;
-      return { id: 'collection_named', tools: [{ name: 'showCollection', args: { slug: w.slug } }], reply: () => CONCIERGE.world(w.name, w.mood) };
+      return action('collection_named', language, [{ name: 'showCollection', args: { slug: w.slug } }]);
     },
   },
   {
     id: 'collections_overview',
-    test: (t, e) => /\b(collections?|worlds|range|what do you have|catalogue|everything)\b/.test(t) && !e.category && !e.bridal,
-    plan: () => ({ id: 'collections_overview', tools: [{ name: 'scrollToSection', args: { section: 'collections' } }], reply: () => CONCIERGE.collections }),
+    test: ({ t, e }) => /\b(collections?|worlds|range|what do you have|catalogue|everything)\b/.test(t) && !e.category && !e.bridal,
+    plan: ({ R, language }) => ({ id: 'collections_overview', language, tools: [{ name: 'scrollToSection', args: { section: 'collections' } }], reply: () => R.collections }),
   },
   {
     id: 'bridal_route',
-    test: (t, e) => e.bridal && !e.category && (/\b(take me|go to|open|explore|enter|house)\b/.test(t) || /^(show me )?bridal$/.test(t)),
-    plan: () => ({ id: 'bridal_route', tools: [{ name: 'showBridal', args: {} }], reply: () => CONCIERGE.bridal }),
+    test: ({ t, e }) => e.bridal && !e.category && (/\b(take me|go to|open|explore|enter|house)\b/.test(t) || /^(show me )?bridal$/.test(t)),
+    plan: ({ language }) => action('bridal_route', language, [{ name: 'showDepartment', args: { department: 'bridal' } }]),
   },
-  { id: 'diamond_world', test: (t, e) => e.material === 'diamond' && !e.category && !e.bridal && /\b(show|see|diamond)\b/.test(t), plan: () => ({ id: 'diamond_world', tools: [{ name: 'showDiamond', args: {} }], reply: () => CONCIERGE.diamond }) },
-  { id: 'gold_world', test: (t, e) => e.material === 'gold' && !e.category && !e.bridal && !e.traditional && /\b(show|see|gold)\b/.test(t), plan: () => ({ id: 'gold_world', tools: [{ name: 'showGold', args: {} }], reply: () => CONCIERGE.gold }) },
+  { id: 'diamond_world', test: ({ t, e }) => e.material === 'diamond' && !e.category && !e.bridal && /\b(show|see|diamond)\b/.test(t), plan: ({ language }) => action('diamond_world', language, [{ name: 'showDepartment', args: { department: 'diamond' } }]) },
+  { id: 'gold_world', test: ({ t, e }) => e.material === 'gold' && !e.category && !e.bridal && !e.traditional && /\b(show|see|gold)\b/.test(t), plan: ({ language }) => action('gold_world', language, [{ name: 'showDepartment', args: { department: 'gold' } }]) },
   {
     id: 'traditional',
-    test: (_t, e) => e.traditional,
-    plan: (_t, e) => ({ id: 'traditional', tools: [{ name: 'searchProducts', args: { style: 'traditional', category: e.category, limit: 4 } }], reply: () => CONCIERGE.traditional }),
+    test: ({ e }) => e.traditional,
+    plan: ({ e, R, language }) => ({ id: 'traditional', language, tools: [{ name: 'searchProducts', args: { style: 'traditional', category: e.category, limit: 4 } }], reply: (o) => (firstPieces(o).length ? R.traditional : R.nothing) }),
   },
   {
     id: 'search',
-    test: (t, e) => !!e.category || !!e.material || e.bridal || /\b(show|find|looking for|want|something|pieces|jewellery|jewelry)\b/.test(t),
-    plan: (t, e) => {
+    test: ({ t, e }) => !!e.category || !!e.material || e.bridal || /\b(show|find|looking for|want|something|pieces|jewellery|jewelry)\b/.test(t),
+    plan: ({ t, e, language }) => {
       const args: Record<string, unknown> = { limit: 4 };
       if (e.category) args.category = e.category;
       if (e.material) args.material = e.material;
       if (e.bridal) args.style = 'bridal';
       if (!e.category && !e.material && !e.bridal) args.query = t;
-      const what = [e.bridal ? 'bridal' : null, e.material, e.category ? (e.category === 'set' ? 'sets' : e.category === 'ring' ? 'rings' : e.category === 'necklace' || e.category === 'choker' ? 'necklaces' : e.category) : 'pieces'].filter(Boolean).join(' ');
-      return search('search', args, what);
+      return search('search', language, args, { category: e.category ? CATEGORY_OF[e.category] : undefined, material: e.material, department: e.bridal ? 'bridal' : undefined });
     },
   },
   {
     id: 'out_of_scope',
-    test: (t) => /\b(weather|joke|poem|code|news|crypto|stock|football|cricket|recipe)\b/.test(t),
-    plan: () => ({ id: 'out_of_scope', tools: [], reply: () => CONCIERGE.outOfScope }),
+    test: ({ t }) => /\b(weather|joke|poem|code|news|crypto|stock|football|cricket|recipe)\b/.test(t),
+    plan: ({ R, language }) => say('out_of_scope', language, R.outOfScope),
   },
 ];
+
+/**
+ * The language of a sentence, resolved and remembered: the rule of persistence, in one place.
+ *
+ * A full sentence decides its language and becomes the conversation's; a short command with
+ * no evidence inherits it. Remembered here, before any plan is chosen, so every reply the
+ * sentence produces — from the core planner, the table, or the unknown fallback — reads the
+ * same column.
+ */
+export function readSentence(text: string): { frame: IntentFrame; language: ReplyLanguage; tokens: string[]; folded: string } {
+  const frame = parse(text);
+  const folded = fold(text).replace(/[.,](?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+  const tokens = tokenize(folded);
+  const store = useConciergeStore.getState();
+  const language = resolveReplyLanguage(frame, store.memory.language, tokens.length);
+  if (language !== store.memory.language) store.rememberLanguage(language);
+  return { frame, language, tokens, folded };
+}
 
 export function planFor(text: string, ctx: SiteContext): Plan {
   /**
@@ -313,36 +433,46 @@ export function planFor(text: string, ctx: SiteContext): Plan {
    * falls through to the table below, which is ordered and where first match wins — the
    * shape that once let the bare word "watch" pre-empt every command after it.
    */
+  const { frame, language, tokens, folded } = readSentence(text);
+  const R = replies(language);
   const t = normalise(text);
   const e = extract(t);
+  const reading: Reading = { t, e, ctx, R, language, folded, tokens };
   /**
    * A comparison is not one of the twelve, and its sentence carries ordinals — "the first
-   * two" — that the core parser would otherwise read as "open the first". It is asked first.
+   * two" — that the core parser would otherwise read as "open the first". It is asked first;
+   * so are the chrome commands, the appointment's own fields while its form is open, and
+   * the appointment itself, whose sentence may name a showroom the core planner does not read.
    */
-  const compare = COMMANDS.find((c) => c.id === 'compare');
-  if (compare && compare.test(t, e, ctx)) return compare.plan(t, e, ctx);
+  for (const id of ['compare', 'back', 'appointment_field', 'consultation']) {
+    const c = COMMANDS.find((x) => x.id === id);
+    if (c && c.test(reading)) return { ...c.plan(reading), intent: id };
+  }
 
-  const core = corePlan(text, ctx);
-  if (core) return core;
+  const core = corePlan(frame, language, ctx);
+  if (core) return { ...core, intent: core.intent ?? frame.intent };
 
   for (const c of COMMANDS) {
     try {
-      if (c.test(t, e, ctx)) return c.plan(t, e, ctx);
+      if (c.test(reading)) return { ...c.plan(reading), intent: c.id };
     } catch {
       /* try the next command */
     }
   }
   const named = byName(t);
-  if (named) return { id: 'named_fallback', tools: [{ name: 'openProduct', args: { slug: named.s } }], reply: () => CONCIERGE.opened(named.t) };
-  return { id: 'unknown', tools: [], reply: () => CONCIERGE.unknown };
+  if (named) return { ...action('named_fallback', language, [{ name: 'openProduct', args: { slug: named.s } }]), intent: 'open' };
+  /**
+   * Not understood: one short question in the visitor's language, and nothing else. The
+   * paragraph that used to stand here — what the concierge can show, open and book — was
+   * read to every visitor whose sentence the engine could not parse, in English whatever
+   * they had spoken. A concierge who did not catch a sentence asks for it again.
+   */
+  return { id: 'unknown', language, tools: [], reply: () => R.clarify, intent: 'unknown' };
 }
 
 /** Used by the ENQUIRE flow: an opening line about the piece in view. */
-export function introFor(slug: string) {
-  const p = getRow(slug);
-  if (!p) return CONCIERGE.unknown;
-  const specs = specsLine(slug);
-  return specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p));
+export function introFor(slug: string, language: ReplyLanguage = 'en') {
+  return tellAbout(language, replies(language), slug);
 }
 
 export { similarRows };

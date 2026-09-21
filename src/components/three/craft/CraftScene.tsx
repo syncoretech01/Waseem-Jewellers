@@ -13,6 +13,8 @@ import { craftProgress } from '@/components/home/chapters/craftProgress';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
 
 interface CraftSceneProps {
+  /** The renderer exists and the programs are compiling. */
+  onStarted?: () => void;
   onReady?: () => void;
   onLost?: () => void;
 }
@@ -40,9 +42,10 @@ function win(p: number, from: number, to: number) {
  * every value is damped in the frame loop so the object never snaps. The object is a study —
  * an emerald in a gold setting — and stands for no piece in the catalogue.
  */
-export function CraftScene({ onReady, onLost }: CraftSceneProps) {
+export function CraftScene({ onStarted, onReady, onLost }: CraftSceneProps) {
   const tier = useQualityStore((s) => s.tier);
   const dprCap = useQualityStore((s) => s.dprCap);
+  const premium = useQualityStore((s) => s.premium);
   const [lost, setLost] = useState(false);
   // never, until the programs are linked: a frame drawn before that blocks the main thread
   // for the whole compile (1.4 s measured on an Intel GPU, in the middle of the window chapter).
@@ -63,18 +66,19 @@ export function CraftScene({ onReady, onLost }: CraftSceneProps) {
       camera={{ fov: 26, near: 0.1, far: 60, position: [0, 2.6, 8.6] }}
       style={{ position: 'absolute', inset: 0 }}
       onCreated={({ gl }) => {
+        onStarted?.();
         gl.setClearColor(0x000000, 0);
         // the info-log queries three makes on a program's first use are a sync point with the
         // driver; with the programs linked in parallel and polled, they have nothing to add
         gl.debug.checkShaderErrors = process.env.NODE_ENV !== 'production';
       }}
     >
-      <CraftObject tier={tier} onReady={onReady} onLinked={handleLinked} onLost={handleLost} />
+      <CraftObject tier={tier} premium={premium} onReady={onReady} onLinked={handleLinked} onLost={handleLost} />
     </Canvas>
   );
 }
 
-function CraftObject({ tier, onReady, onLinked, onLost }: { tier: string; onReady?: () => void; onLinked: () => void; onLost: () => void }) {
+function CraftObject({ tier, premium, onReady, onLinked, onLost }: { tier: string; premium: boolean; onReady?: () => void; onLinked: () => void; onLost: () => void }) {
   const studio = useStudioEnvironment(256);
   const tent = useGemEnvironment(256);
   useContextLoss(onLost);
@@ -87,8 +91,10 @@ function CraftObject({ tier, onReady, onLinked, onLost }: { tier: string; onRead
   const gold = useMemo(() => createGoldMaterial(), []);
   const goldSoft = useMemo(() => createGoldMaterial({ roughness: 0.34 }), []);
   const goldCast = useMemo(() => createCastGoldMaterial(), []);
-  // decided once: a tier demoted mid-scroll must not swap the stone's material while it is being looked at
-  const [refract] = useState(() => tier === 'HIGH' || tier === 'MEDIUM');
+  // decided once: a tier demoted mid-scroll must not swap the stone's material while it is being looked at.
+  // A premium phone that is given the live object (LOW tier, DPR 1.5) gets the MEDIUM stone: the
+  // flat LOW stone is never shown on a phone — where it cannot be afforded, the sequence stands instead
+  const [refract] = useState(() => tier === 'HIGH' || tier === 'MEDIUM' || premium);
   const [high] = useState(() => tier === 'HIGH');
   const stoneMat = useMemo(
     () =>
@@ -274,8 +280,10 @@ function CraftObject({ tier, onReady, onLinked, onLost }: { tier: string; onRead
     camera.position.x = c.px * 0.3;
     camera.position.y = (2.6 - c.py * 0.15 + c.pull * 0.9) * far;
     camera.position.z = (8.6 + c.pull * 2.2) * far;
-    // and looks a little lower on a portrait stage, so the object sits above the index rather than behind it
-    camera.lookAt(0, -0.25 - (far - 1) * 0.9, 0);
+    // and looks a little lower on a portrait stage, so the object sits above the index rather than
+    // behind it: at 0.9 the band still crossed the index's first rows at the metal beat on a
+    // 390 x 844 phone; at 1.23 it clears them, and the sequence's box (craft.css) stands in step
+    camera.lookAt(0, -0.25 - (far - 1) * 1.23, 0);
   });
 
   return (

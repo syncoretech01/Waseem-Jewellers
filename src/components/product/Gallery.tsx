@@ -17,6 +17,44 @@ import type { Product, ProductImage } from '@/data/types';
 import { cn } from '@/lib/cn';
 
 /**
+ * Which slide of a horizontal snap track is showing, reported only when it changes.
+ *
+ * One IntersectionObserver rooted on the track itself, one entry per `[data-frame]` slide:
+ * the slide with the largest visible share wins, the earlier one on a tie. The browser
+ * computes the shares in its own rendering step, so no scroll event is listened to, no
+ * `scrollLeft` or `offsetLeft` is ever read, and a vertical scroll of the page — which never
+ * moves the track's content — costs the indicator nothing at all.
+ */
+function watchSlides(track: HTMLElement | null, onChange: (index: number) => void): (() => void) | undefined {
+  if (!track) return undefined;
+  const slides = [...track.querySelectorAll<HTMLElement>('[data-frame]')];
+  if (slides.length < 2) return undefined;
+  const shares = new Map<Element, number>();
+  let current = -1;
+  const io = new IntersectionObserver(
+    (records) => {
+      for (const r of records) shares.set(r.target, r.intersectionRatio);
+      let best = -1;
+      let bestShare = -1;
+      slides.forEach((s, i) => {
+        const share = shares.get(s) ?? 0;
+        if (share > bestShare) {
+          bestShare = share;
+          best = i;
+        }
+      });
+      if (best !== -1 && best !== current) {
+        current = best;
+        onChange(best);
+      }
+    },
+    { root: track, threshold: [0.25, 0.5, 0.75, 1] },
+  );
+  for (const s of slides) io.observe(s);
+  return () => io.disconnect();
+}
+
+/**
  * Desktop: frames arranged for what they are. Phone: one hero, or a snap track, then a lightbox.
  *
  *   campaign  stacked, full width — a scene deserves the whole column
@@ -108,36 +146,21 @@ export function Gallery({ product, mode = 'campaign' }: { product: Product; mode
   }
 
   /**
-   * The indicator follows the track, not the other way round: the slide nearest the gutter
-   * is the one showing. One read per frame while the track moves, and the store learns the
-   * index so the concierge can say which photograph is in view.
+   * The indicator follows the track, not the other way round: the slide most in view is the
+   * one showing. The track is watched by an IntersectionObserver rooted on itself — one
+   * callback when a slide crosses a quarter of its width, no `offsetLeft` or `scrollLeft`
+   * read on any scroll event, and nothing at all while the page scrolls vertically — and the
+   * store learns the index so the concierge can say which photograph is in view.
    */
-  const raf = useRef(0);
-  const onTrackScroll = useCallback(
-    (e: React.UIEvent<HTMLDivElement>) => {
-      const track = e.currentTarget;
-      cancelAnimationFrame(raf.current);
-      raf.current = requestAnimationFrame(() => {
-        const slides = track.querySelectorAll<HTMLElement>('[data-frame]');
-        const origin = slides[0]?.offsetLeft ?? 0;
-        let best = 0;
-        let nearest = Infinity;
-        slides.forEach((s, i) => {
-          const d = Math.abs(s.offsetLeft - origin - track.scrollLeft);
-          if (d < nearest) {
-            nearest = d;
-            best = i;
-          }
-        });
-        setActive((cur) => {
-          if (cur !== best) setGallery({ slug, count, index: best });
-          return best;
-        });
-      });
+  const track = useRef<HTMLDivElement>(null);
+  const onSlide = useCallback(
+    (index: number) => {
+      setActive(index);
+      setGallery({ slug, count, index });
     },
     [slug, count, setGallery],
   );
-  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  useEffect(() => watchSlides(track.current, onSlide), [onSlide, single]);
 
   /** The ground behind a frame, as the desktop mounts it: pearl under a cut-out, the warm plate under a scene. */
   const plateOf = (img: ProductImage) =>
@@ -160,6 +183,8 @@ export function Gallery({ product, mode = 'campaign' }: { product: Product; mode
     const el = lightboxTrack.current;
     if (lightbox !== null && el) el.scrollLeft = lightbox * el.clientWidth;
   }, [lightbox]);
+  // and its count follows the swipe the same way the page's indicator does
+  useEffect(() => (lightbox === null ? undefined : watchSlides(lightboxTrack.current, setLightboxIndex)), [lightbox]);
 
   return (
     <div
@@ -217,8 +242,14 @@ export function Gallery({ product, mode = 'campaign' }: { product: Product; mode
               sliver of the next photograph, which is how the visitor learns there is one. The
               track's scroll padding aligns every snapped slide to the gutter, and the spacer
               after the last one lets it align there too.
+
+              The swipe is the platform's: CSS snap points, the horizontal overscroll contained
+              so the last slide never hands the gesture to the browser's own back swipe, and
+              `touch-action: pan-x pan-y` so the compositor owns both axes from the first pixel
+              of the gesture. Not `pan-x` alone — the photograph is most of the first screen,
+              and a thumb landing on it must still be able to scroll the page.
             */}
-            <div className="no-scrollbar -my-1.5 flex snap-x snap-mandatory gap-3 overflow-x-auto py-1.5 pl-gutter scroll-pl-gutter" data-lenis-prevent-wheel data-track onScroll={onTrackScroll}>
+            <div ref={track} className="no-scrollbar -my-1.5 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain touch-pan-x touch-pan-y py-1.5 pl-gutter scroll-pl-gutter" data-lenis-prevent-wheel data-track>
               {frames.map((img, i) => (
                 <button
                   key={`${img.order}-${i}`}
@@ -276,18 +307,9 @@ export function Gallery({ product, mode = 'campaign' }: { product: Product; mode
                   </button>
                 </div>
               </div>
-              <div
-                ref={lightboxTrack}
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
-                  if (i !== lightboxIndex) setLightboxIndex(Math.min(frames.length - 1, Math.max(0, i)));
-                }}
-                className="no-scrollbar flex flex-1 snap-x snap-mandatory items-center overflow-x-auto"
-                data-lenis-prevent
-              >
+              <div ref={lightboxTrack} className="no-scrollbar flex flex-1 snap-x snap-mandatory items-center overflow-x-auto overscroll-x-contain" data-lenis-prevent>
                 {frames.map((img, i) => (
-                  <div key={`${img.order}-${i}`} className="relative h-full w-full shrink-0 snap-center" style={{ touchAction: 'pinch-zoom pan-x' }}>
+                  <div key={`${img.order}-${i}`} className="relative h-full w-full shrink-0 snap-center" style={{ touchAction: 'pinch-zoom pan-x' }} data-frame={i}>
                     <Img image={img} sizes="100vw" className="object-contain" plain style={{ objectFit: 'contain' }} />
                   </div>
                 ))}

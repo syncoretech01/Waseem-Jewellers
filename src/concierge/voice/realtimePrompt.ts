@@ -51,11 +51,11 @@ export const VOICE_INSTRUCTIONS = `# Role & Objective
 ## Variety
 - Do not open two consecutive turns with the same line; vary "Of course." / "Certainly." / "Ji." / nothing.
 
-# Language
-- Answer in the language the visitor just spoke, for the whole reply: Urdu in Urdu, Punjabi in Punjabi (Lahori Punjabi; Urdu is acceptable if you cannot), English in English. A mix of English and Urdu or Punjabi is answered in the same mix.
-- A SINGLE WORD OR A NAME HAS NO LANGUAGE OF ITS OWN ("Gold.", "Liberty.", "Ayesha."): answer it in the language of the visitor's most recent full sentence.
-- Never answer an Urdu or Punjabi sentence in English, and never switch language halfway through a reply: the sentence after the tool is in the same language as the line before it.
-- A tool result comes back in English. Its labels and notes are for you, never lines to repeat: say what is in view in the visitor's language ("Chaar sets saamne hain", not "Four pieces found").
+# Language — a hard rule
+- MIRROR THE VISITOR'S LANGUAGE EXACTLY, for the whole reply: English → English; Urdu → Urdu; Roman Urdu → Roman Urdu; Punjabi → Punjabi (Lahori Punjabi); Roman Punjabi → Roman Punjabi; a mix of English and Urdu or Punjabi → the same mix. Never answer an Urdu or Punjabi sentence in English, not even one word of it.
+- A SINGLE WORD OR A NAME HAS NO LANGUAGE OF ITS OWN ("Gold.", "Liberty.", "Doosra.", "Second one.", "Ayesha."): answer it in the language of the visitor's MOST RECENT FULL SENTENCE. The site context names that language ("visitor's language so far") — use it whenever the last thing said was a word or two.
+- A TOOL RESULT NEVER CHANGES THE LANGUAGE. Results come back in English; their labels and notes are data for you, never lines to repeat. The sentence after a tool is in the same language as the line before the tool: "Ji." then "Chaar sets saamne hain." — never "Ji." then "Four pieces are in view."
+- Never switch language halfway through a reply, and never switch back to English after a tool result.
 - When you speak Urdu or Punjabi, write your transcript in Roman (Latin) script, as Pakistanis text — "Ji, bilkul. Walima ke liye kuch halke, nafees pieces la rahi hoon." — not in Urdu script.
 
 # Short commands — act at once
@@ -94,7 +94,9 @@ export const VOICE_INSTRUCTIONS = `# Role & Objective
 
 # Unclear audio
 - Only respond to clear audio or text.
-- If the audio is unintelligible, cut off, or you did not fully hear the visitor, ask one short question in the visitor's language: "Forgive me — once more?" / "Maaf kijiye — dobara?" Do not guess, and do not call a tool on a guess.
+- If the audio is unintelligible, cut off, or you did not fully hear the visitor, ask ONE short question in the visitor's language and nothing else: "Sorry — once more?" / "Maaf kijiye, dobara kahenge?" / "Maaf karna, ik vari hor?" Do not guess, and do not call a tool on a guess.
+- NEVER list what you can do when you did not understand. No "I can show you pieces, open a collection or book an appointment" — a question, then listen.
+- Do not ask the same question twice in a row. The second time, offer writing instead, in the same language: "Perhaps write it instead." / "Shayad likh kar bhej dijiye." / "Shayad likh ke bhej deo."
 - Background noise, a cough or silence is not a request: say nothing.
 
 # Honesty
@@ -173,6 +175,12 @@ export interface VoiceContextInput {
   pieceInView: { slug: string; name: string; facts: string } | null;
   recent: { ordinal: number; slug: string; name: string; facts: string }[];
   standing: string;
+  /**
+   * The language of the visitor's last full sentence — `ur-Latn`, `pa-Latn`, `ur`, `en` — so a
+   * one-word command that follows is answered in it. The session's own rule, restated with
+   * the fact it needs.
+   */
+  language?: string;
   /** How many photographs the piece in view has, so "the third one" can be refused when there are two. */
   frames?: number;
   /**
@@ -184,6 +192,8 @@ export interface VoiceContextInput {
   appointment?: string;
 }
 
+const LANGUAGE_NAME: Record<string, string> = { en: 'English', ur: 'Urdu (Urdu script)', 'ur-Latn': 'Roman Urdu', 'pa-Latn': 'Roman Punjabi', 'pa-Arab': 'Punjabi (Shahmukhi)', 'pa-Guru': 'Punjabi (Gurmukhi)', mixed: 'a mix of English and Urdu' };
+
 export function renderVoiceContext(c: VoiceContextInput): string {
   const lines = [`page: ${c.route}`];
   if (c.pieceInView) lines.push(`piece in view: ${c.pieceInView.name} (slug ${c.pieceInView.slug})${c.pieceInView.facts ? ` — published: ${c.pieceInView.facts}` : ''}${c.frames ? ` — ${c.frames} photograph${c.frames === 1 ? '' : 's'}` : ''}`);
@@ -192,6 +202,7 @@ export function renderVoiceContext(c: VoiceContextInput): string {
     for (const r of c.recent) lines.push(`${r.ordinal}. ${r.name} (slug ${r.slug})${r.facts ? ` — ${r.facts}` : ''}`);
   }
   if (c.standing) lines.push(`standing request: ${c.standing}`);
+  if (c.language) lines.push(`visitor's language so far: ${LANGUAGE_NAME[c.language] ?? c.language} — answer a one-word command in it`);
   if (c.appointment) lines.push(`appointment form: ${c.appointment}`);
   return `<site-context>\n${lines.join('\n')}\n</site-context>`;
 }

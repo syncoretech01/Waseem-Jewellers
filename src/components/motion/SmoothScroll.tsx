@@ -18,10 +18,15 @@ export function SmoothScroll() {
     const tick = (time: number) => lenis.raf(time * 1000);
     const onScroll = () => ScrollTrigger.update();
     gsap.ticker.add(tick);
-    lenis.on('scroll', onScroll);
+    // Lenis tells ScrollTrigger about the scroll only where Lenis drives it. On a coarse
+    // pointer the page scrolls natively and ScrollTrigger's own document listener already
+    // sees every scroll event; bridging it too updated every trigger twice per event, and the
+    // second read paid a forced style recalculation.
+    const bridge = !document.documentElement.hasAttribute('data-coarse');
+    if (bridge) lenis.on('scroll', onScroll);
     return () => {
       gsap.ticker.remove(tick);
-      lenis.off('scroll', onScroll);
+      if (bridge) lenis.off('scroll', onScroll);
       if (runtime.lenis === lenis) runtime.lenis = null;
     };
   }, [lenis]);

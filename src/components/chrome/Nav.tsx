@@ -8,19 +8,19 @@ import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { requestConcierge } from '@/concierge/bridge';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { WaseemMark } from '@/components/brand/WaseemMark';
-import { WaseemLockup } from '@/components/brand/WaseemLockup';
 import { MENU } from '@/data/menu';
 import { usePathname } from 'next/navigation';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
 /**
- * The authentic lockup at the top of a page — the crest over the ligature, the name set beside
- * them on one line (only WASEEM on a phone) — and the crest alone once the page has moved;
- * the five departments on a wide screen (a jeweller's header names what it sells); ASK; a
- * quiet motion control; MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
- * when it returns over content it brings a surface with it, in the chapter's own paper or
- * ink, so the mark is never floating over a photograph.
+ * The mark alone — the crest over the WJW ligature, the authentic arrangement, never a written
+ * name beside it — set larger at the top of a page and settling to a smaller size once the
+ * page has moved beneath it (the same mark, scaled; never a crossfade to another); the five
+ * departments on a wide screen (a jeweller's header names what it sells); ASK; a quiet motion
+ * control; MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog
+ * opens — and when it returns over content it brings a surface with it, in the chapter's own
+ * paper or ink, so the mark is never floating over a photograph.
  *
  * It also publishes its own height as `--nav-offset` while it is shown, so anything sticky
  * beneath it (the department refine bar) can stand under it rather than be overprinted.
@@ -60,8 +60,8 @@ export function Nav() {
   }, [shown]);
 
   const onHome = routeKind === 'home';
-  // the authentic lockup at the top of every page; the crest alone once the page has moved beneath it
-  const showMonogram = onHome ? section !== null && section !== 'hero' && section !== 'loader' : scrolled;
+  // the mark stands at its full size at the top of every page and settles once the page has moved beneath it
+  const moved = onHome ? section !== null && section !== 'hero' && section !== 'loader' : scrolled;
   const visible = !onHome || loaderDone;
 
   return (
@@ -78,20 +78,18 @@ export function Nav() {
       <div className="wj-content flex items-center justify-between">
       {/* the hero's veil: a soft ground while the film is under the mark; gone once the nav has a surface */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[140%] bg-gradient-to-b from-ink/50 to-transparent opacity-0 transition-opacity duration-700" style={{ opacity: surfaced ? 0 : 'var(--header-veil, 0)' }} />
-      <TransitionLink href="/" className="relative flex h-10 items-center" aria-label="Waseem Jewellers — home">
-        <AnimatePresence mode="wait" initial={false}>
-          {showMonogram ? (
-            <motion.span key="mono" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.4, ease: EASE.out }} className="inline-flex">
-              <WaseemMark variant="crest" tone="current" className="h-[26px] w-auto sm:h-7" />
-            </motion.span>
-          ) : (
-            <motion.span key="lockup" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.4, ease: EASE.out }} className="inline-flex">
-              {/* the real lockup: the crest and ligature with the name beside them — WASEEM alone where a phone has no width for the second word */}
-              <WaseemLockup layout="inline" words="first" tone="current" title={null} className="h-[34px] w-auto sm:hidden" />
-              <WaseemLockup layout="inline" tone="current" title={null} className="hidden h-[38px] w-auto sm:block lg:h-[40px]" />
-            </motion.span>
-          )}
-        </AnimatePresence>
+      <TransitionLink href="/" className="relative flex h-11 items-center" aria-label="Waseem Jewellers — home">
+        {/*
+          One element, one mark: 36px on a phone and 44px from sm at the top of a page, scaled from
+          its left edge to 28px / 32px once the page has moved. The scale is a CSS transition on
+          this wrapper (its only writer); the header's own motion writes only the header. The
+          mark is lifted one pixel: its ink's centroid sits 2.7% of its height below its box's
+          centre (the ligature outweighs the crest), so on the box's centre-line it read low
+          against the capitals of ASK and MENU. Measured, not judged — .cache/s22/brand.
+        */}
+        <span data-nav-mark className={cn('block origin-left -translate-y-px transition-transform duration-500 ease-[var(--ease-out-expo)]', moved && 'scale-[0.78] sm:scale-[0.73]')}>
+          <WaseemMark variant="crest-monogram" tone="current" className="h-9 w-auto sm:h-11" />
+        </span>
       </TransitionLink>
 
       {/* the departments, with the one the visitor is standing in underlined */}

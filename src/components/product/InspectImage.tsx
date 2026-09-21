@@ -48,9 +48,16 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
   const setters = useRef<{ x: (v: number) => void; y: (v: number) => void; sx: (v: number) => void; sy: (v: number) => void; s: (v: number) => void } | null>(null);
   const drag = useRef<{ active: boolean; sx: number; sy: number; ox: number; oy: number; x: number; y: number }>({ active: false, sx: 0, sy: 0, ox: 0, oy: 0, x: 0, y: 0 });
 
+  /**
+   * A phone binds none of this. The hover draw and the drag-to-inspect are pointer gestures;
+   * on a coarse pointer the frame is a photograph and nothing more — no setters are built,
+   * no handlers are attached, no key listener waits for an Escape that cannot come.
+   */
+  const inert = coarse || reduced;
+
   useGSAP(
     () => {
-      if (!inner.current) return;
+      if (!inner.current || inert) return;
       setters.current = {
         x: gsap.quickTo(inner.current, 'x', { duration: 0.6, ease: 'power3' }),
         y: gsap.quickTo(inner.current, 'y', { duration: 0.6, ease: 'power3' }),
@@ -62,15 +69,15 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
         },
       };
     },
-    { scope: box },
+    { scope: box, dependencies: [inert] },
   );
 
   useEffect(() => {
-    if (!inspecting) return;
+    if (!inspecting || inert) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setInspecting(false);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [inspecting]);
+  }, [inspecting, inert]);
 
   const hoverScale = 1.35;
   const inspectScale = 2.4;
@@ -129,11 +136,29 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
     }
   };
 
-  const interactive = Boolean(macro) && !coarse && !reduced;
+  const interactive = Boolean(macro) && !inert;
+
+  const gestures = inert
+    ? {}
+    : {
+        onPointerMove: onMove,
+        onPointerEnter: onEnter,
+        onPointerLeave: onLeave,
+        onPointerDown: (e: React.PointerEvent) => {
+          if (!inspecting) return;
+          drag.current = { ...drag.current, active: true, sx: e.clientX, sy: e.clientY, ox: drag.current.x, oy: drag.current.y };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        },
+        onPointerUp: () => {
+          drag.current.active = false;
+        },
+        onClick: toggleInspect,
+      };
 
   return (
     <div
       ref={box}
+      {...gestures}
       {...(interactive
         ? {
             role: 'button' as const,
@@ -153,20 +178,14 @@ export function InspectImage({ image, sizes, priority, flipTarget, slug, macro, 
       data-cursor={inspecting ? 'drag' : macro ? 'inspect' : undefined}
       data-flip-target={flipTarget ? 'product-hero' : undefined}
       data-flip-slug={flipTarget ? slug : undefined}
-      onPointerMove={onMove}
-      onPointerEnter={onEnter}
-      onPointerLeave={onLeave}
-      onPointerDown={(e) => {
-        if (!inspecting) return;
-        drag.current = { ...drag.current, active: true, sx: e.clientX, sy: e.clientY, ox: drag.current.x, oy: drag.current.y };
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      }}
-      onPointerUp={() => {
-        drag.current.active = false;
-      }}
-      onClick={toggleInspect}
     >
-      <div ref={inner} className="absolute will-change-transform" style={mount ? { top: '9%', bottom: '9%', left: '18%', right: '18%' } : { inset: 0 }}>
+      {/*
+        The layer is promoted only where a pointer can move it. On a coarse pointer nothing
+        here ever transforms, so a promoted photograph would be a GPU texture held for no
+        gesture — on a tablet wide enough to show this grid, one per frame at its full size.
+        (A phone never lays this grid out at all; its track carries plain frames.)
+      */}
+      <div ref={inner} className={cn('absolute', !inert && 'will-change-transform')} style={mount ? { top: '9%', bottom: '9%', left: '18%', right: '18%' } : { inset: 0 }}>
         <Img image={image} sizes={sizes} priority={priority} plain style={mount ? { objectFit: 'contain' } : undefined} />
       </div>
       {macro && (

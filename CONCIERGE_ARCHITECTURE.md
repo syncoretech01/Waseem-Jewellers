@@ -31,13 +31,16 @@ There are two today and a seam for a third. `createProvider()` returns one thing
 |---|---|---|---|
 | Keyless | `keyless` | browser | The shipped default and the regression layer. Deterministic multilingual NLU over twelve core actions. Answers when there is no key, when the model fails, and in CI. |
 | Server model | `server-model` | our server → the model | Open-ended understanding. Grounded on retrieval, validated on every tool call, filtered on every sentence. Ships dark: it is live the moment `CONCIERGE_API_KEY` is set and the same build is redeployed. |
-| Realtime voice | `realtime-voice` | browser data channel → the model | Not built. The seam it plugs into is (`voice/engine.ts`). |
+| Realtime voice | `realtime-voice` | browser WebRTC → the model | The client-demo voice (`voice/realtime.ts`): one session that hears, understands and speaks; the call is opened before the tap; every function call passes `executeTool`. Falls to the transcription tier, then the browser's own hearing, each step recorded. |
 
 **`FallbackProvider`** tries the model and, on any *recoverable* failure before the first word
 has been shown — no key, rate limit, timeout, an upstream error — runs the same sentence through
-the keyless engine under the same turn id. The controller never learns it happened. A failure
-after words have been shown is not recoverable: re-answering would put two different answers in
-front of the visitor.
+the keyless engine under the same turn id. The visitor never learns it happened; the record
+does: every fallback is announced on the turn's trace (`turn.trace`, see *The fallback record*)
+with the code and message that caused it, and an upstream refusal pauses the model for ninety
+seconds so the visitor is not charged a round trip per sentence for an answer that will not
+change. A failure after words have been shown is not recoverable: re-answering would put two
+different answers in front of the visitor.
 
 The client asks the server what it is allowed to be through **`capabilities.ts`** —
 `GET /api/concierge/capabilities`, fetched when the panel first opens, cached five minutes in
@@ -51,7 +54,8 @@ src/concierge/
   ConciergeController.ts   the state machine; owns the provider, the voice adapter, the timers
   createProvider.ts        returns a FallbackProvider — nothing to select
   capabilities.ts          the probe: intelligence, voice, languages, enquiry, privacy
-  qa.ts                    qaMode() — ?qa=1 or window.__wjConciergeQA: the tester's view of what was heard
+  qa.ts                    qaMode() — ?qa=1 or window.__wjConciergeQA: the tester's view of what was heard; the turn trace (recordTrace, useQaTrace)
+  replies.ts               every deterministic reply in six language columns; resolveReplyLanguage() — the persistence rule; subjectIn()
   bridge.ts                requestConcierge() — any page asks for the salon without importing it
   memory.ts                ConversationMemory: standing slots, anchor, discussed, language; projectMemory()
   ordinals.ts              "the second one" — shared by the planner and the tools
@@ -137,6 +141,49 @@ natural phrasing** — that is the model's job. `npm run nlu:check` runs the fix
 ≥ 95 %, slots ≥ 90 %, wrong-slug actions 0) as a *development* gate. A blind set written by
 native speakers who have not seen the lexicon is the *acceptance* gate, and it is a person's
 sign-off, not a number.
+
+### Language
+
+Language mirroring is a hard rule on every engine: English is answered in English, Urdu in
+Urdu, Roman Urdu in Roman Urdu, Punjabi in Punjabi, Roman Punjabi in Roman Punjabi, a mix in
+the same mix — and never the other way. For the model it is a prompt rule (`server/concierge/
+prompt.ts`, `voice/realtimePrompt.ts`), restated with the fact it needs: the language of the
+visitor's last full sentence travels in `<visitor-language>` and in the realtime
+`<site-context>`. For the keyless engine it is a table: **`replies.ts`** holds every
+deterministic sentence in six columns — `en`, `ur-Latn`, `pa-Latn`, `ur`, `pa-Arab`,
+`pa-Guru` — and `commands.ts`, `corePlan.ts`, the controller and the two UI surfaces read
+their language's column. The English column reads `copy.ts`, so there is still one English
+source of truth; the other five need a native speaker's reading before Stage 2 is accepted.
+
+How the language is decided (`nlu/script.ts`, `nlu/parse.ts`): script first — Arabic is
+Urdu, or Shahmukhi if a Punjabi marker is present; Gurmukhi is Punjabi. Latin script is told
+apart by function words, not by the lexicon: `romanEvidence()` reads three closed sets of
+Roman Urdu-only, Roman Punjabi-only and shared words ("mujhe", "ke", "mein" decide Urdu;
+"menu", "de", "hor", "deo" decide Punjabi; "wala", "kholo", "wapas" prove only that the line is
+not English). None of these is a concept, so the lexicon stays bounded. English is the
+answer by absence of evidence.
+
+**Persistence** (`resolveReplyLanguage`): a sentence with evidence of its own decides its
+language and becomes the conversation's — including a full English sentence of three words
+or more, which switches back. A short command with no evidence — "Second one.", "Gold.",
+"Liberty." — has no language of its own and inherits the last full sentence's; a shared
+Roman word inherits whether that was Urdu or Punjabi. The language is remembered once per
+sentence, before any plan is made, so every reply the sentence produces reads one column.
+"Begin again" drops the standing topic and keeps the language.
+
+### Economy
+
+For an action command — open, a department, back, the appointment — the reply is one word,
+"Ji." / "Bilkul." / "Of course.", streamed as `text.ready` before the tools run so the voice
+says it while the page moves; the action is the reply. A search answers in one sentence
+("Ji, chaar gold rings saamne hain."). What the engine cannot read — no subject of its own and
+a word it does not know, "Kal shaam ka time dekhna" — is answered with one short question in
+the visitor's language, "Maaf kijiye, dobara kahenge?", never with a list of what the concierge
+can do. The second unreadable sentence in a row is not the same question again: in writing,
+"Doosre lafzon mein kahenge?"; on the voice stage, "Shayad likh kar bhej dijiye." with *Likh kar
+bhejein* and *Dobara kahein* beneath the ring, and the microphone does not reopen by itself to
+ask a third time. Sentence-final punctuation is cleared before the lexicon is matched — every
+transcript the voice tier writes ends in a full stop, and "Gold." once matched nothing.
 
 ## Tools
 
@@ -253,6 +300,19 @@ names from Waseem, so it returned an empty tray for seven of nine campaigns.
 anchor and keeps the topic. `projectMemory()` sends a bounded projection to the model — never a
 transcript — and `ContextRibbon` shows the standing topic as removable terms, so what the
 concierge believes it is being asked about is visible and undoable.
+
+## The fallback record
+
+Nothing falls to a lower rung silently. Each engine emits `turn.trace` — the rung that
+answered (`model`, `keyless`, `realtime`, `browser-voice`), why a rung below the one tried
+answered instead (the failure's code and message, verbatim), the language read, the intent,
+the plan and the tool. `FallbackProvider` announces every fallback and every paused turn; the
+realtime adapter announces a token or handshake that failed and a response the provider
+refused; the controller announces each step down the voice ladder. `qa.ts` keeps the last
+forty (`recordTrace`, `useQaTrace`, `controller.qaTrace()` for the harnesses) and the voice
+stage and the exchange print the latest line in QA mode only — `?qa=1` or
+`window.__wjConciergeQA = true`; the URL flag is lost on a product navigation, the window
+flag is not. Never a customer-facing string.
 
 ## Voice
 

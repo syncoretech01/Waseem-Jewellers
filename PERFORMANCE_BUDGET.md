@@ -534,3 +534,144 @@ reading order costs no layout at all.
 
 LCP on the desktop is 1.44–1.57 s on this build (S2H: 1.1 s); the mobile window's 2.8–3.6 s is
 the hero film's poster on a 7 s cold load of the harness. CLS after load is 0.000 on every run.
+
+## Mobile product page (S2J)
+
+The client's P0 after the S2I deployment: the product page lags under the thumb on a phone.
+Measured on the same Intel HD 530 laptop, 390×844 and 430×932 windows with `isMobile`,
+`hasTouch` and DPR 2, headed (the real GPU) and headless, on four pages — the campaign piece
+(`/jewellery/aks-e-noor-satlada-haar`, three frames, a close look), the three-frame priced ring
+(`lavender-halo-ring-r11912`), a single packshot (`men-bracelet-br02334`) and two packshots
+(`gold-bangles-k13798`). The gesture is a thumb drag with a fling, dispatched as CDP touch
+events (`.cache/s22/pdp/fling.mjs`); the traces are `trace-fling.mjs` (devtools timeline with
+invalidation tracking), `forced-stacks.mjs` (every style recalculation or layout forced from
+script, with the JS stack that forced it) and `census.mjs` (what is alive on the page, and its
+growth over five open → scroll → back loops). "Before" is the production build of e8c4132 on
+port 3399; "after" is the dev server, whose JavaScript numbers run several times slower than
+production's (React's development build, unminified chunks), so the columns compare structure
+— reads, recalculations, observers, listeners — rather than milliseconds.
+
+### What the page was doing under the thumb
+
+On the production build the fling harness already ran at 58.7–60 fps on all four pages, with
+no long task and touch handlers of 1 ms or less; the 1 fps reading taken earlier in the day (the
+compositor waiting a second per commit) did not recur in nine runs on this machine, and the
+three promoted photographs it was attributed to have no box on a phone at all — the desktop
+frame grid is `display: none` below 768 px, and the layer tree shows them at 0 × 0. What the
+traces did show, per scroll event, was main-thread work that a phone pays four times over:
+
+1. **The section registry measured on every scroll event.** `src/state/sections.ts` called
+   `getBoundingClientRect()` on every registered section in a rAF after each scroll — five
+   reads on a product page, thirty-five forced style recalculations in four flings on the
+   production build — and the read landed after the tickers' writes, so it forced a second
+   style pass in the frame. On a coarse pointer the registry now never reads: the observer's
+   own rectangles are kept in page coordinates, the scroll position is taken in the scroll
+   event (where the listeners before it have already flushed layout), `innerHeight` — itself a
+   layout read in Chromium — is cached until a resize, and one ResizeObserver on the body
+   remeasures everything, once, when the page's height changes (an accordion opening above the
+   rails moved them 187 px; the centre-line 40 px above the rail still read the section above
+   it). Pinned chapters keep the live read; there are none on a product page. Verified on the
+   homepage: the current section and the chrome's theme agree with the production build at
+   every one of its fourteen chapters. `getBoundingClientRect` calls during four flings on a
+   product page: **5–6 per scroll frame → 0**.
+2. **The gallery's indicator read layout on the track's scroll.** `offsetLeft` of every slide
+   and `scrollLeft` of the track, in a rAF per scroll event, with a React `onScroll` listener on
+   the track. It is now one IntersectionObserver rooted on the track (thresholds at quarter
+   widths), which reports the slide most in view only when it changes; the track has no scroll
+   listener, no layout is read, and a vertical scroll of the page — which never moves the
+   track's content — costs it nothing. The same observer drives the lightbox's count. The
+   concierge's "the second photograph" (`setGalleryFrame`) still lands the frame and the
+   indicator follows it (`check.mjs`: 12/12 on the campaign page, 12/12 on the ring, 8/8 on
+   the packshot, 11/12 on the bangles — the twelfth asks for a third frame of a two-frame piece
+   and is correctly refused).
+3. **The rails and the close look hydrated with the page.** Three related rails (nine
+   `PieceLink`s, each registering with the visibility observer, a rise reveal per card, a FLIP
+   source) and the close look's semantic figure (a ScrollTrigger scrub, a promoted camera, a
+   React state per beat) all mounted in the page's first commit and lived through the first
+   scroll. They now go through `lazyChapter()` — server-rendered in full, hydrated on approach or
+   in the first idle moment — so nothing below the piece's words exists as JavaScript during the
+   first fling, and the semantic figure's chunk is fetched only by the ten pages that have a
+   descriptor. Measured: at first paint every wrapper is dehydrated; 4 s later all are hydrated;
+   the door in a rail still flies (`flip:check` at 390×844, "pdp related piece": landed, 0 px
+   off, 527–563 ms flights, three runs).
+4. **The frame-rate monitor read `scrollY` once a second from the ticker** — after the tweens'
+   writes, so it forced a style pass of its own. It keeps a flag from a passive scroll listener
+   instead.
+5. **The inspect gestures bound on every device.** `InspectImage` built four `quickTo` setters
+   per frame and attached six pointer handlers whether or not a pointer existed. On a coarse
+   pointer (or under reduced motion) it now builds nothing and binds nothing; the frame is a
+   photograph. (`will-change` was already withheld there by the main session.)
+6. **Touch on the track.** `overscroll-behavior-x: contain`, so the last slide never hands the
+   gesture to the browser's back swipe, and `touch-action: pan-x pan-y` — explicit, not `pan-x`
+   alone: the photograph is most of the first screen and a thumb landing on it must still
+   scroll the page.
+
+### What was measured and left as it is
+
+- **Lenis.** On a coarse pointer it is already an observer with an inert `eventsTarget`. Its
+  cost on a product page, from the traces: `onNativeScroll` about 0.1 ms per scroll event in
+  production; its `raf` inside the GSAP ticker, nothing while no glide runs; the `lenis` /
+  `lenis-scrolling` classes toggled on `<html>` once per gesture (the invalidation reaches body
+  and the four `[data-lenis-prevent*]` elements, not the tree); and one thing worth a patch —
+  `SmoothScroll` bridges every Lenis scroll event to `ScrollTrigger.update()`, and ScrollTrigger
+  already listens to the window itself, so each scroll event updates the triggers twice and the
+  second read pays a style recalculation the first one's writes made necessary (10 + 18 forced
+  recalculations of about 1 ms in four flings on the production build). The bridge is only needed
+  where Lenis drives the scroll; on a coarse pointer it can be skipped (patch in the S2J
+  report). Removing Lenis from the page altogether needs the nav's `useLenis` subscription
+  moved to a native listener (`Nav.tsx`), and was not done here.
+- **Tickers alive on a product page:** three — GSAP's own `updateRoot`, the frame-rate
+  monitor's `tick`, Lenis's `raf` — none of them touching the DOM at rest. **ScrollTriggers:**
+  none on the packshot pages; the close look's scrub on the ten pages that have one (the dev
+  server registers it twice on one element under React's development double-mount; production
+  writes the camera at the same rate, so it is a dev artefact to confirm in `SemanticFigure`).
+  **Observers:** the section registry's, the visibility registry's, one per reveal scope, one per
+  gallery track — all IntersectionObservers, all computed by the browser. **Scroll-blocking
+  listeners:** none of the site's on the window, the document or the track (`DOMDebugger.
+  getEventListeners`); the non-passive `touchstart` on the window in the harness is Playwright's.
+- **Growth over five open → scroll → back loops** (`census.mjs`, department → piece → three
+  flings → back): ScrollTriggers 0 → 0, tickers 3 → 3, IntersectionObservers 4 → 4,
+  ResizeObservers 5 → 5, JS heap 25 → 25 MB, nodes +1 per loop (Next's `<link rel="preload">`
+  for each route prefetched, bounded by the routes visited).
+- **The lightbox** (production, in isolation): open 25 ms longest task, swipe 13 ms, close
+  13 ms, no long task. **The return to the department** (`history.back()` from a piece opened
+  through its door): one 608 ms task on the production build — the department grid's own render
+  and layout on arrival (157 ms layout, 106 ms style), under the veil. It is the department
+  page's cost, not the product page's, and is reported for its owner.
+- **Compositor-side**, from the production traces: GPU tasks of up to 30 ms a frame and raster
+  tasks of up to 31 ms as photographs come into view, which is the cost of 1080 px frames at
+  DPR 2 and the same on every page; a CSS A/B (`ab.sh`) found no single element responsible —
+  the nav's backdrop blur is off screen during a downward fling, the packshots' multiply blend
+  made no difference, and taking `will-change` off the close look's camera doubled the raster
+  work (its scrub then re-rasters every frame), so it stays.
+
+### Before / after, per route and window
+
+Fling harness, four to three flings per page, 390×844 headed unless noted. Production is the
+"before"; the dev server is the "after" and is the slower build.
+
+| Page | Before (prod e8c4132) | After (dev server) |
+|---|---|---|
+| Campaign, 390×844 headed | 59.2 fps, worst 33 ms, 0 over 50 ms | 58.4 fps, worst 50 ms, 0 over 50 ms |
+| Campaign, 430×932 headed | 58.8 fps, worst 50 ms | 58.0 fps, worst 50 ms |
+| Campaign, 390×844 headless | 59.8 fps, worst 33 ms | 60.0 fps, worst 17 ms |
+| Ring, 390×844 headed | 59.9 fps, worst 34 ms | 58.9 fps, worst 50 ms |
+| Ring, 430×932 headed | 58.5 fps, worst 50 ms | 59.9 fps, worst 33 ms |
+| Bracelet (single), 390×844 headed | 59.4 fps, worst 50 ms | 59.2 fps, worst 33 ms |
+| Bracelet, 430×932 headed | 59.9 fps, worst 33 ms | 59.6 fps, worst 50 ms |
+| Bangles (two packshots), 390×844 headed | 59.8 fps, worst 33 ms | 59.0 fps, worst 50 ms |
+| Bangles, 430×932 headed | 59.7 fps, worst 50 ms | 59.7 fps, worst 50 ms |
+
+Long tasks during the flings: 0 in every run, both builds. Touch handlers: 1 ms or less. The
+harness cannot see the difference at 60 Hz on this GPU; the structural table is where the
+change is:
+
+| Per fling, campaign page | Before | After |
+|---|---|---|
+| `getBoundingClientRect` calls per scroll frame | 5–6 (sections) + the slides on a swipe | 0 |
+| Forced style recalculations from the section registry (4 flings) | 35 (prod) / 60 (dev) | 0 |
+| Scroll listeners on the gallery track | 1 (React `onScroll`) | 0 |
+| Layout reads on a swipe of the track | `offsetLeft` × slides + `scrollLeft`, per event | 0 |
+| Hydrated at first paint below the piece's words | close look + 3 rails | nothing (markup only) |
+| `quickTo` setters and pointer handlers on a phone | 12 + 18 | 0 |
+| `scrollY` reads from the ticker | 1 / s | 0 |

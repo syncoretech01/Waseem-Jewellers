@@ -8,7 +8,7 @@
  */
 export const CONCIERGE = {
   name: 'Waseem Concierge',
-  placeholder: 'Ask about a piece, a collection or a private appointment.',
+  placeholder: 'Ask about a piece, a collection or an appointment.',
   /* the field is narrower than the hero line, so it asks for the same thing in fewer words */
   composerPlaceholder: 'Ask about a piece or an appointment.',
   youMightAsk: 'You might ask',
@@ -74,12 +74,18 @@ export const CONCIERGE = {
     /** The session ended on its own — the network, or a long silence. */
     sessionEnded: 'The line went quiet.',
   },
-  greeting: (hour: number) => `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}. I am the Waseem Concierge — ask about a piece, a collection or a private appointment.`,
+  greeting: (hour: number) => `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}. I am the Waseem Concierge — ask about a piece, a collection or an appointment.`,
   greetingAgain: 'Still here. What would you like to see?',
   thanks: 'A pleasure.',
   close: 'Until next time.',
   help: 'I can bring pieces to you, open a collection, set two side by side, or book you a viewing.',
-  unknown: 'I may have missed that. I can show you pieces, open a collection or book an appointment.',
+  /**
+   * Not understood: one short question, and nothing else. This once listed what the concierge
+   * could show, open and book — a paragraph read to every visitor whose sentence the engine
+   * could not parse, in English whatever they had spoken. The other languages' lines are in
+   * `replies.ts`, beside this one.
+   */
+  unknown: 'Sorry — once more?',
   outOfScope: 'That is outside what we make, I am afraid. I can help with pieces, collections and appointments.',
   watches: 'We work in gold and diamond jewellery. I can show you pieces, or book a viewing at Liberty Market.',
   micDenied: 'Your microphone is switched off for this site.',

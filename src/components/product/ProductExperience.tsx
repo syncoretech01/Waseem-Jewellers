@@ -3,10 +3,9 @@
 import { useEffect } from 'react';
 import { Gallery } from './Gallery';
 import { InfoColumn } from './InfoColumn';
-import { WornTogetherRail } from './WornTogetherRail';
 import { pdpMode } from './pdpMode';
-import { CloseLook } from './CloseLook';
 import { TransitionLink } from '@/components/motion/TransitionLink';
+import { lazyChapter } from '@/components/motion/LazyChapter';
 import { semanticFor } from '@/data/semantic';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useSiteStore } from '@/state/siteStore';
@@ -14,6 +13,17 @@ import { nameOf } from '@/data/labels';
 import { DEPARTMENT_LABEL } from '@/data';
 import type { Product } from '@/data/types';
 import type { PieceRow } from '@/lib/facets';
+
+/**
+ * Everything beneath the piece's own words is server-rendered in full and hydrated only on
+ * approach or in an idle moment after the page has settled — the same gate the homepage's
+ * chapters wait behind. Until then the rails are markup: their observers, their reveals,
+ * their FLIP sources and the close look's scrub do not exist, so nothing below the fold can
+ * cost a frame of the first scroll. It also keeps the semantic figure's code off the 441
+ * pages that have no descriptor: the chunk is fetched only where it is rendered.
+ */
+const CloseLook = lazyChapter('gallery', () => import('./CloseLook').then((m) => m.CloseLook));
+const WornTogetherRail = lazyChapter('related', () => import('./WornTogetherRail').then((m) => m.WornTogetherRail));
 
 interface ProductExperienceProps {
   product: Product;
@@ -103,10 +113,10 @@ export function ProductExperience({ product, suite, matching, similar }: Product
       {/* only where there is something specific to say about this piece */}
       {closely && <CloseLook descriptor={closely} name={nameOf(product)} />}
 
-      {/* each rail renders only if it has something; most pieces show one, some show none */}
-      <WornTogetherRail products={suite} eyebrow="The suite" title="The rest of the set." theme="ivory" />
-      <WornTogetherRail products={matching} eyebrow="Worn together" title="Pieces that answer this one." theme="ivory" />
-      <WornTogetherRail products={similar} eyebrow="In the same spirit" title="More like this one." theme={suite.length || matching.length ? 'dark' : 'ivory'} />
+      {/* each rail stands only if it has something; most pieces show one, some show none */}
+      {suite.length > 0 && <WornTogetherRail products={suite} eyebrow="The suite" title="The rest of the set." theme="ivory" />}
+      {matching.length > 0 && <WornTogetherRail products={matching} eyebrow="Worn together" title="Pieces that answer this one." theme="ivory" />}
+      {similar.length > 0 && <WornTogetherRail products={similar} eyebrow="In the same spirit" title="More like this one." theme={suite.length || matching.length ? 'dark' : 'ivory'} />}
     </main>
   );
 }

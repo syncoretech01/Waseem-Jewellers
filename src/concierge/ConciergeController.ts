@@ -8,7 +8,6 @@ import { getRow, loadIndex, priceLabelOf, specLineOf } from '@/data/clientIndex'
 import { canonicalCategory } from '@/data/vocabulary';
 import { CATEGORY_PLURAL } from '@/data/labels';
 import type { Category } from '@/data/types';
-import { countInWords, capitalise } from '@/lib/format';
 import { recognitionLang } from './voice/languages';
 import { chooseVoiceEngine, hearingAvailable, type VoiceTier } from './voice/engine';
 import { realtimeMark, realtimeTrace, registerRealtimeEngine, type TraceEntry } from './voice/realtime';
@@ -18,13 +17,14 @@ import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
 import { TOOL_DEFS } from './tools/toolDefs';
 import { summariseDraft } from './tools/appointment';
-import { CONCIERGE } from './copy';
+import { asReplyLanguage, replies, subjectIn } from './replies';
+import { qaTrace, recordTrace, type QaEntry } from './qa';
 import { recognitionSupported, type VoiceAdapter } from './voice/adapters';
 import { cancelSpeech, planSpeech, speak, speechAvailable, speechEngine } from './voice/speech';
 import { primeAudio, registerServerSpeech } from './voice/serverSpeech';
 import { startMeter, stopMeter, voiceMeter } from './voice/meter';
 import { EXAMPLE_SCRIPTS } from './voice/scripts';
-import type { ConciergeProvider, ProviderEvent, ProviderRuntime, ToolName, ToolOutcome } from './types';
+import type { ConciergeProvider, ProviderEvent, ProviderRuntime, ToolName, ToolOutcome, TurnTrace } from './types';
 
 let counter = 0;
 const uid = (p: string) => `${p}${Date.now().toString(36)}${(counter++).toString(36)}`;
@@ -72,6 +72,8 @@ export class ConciergeController {
   private rung: VoiceTier = 'auto';
   /** The controller's own marks on the voice timeline: the tap, the stage's states. Read by scripts/dev/voice-latency.mjs. */
   private marks: TraceEntry[] = [];
+  /** What each turn reported about itself — the rung, the plan — read back when the turn ends. */
+  private traces = new Map<string, TurnTrace>();
 
   constructor() {
     this.provider = createProvider();
@@ -104,6 +106,16 @@ export class ConciergeController {
     return this.marks;
   }
 
+  /** Which engine answered each turn, and why — the QA record. Never shown to a visitor. */
+  qaTrace(): readonly QaEntry[] {
+    return qaTrace();
+  }
+
+  /** The reply table for the language the visitor has been using. */
+  private get R() {
+    return replies(this.store.memory.language);
+  }
+
   /**
    * What a live voice session is told about the page: the piece in view with what Waseem
    * publishes about it, the pieces just shown with their ordinals, the standing request and
@@ -125,6 +137,7 @@ export class ConciergeController {
       pieceInView: row ? { slug: row.s, name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null,
       recent: c.recentResults.slice(0, 6).map((p, i) => ({ ordinal: i + 1, slug: p.slug, name: p.name, facts: factsOf(p.slug, p.priceLabel) })),
       standing: topicLine(c.memory.standingSlots),
+      language: c.memory.language ?? undefined,
       frames: gallery?.count,
       // the form's state, never the visitor's details: those travel only when a tool is asked for them
       appointment: site.consultation.open || site.consultation.draft ? `${site.consultation.open ? 'open' : 'closed'} — ${summariseDraft(site.consultation.draft)}` : undefined,
@@ -217,7 +230,8 @@ export class ConciergeController {
     }
     if (!s.greeted) {
       const hour = new Date().getHours();
-      s.appendTurn({ id: uid('c'), role: 'concierge', text: CONCIERGE.greeting(hour), source: 'system', createdAt: Date.now() });
+      // the greeting follows the language the visitor used earlier in this tab, if any
+      s.appendTurn({ id: uid('c'), role: 'concierge', text: this.R.greeting(hour), source: 'system', createdAt: Date.now() });
       s.setGreeted(true);
     }
     const after = () => {
@@ -321,6 +335,7 @@ export class ConciergeController {
     if (category) args.category = category;
     else if (material) args.material = material;
     const what = category ? (CATEGORY_PLURAL[category as Category] ?? category).toLowerCase() : material ? `${material} pieces` : 'pieces';
+    const language = asReplyLanguage(this.store.memory.language) ?? 'en';
     this.store.forgetTopic();
     this.cancelTurn();
     cancelSpeech();
@@ -336,11 +351,11 @@ export class ConciergeController {
       .then((outcome) => {
         this.onEvent({ type: 'tool.result', turnId, callId, outcome });
         const found = outcome.ui?.kind === 'pieces' ? outcome.ui.pieces.length : 0;
-        this.onEvent({ type: 'text.done', turnId, text: found ? CONCIERGE.nearby(`${capitalise(countInWords(found))} ${what}`) : CONCIERGE.nearbyNothing });
+        this.onEvent({ type: 'text.done', turnId, text: found ? this.R.nearby(found, subjectIn(language, { category: category ?? undefined, material }, found)) : this.R.nearbyNothing });
         this.onEvent({ type: 'turn.done', turnId });
       })
       .catch(() => {
-        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+        this.onEvent({ type: 'turn.error', turnId, message: this.R.error, recoverable: false });
       });
   }
 
@@ -367,6 +382,8 @@ export class ConciergeController {
     this.rung = 'auto';
     this.store.setVoice({ sessionLive: false, fallback: null, denied: false });
     this.store.forget();
+    // begun again: the standing topic goes with the conversation; the visitor's language stays
+    this.store.forgetTopic();
     // a fresh conversation, and the call for it opened now rather than on the next tap
     if (this.store.mode === 'voice') void probeCapabilities().then(() => this.warmVoice());
   }
@@ -473,11 +490,11 @@ export class ConciergeController {
     void executeTool('openProduct', { slug })
       .then((outcome) => {
         this.onEvent({ type: 'tool.result', turnId, callId, outcome });
-        this.onEvent({ type: 'text.done', turnId, text: CONCIERGE.opened(name) });
+        this.onEvent({ type: 'text.done', turnId, text: this.R.opened(name) });
         this.onEvent({ type: 'turn.done', turnId });
       })
       .catch(() => {
-        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+        this.onEvent({ type: 'turn.error', turnId, message: this.R.error, recoverable: false });
       });
   }
 
@@ -496,11 +513,11 @@ export class ConciergeController {
       .then((outcome) => {
         this.onEvent({ type: 'tool.result', turnId, callId, outcome });
         const ui = outcome.ui;
-        this.onEvent({ type: 'text.done', turnId, text: ui?.kind === 'compare' ? CONCIERGE.compared(ui.pieces.map((p) => p.name)) : CONCIERGE.whichToCompare });
+        this.onEvent({ type: 'text.done', turnId, text: ui?.kind === 'compare' ? this.R.compared(ui.pieces.map((p) => p.name)) : this.R.whichToCompare });
         this.onEvent({ type: 'turn.done', turnId });
       })
       .catch(() => {
-        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+        this.onEvent({ type: 'turn.error', turnId, message: this.R.error, recoverable: false });
       });
   }
 
@@ -532,7 +549,7 @@ export class ConciergeController {
         return outcome;
       })
       .catch((err: unknown) => {
-        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+        this.onEvent({ type: 'turn.error', turnId, message: this.R.error, recoverable: false });
         throw err;
       });
   }
@@ -591,7 +608,16 @@ export class ConciergeController {
         break;
       }
       case 'tool.error': {
-        s.upsertTool(e.turnId, { id: e.callId, name: 'tool', label: CONCIERGE.error, status: 'error', startedAt: Date.now(), finishedAt: Date.now() });
+        s.upsertTool(e.turnId, { id: e.callId, name: 'tool', label: this.R.error, status: 'error', startedAt: Date.now(), finishedAt: Date.now() });
+        break;
+      }
+      case 'turn.trace': {
+        // a fallback's reason arrives first and the answering engine's reading after it: kept together
+        const prior = this.traces.get(e.turnId);
+        const merged = prior ? { ...prior, ...e.trace, fallback: e.trace.fallback ?? prior.fallback } : e.trace;
+        this.traces.set(e.turnId, merged);
+        if (this.traces.size > 60) this.traces.delete(this.traces.keys().next().value!);
+        recordTrace(e.turnId, merged);
         break;
       }
       case 'text.ready': {
@@ -605,7 +631,7 @@ export class ConciergeController {
            */
           if (planSpeech(e.text).missingAVoice && !this.saidNoVoice) {
             this.saidNoVoice = true;
-            s.appendTurn({ id: uid('c'), role: 'concierge', text: CONCIERGE.noVoiceForLanguage, source: 'system', createdAt: Date.now() });
+            s.appendTurn({ id: uid('c'), role: 'concierge', text: this.R.noVoiceForLanguage, source: 'system', createdAt: Date.now() });
           }
           this.spokenText = e.text;
           this.say(e.text);
@@ -647,10 +673,23 @@ export class ConciergeController {
         this.activeTurn = null;
         const tier = useQualityStore.getState().tier;
         const hold = tier === 'REDUCED' ? 600 : buildSiteContext().viewport === 'mobile' ? 1000 : 1400;
+        const trace = this.traces.get(e.turnId);
+        /**
+         * The second sentence in a row the keyless engine could not read: the stage offers
+         * writing instead, as the next thing to press, and the microphone does not reopen
+         * on its own to ask a third time. "Try again" and "Write instead" are both beneath
+         * the ring; the visitor chooses.
+         */
+        const offerWrite = trace?.plan === 'unknown.again' && s.mode === 'voice';
         const finish = () => {
           const rest = this.restState();
           const cur = this.store.state;
           if (cur === 'RESULT' || cur === 'SPEAKING' || cur === 'EXECUTING_ACTION' || cur === 'THINKING') this.store.transition(rest, 'turn.done');
+          if (offerWrite) {
+            this.store.setVoice({ sessionLive: this.store.voice.adapter === 'realtime' ? this.store.voice.sessionLive : false });
+            this.store.setError({ code: 'NO_SPEECH', message: this.R.writeInstead });
+            return;
+          }
           this.maybeResumeListening();
         };
         // nothing settles to rest while the reply is still being said
@@ -663,7 +702,8 @@ export class ConciergeController {
         this.pendingResult = false;
         if (showResult && s.transition('RESULT', 'turn.done')) this.later(hold, settle);
         else settle();
-        if (s.turns.length && s.turns[s.turns.length - 1]?.text === CONCIERGE.close) this.later(900, () => this.close());
+        // the goodbye, in whichever language it was said: the panel closes after it
+        if (trace?.plan === 'close') this.later(900, () => this.close());
         break;
       }
       case 'turn.error': {
@@ -671,7 +711,7 @@ export class ConciergeController {
         s.setActiveTurn(null);
         this.activeTurn = null;
         if (s.activeTurnId) s.patchTurn(s.activeTurnId, { streaming: false });
-        s.setError({ code: 'PROVIDER', message: CONCIERGE.error });
+        s.setError({ code: 'PROVIDER', message: this.R.error });
         s.transition('ERROR', e.message);
         this.later(3200, () => {
           if (this.store.state === 'ERROR') this.store.transition(this.restState(), 'error.auto');
@@ -688,7 +728,7 @@ export class ConciergeController {
           s.setTranscript({ active: false });
           if (wasListening) {
             s.transition('VOICE_READY', 'session.ended');
-            if (e.message && e.message !== 'abort' && e.message !== 'idle') s.setError({ code: 'NETWORK', message: CONCIERGE.voice.sessionEnded });
+            if (e.message && e.message !== 'abort' && e.message !== 'idle') s.setError({ code: 'NETWORK', message: this.R.sessionEnded });
           }
         }
         break;
@@ -888,7 +928,8 @@ export class ConciergeController {
       if (!this.store.voice.preparing || this.adapter !== adapter) return;
       adapter.abort();
       this.store.setVoice({ preparing: false, sessionLive: false });
-      this.store.setError({ code: 'MIC_DENIED', message: CONCIERGE.micNoAnswer });
+      this.store.setError({ code: 'MIC_DENIED', message: this.R.micFailed });
+      recordTrace('voice', { rung: 'browser-voice', fallback: `microphone did not open (${adapter.kind})` });
     });
     /**
      * The language the visitor has been *speaking*, not the one their browser ships in.
@@ -923,7 +964,7 @@ export class ConciergeController {
         this.store.setVoice({ preparing: false, transcribing: false });
         if (this.store.state === 'LISTENING') this.store.transition('VOICE_READY', 'end');
       },
-      onError: ({ code }) => {
+      onError: ({ code, message }) => {
         // an adapter that has been replaced or aborted has no say over the stage any more
         if (this.adapter !== adapter) return;
         const st = this.store;
@@ -931,7 +972,7 @@ export class ConciergeController {
         st.setTranscript({ active: false });
         st.setVoice({ preparing: false, transcribing: false });
         if (code === 'NO_SPEECH') {
-          st.setError({ code: 'NO_SPEECH', message: CONCIERGE.noSpeech });
+          st.setError({ code: 'NO_SPEECH', message: this.R.noSpeech });
           st.transition('VOICE_READY', 'no-speech');
           return;
         }
@@ -945,25 +986,30 @@ export class ConciergeController {
           if (adapter.kind === 'realtime' && tier === 'auto') {
             this.rung = 'server';
             st.setVoice({ fallback: 'server' });
+            // why the realtime session was not the one to answer, verbatim, for the QA view
+            recordTrace('voice', { rung: 'browser-voice', fallback: `realtime refused: ${code} ${message}`, note: 'stepped down to the transcription tier' });
             this.later(150, () => this.startListening('server'));
             return;
           }
           if (adapter.kind === 'server' && tier !== 'browser' && recognitionSupported()) {
             this.rung = 'browser';
             st.setVoice({ fallback: 'browser' });
+            recordTrace('voice', { rung: 'browser-voice', fallback: `transcription refused: ${code} ${message}`, note: "stepped down to the browser's own hearing" });
             this.later(150, () => {
               this.startListening('browser');
               // a sentence already spoken is lost with the rung; the visitor is asked again, on the
               // open microphone, rather than left to wonder — set after the rung opens, which clears errors
-              if (sentenceLost) this.store.setError({ code: 'NO_SPEECH', message: CONCIERGE.voice.couldNotHear });
+              if (sentenceLost) this.store.setError({ code: 'NO_SPEECH', message: this.R.couldNotHear });
             });
             return;
           }
           // never a silent example in the visitor's name: say so, and leave the offer standing
-          st.setError({ code: 'NETWORK', message: CONCIERGE.voice.hearingUnavailable });
+          recordTrace('voice', { rung: 'browser-voice', fallback: `hearing unavailable: ${code} ${message}` });
+          st.setError({ code: 'NETWORK', message: this.R.hearingUnavailable });
           return;
         }
-        st.setError({ code: 'MIC_DENIED', message: CONCIERGE.micDenied });
+        recordTrace('voice', { rung: 'browser-voice', fallback: `microphone: ${code} ${message}` });
+        st.setError({ code: 'MIC_DENIED', message: this.R.micDenied });
         st.setVoice({ sessionLive: false, denied: true });
         st.transition('ERROR', code);
         this.later(3200, () => {

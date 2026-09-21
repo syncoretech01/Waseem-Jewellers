@@ -33,6 +33,8 @@ export const RECOGNITION_LANG: Record<Language, string> = {
    * and the transliteration fold handles the rest.
    */
   'ur-Latn': 'en-IN',
+  /** Roman Punjabi, like Roman Urdu, is Latin text: the Indian-English engine returns Latin and the fold does the rest. */
+  'pa-Latn': 'en-IN',
   /**
    * No browser offers `pa-PK`. `ur-PK` transcribes Pakistani Punjabi into Urdu script
    * acceptably — the two share a script and most of a phonology — and the lexicon carries its

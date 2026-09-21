@@ -6,7 +6,8 @@ import { useConciergeStore, type ConciergeState } from '@/state/conciergeStore';
 import { useController } from '../useConcierge';
 import { voiceMeter } from '../voice/meter';
 import { CONCIERGE } from '../copy';
-import { qaMode } from '../qa';
+import { replies } from '../replies';
+import { describeTrace, qaMode, useQaTrace } from '../qa';
 import { WaseemMark } from '@/components/brand/WaseemMark';
 import { MicGlyph } from '@/components/ui/MicGlyph';
 import { TravellingLight } from '@/components/ui/primitives';
@@ -23,20 +24,21 @@ interface Status {
   label: string;
   line: string;
   /** The next thing to press beneath the line, beyond the two that always wait below the ring: Write instead, Let me show you. */
-  actions: 'tryAgain'[];
+  actions: ('tryAgain' | 'write')[];
   busy: boolean;
   lit: boolean;
 }
 
-function statusOf(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; fallback: string | null }): Status {
+function statusOf(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; fallback: string | null; writeOffered: boolean }): Status {
   const S = CONCIERGE.voice.state;
   const atRest = v.state === 'VOICE_READY' || v.state === 'CHAT' || v.state === 'ERROR';
   if (v.preparing) return { label: S.preparing, line: CONCIERGE.voice.preparing, actions: [], busy: true, lit: true };
   if (v.transcribing && (v.state === 'LISTENING' || v.state === 'THINKING' || v.state === 'VOICE_READY')) return { label: S.thinking, line: CONCIERGE.voice.hearing, actions: [], busy: true, lit: false };
   // the microphone is refused or absent: said as its own state, with writing and the example beneath the ring
   if (v.denied && atRest) return { label: S.micOff, line: CONCIERGE.micDenied, actions: [], busy: false, lit: false };
-  // a fault at rest is the TRY AGAIN state: the line says what happened, the action says what to do
-  if (v.error && v.state !== 'LISTENING') return { label: S.tryAgain, line: v.error, actions: v.recognition ? ['tryAgain'] : [], busy: false, lit: false };
+  // a fault at rest is the TRY AGAIN state: the line says what happened, the action says what to do —
+  // and after a second sentence in a row that was not understood, writing is offered as the action
+  if (v.error && v.state !== 'LISTENING') return { label: S.tryAgain, line: v.error, actions: v.writeOffered ? (v.recognition ? ['write', 'tryAgain'] : ['write']) : v.recognition ? ['tryAgain'] : [], busy: false, lit: false };
   // the sentence that was lost with a rung is asked for again on the microphone that just opened
   if (v.error && v.state === 'LISTENING' && v.fallback) return { label: S.listening, line: v.error, actions: [], busy: false, lit: true };
   if (!v.recognition && atRest) return { label: S.micOff, line: CONCIERGE.voice.unavailable, actions: [], busy: false, lit: false };
@@ -130,8 +132,10 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const speaking = state === 'SPEAKING';
   const working = state === 'THINKING' || state === 'EXECUTING_ACTION';
   const qa = qaMode();
+  const trace = useQaTrace();
+  const R = replies(language);
 
-  const status = statusOf({ state, preparing, transcribing, denied, recognition, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted, fallback });
+  const status = statusOf({ state, preparing, transcribing, denied, recognition, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted, fallback, writeOffered: error?.message === R.writeInstead });
   const micLabel = denied ? CONCIERGE.voice.deniedLabel : preparing ? CONCIERGE.voice.preparingLabel : listening ? CONCIERGE.voice.stop : speaking ? CONCIERGE.voice.tapToInterrupt : CONCIERGE.voice.start;
   const size = compact ? 104 : 128;
   const heard = transcript.final || transcript.interim;
@@ -149,17 +153,21 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
         <p className={cn('max-w-[24em] font-display italic leading-snug text-fg', compact ? 'text-[1.125rem]' : 'text-[1.25rem]')} style={{ fontVariationSettings: '"opsz" 20' }}>
           {status.line}
         </p>
-        {status.actions.includes('tryAgain') && (
-          <p className="mt-1">
-            <button
-              type="button"
-              onClick={() => controller?.retryHearing()}
-              className="font-display text-[1rem] text-fg underline decoration-gold-hi underline-offset-[5px] transition-colors hover:text-fg-2"
-              style={{ fontVariationSettings: '"opsz" 16' }}
-              data-cursor="listen"
-            >
-              {CONCIERGE.next.tryAgain}
-            </button>
+        {status.actions.length > 0 && (
+          <p className="mt-1 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1.5" data-next-steps>
+            {status.actions.map((a, i) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => (a === 'write' ? controller?.setMode('chat') : controller?.retryHearing())}
+                className={cn('font-display text-[1rem] underline-offset-[5px] transition-colors hover:text-fg-2', i === 0 ? 'text-fg underline decoration-gold-hi' : 'text-fg-2 hover:underline')}
+                style={{ fontVariationSettings: '"opsz" 16' }}
+                data-cursor={a === 'write' ? 'ask' : 'listen'}
+                lang={langOf(language)}
+              >
+                {a === 'write' ? R.actions.write : R.actions.tryAgain}
+              </button>
+            ))}
           </p>
         )}
         {/* the QA view alone shows what was heard; a visitor is never shown a reading of their own words */}
@@ -168,11 +176,17 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
             heard — {heard}
           </p>
         )}
+        {/* the QA view alone: which engine answered, and why — never a customer-facing line */}
+        {qa && trace.length > 0 && (
+          <p className="micro mt-1 max-w-[30em] normal-case tracking-normal text-fg-muted" data-qa-trace>
+            {describeTrace(trace[trace.length - 1])}
+          </p>
+        )}
       </div>
 
       <div className={cn('flex w-full items-center justify-center whitespace-nowrap', compact ? 'gap-6' : 'gap-9')}>
-        <button type="button" onClick={() => controller?.setMode('chat')} className="micro shrink-0 text-fg-muted transition-colors hover:text-fg">
-          {CONCIERGE.voice.write}
+        <button type="button" onClick={() => controller?.setMode('chat')} className="micro shrink-0 text-fg-muted transition-colors hover:text-fg" lang={langOf(language)}>
+          {R.actions.write}
         </button>
         {recognition ? (
           <button

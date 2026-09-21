@@ -1,4 +1,4 @@
-import { fold, languageOf, scriptsIn, tokenize, type Language, type Script } from './script';
+import { fold, languageOf, romanEvidence, scriptsIn, tokenize, type Language, type RomanEvidence, type Script } from './script';
 import { quantities, type Quantities } from './numbers';
 import { conceptsIn, type Action, type Concept } from './lexicon';
 
@@ -53,6 +53,12 @@ export interface IntentFrame {
   slots: Slots;
   language: Language;
   scripts: Script[];
+  /**
+   * How the Latin-script language was decided: by a Punjabi-only word, an Urdu-only word, a
+   * word the two share, or nothing at all. A short command with no evidence — "Second one.",
+   * "Gold." — has no language of its own and inherits the conversation's.
+   */
+  evidence: RomanEvidence;
   /** The two best readings, when confidence is below the floor and the reply must ask. */
   alternatives: IntentId[];
   /** What the parser actually recognised — useful in the prompt and when debugging. */
@@ -78,7 +84,14 @@ export function parse(text: string): IntentFrame {
   const scripts = scriptsIn(text);
   const folded = fold(text);
   const tokens = tokenize(folded);
-  const found = conceptsIn(folded);
+  /**
+   * Sentence-final punctuation is not part of a word. `fold` keeps '.' and ',' because
+   * "4.5 lakh" and "380,000" need them, but the lexicon matches whole words between spaces,
+   * so "kholo." and "Gold." — every transcript the voice tier writes ends this way — matched
+   * nothing and fell to the unknown reply. A stop or comma before a space or the end is
+   * cleared before matching; one inside a number is left alone.
+   */
+  const found = conceptsIn(folded.replace(/[.,](?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim());
   const q = quantities(folded, tokens);
 
   const has = (kind: Concept['kind'], value?: string) =>
@@ -143,16 +156,26 @@ export function parse(text: string): IntentFrame {
 
   const ranked = scores.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
   const best = ranked[0];
-  // vocabulary is the only thing that separates Urdu from Shahmukhi, or English from Roman Urdu
+  /**
+   * Vocabulary is the only thing that separates Urdu from Shahmukhi, or English from Roman
+   * Urdu from Roman Punjabi. The lexicon's markers decide the Arabic-script case; for Latin
+   * script the function-word evidence in `script.ts` decides, because the lexicon carries
+   * "menu" and "tusi" but not "de", "hor" or "deo", and a Punjabi sentence without one of
+   * its few marker words was read as English.
+   */
   const punjabi = has('marker', 'punjabi');
-  const romanUrdu = has('marker', 'roman-urdu');
+  const evidence = romanEvidence(tokens);
+  // the lexicon's Latin Punjabi markers include 'oh', which is also an English interjection: for Latin script only the function-word evidence decides
+  const romanPunjabi = evidence === 'punjabi';
+  const romanUrdu = evidence === 'urdu' || evidence === 'shared' || has('marker', 'roman-urdu');
 
   const frame: IntentFrame = {
     intent: best && best.score >= FLOOR ? best.intent : 'unknown',
     confidence: best?.score ?? 0,
     slots,
-    language: languageOf(text, { punjabi, romanUrdu }, scripts),
+    language: languageOf(text, { punjabi, romanUrdu, romanPunjabi }, scripts),
     scripts,
+    evidence: romanPunjabi ? 'punjabi' : evidence === 'none' && romanUrdu ? 'urdu' : evidence,
     alternatives: ranked.slice(0, 2).map((s) => s.intent),
     matched: found.map((f) => f.form),
   };

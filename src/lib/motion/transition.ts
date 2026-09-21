@@ -487,7 +487,7 @@ export class TransitionController implements TransitionHandle {
     }
 
     if (this.inFlight.kind === 'curtain') {
-      gsap.set(curtain, { yPercent: 100, pointerEvents: 'auto' });
+      gsap.set(curtain, { yPercent: 100, pointerEvents: 'auto', visibility: 'visible' });
       tl.to(curtain, { yPercent: 0, duration: 0.7, ease: 'wj.inOut' }, 0).call(push, [], 0.35);
     } else if (this.inFlight.kind === 'veil') {
       gsap.set(veil, { opacity: 0, pointerEvents: 'auto' });
@@ -687,7 +687,7 @@ export class TransitionController implements TransitionHandle {
         gsap.ticker.lagSmoothing(0);
         document.documentElement.classList.remove('is-transitioning');
         document.getElementById('page-root')?.removeAttribute('inert');
-        gsap.set(curtain, { pointerEvents: 'none' });
+        gsap.set(curtain, { pointerEvents: 'none', visibility: 'hidden' });
         gsap.set(veil, { pointerEvents: 'none' });
         this.inFlight = null;
         this.readyResolve?.();

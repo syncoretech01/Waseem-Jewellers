@@ -63,6 +63,8 @@ export class ServerConciergeProvider implements ConciergeProvider {
     /** The finished text of rounds already closed, so a new round adds to it rather than replacing it. */
     let settled = '';
     let buffered = '';
+    /** Every tool the model called this turn, for the trace. */
+    const toolsUsed: string[] = [];
 
     try {
       for (let round = 0; round < 4; round++) {
@@ -210,6 +212,7 @@ export class ServerConciergeProvider implements ConciergeProvider {
          */
         const results: { callId: string; name: ToolName; result: unknown }[] = [];
         for (const call of calls) {
+          toolsUsed.push(call.name);
           runtime.emit({ type: 'tool.call', turnId, callId: call.callId, name: call.name, args: call.args });
           try {
             const outcome = await runtime.executeTool(call.name, call.args, { turnId, callId: call.callId });
@@ -231,6 +234,8 @@ export class ServerConciergeProvider implements ConciergeProvider {
         toolResults = results;
       }
 
+      // the model answered: said on the trace, so a QA reader can tell it from the keyless engine
+      runtime.emit({ type: 'turn.trace', turnId, trace: { rung: 'model', tool: toolsUsed.join(',') || undefined, language: useConciergeStore.getState().memory.language ?? undefined } });
       runtime.emit({ type: 'turn.done', turnId });
     } catch (err) {
       if (abort.signal.aborted) return;

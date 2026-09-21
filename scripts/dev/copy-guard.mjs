@@ -32,6 +32,13 @@ const BANNED = [
    */
   { re: /(?<![\w-])salons?(?![\w-])/i, why: 'a showroom, not a salon' },
   { re: /private consultations?/i, why: 'say "book an appointment" or "book a viewing"' },
+  /**
+   * Stage 2.3: the appointment is "an appointment" or "a viewing", never a "private" one —
+   * the adjective was the last trace of the consultation vocabulary, in the placeholder and
+   * the greeting. "House of Waseem" is matched case-insensitively above; a visitor-facing
+   * "Salon" is caught by the salon rule.
+   */
+  { re: /private (?:appointment|viewing)s?/i, why: 'say "an appointment" or "a viewing", never a "private" one' },
   { re: /\b(?:request|arrange|arranging|book) an? (?:private )?consultation\b/i, why: 'say "request an appointment"' },
   { re: /\bconsultation (?:details|form|request)s?\b/i, why: 'say "appointment …"' },
   /**

@@ -141,7 +141,7 @@ export async function POST(request: Request) {
       recentSlugs: (body.context?.recentResults ?? []).slice(0, 12).map((r) => r?.slug).filter((x): x is string => typeof x === 'string' && isKnownSlug(x)),
       memory,
     });
-    messages = buildMessages(text, grounding, safeContext);
+    messages = buildMessages(text, grounding, safeContext, memory.language);
   }
 
   if (round >= MAX_ROUNDS) return fail('ROUNDS', 'that took too many steps; ask again more simply');

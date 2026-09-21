@@ -1,0 +1,65 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   WASEEM JEWELLERS — the craft chapter's sequence
+   The pre-rendered frames of the craft object (scripts/assets/craft-frames.mjs,
+   one crop box for all of them), stacked in one box over the stage wherever the
+   live object is not mounted: every phone, a browser without WebGL, a context
+   lost twice. Imported from Ch02Craft.tsx.
+   Writers: this sheet sets the box and every frame's resting state; the
+   chapter's GSAP timeline alone writes a frame's opacity and visibility
+   (autoAlpha, driven by the scrub); React writes the container's opacity
+   class when the live object takes over. No property has two writers.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.craft-frames {
+  /* the frames' own proportion (CRAFT_FRAME_SIZE): the crop is taller than wide because the
+     parts separate vertically and the close pulls the object up */
+  --craft-frame-aspect: 0.7598;
+  /* where the assembled object's centre sits in the crop: below the middle, because the crop
+     also holds the lifted stone and the pulled-back close above it. The box is anchored by
+     this point, so the assembled object stands where the live one does */
+  --craft-frame-anchor: 60.5%;
+  position: absolute;
+  left: 50%;
+  /* a desktop stage without the live object (LOW, no WebGL): the object as tall as the live
+     one draws it, its centre a little below the middle, as the live camera frames it */
+  top: 57%;
+  height: min(80svh, 95vw);
+  aspect-ratio: var(--craft-frame-aspect);
+  translate: -50% calc(-1 * var(--craft-frame-anchor));
+  pointer-events: none;
+  /* the crossfade adds the two neighbours rather than stacking them, so the object never dims
+     halfway between two frames; isolated, so the sum never reaches the stage beneath */
+  isolation: isolate;
+}
+
+@media (max-width: 767px) {
+  .craft-frames {
+    /* the live camera stands further back on a portrait stage (CraftScene `far`), which makes
+       the object's height a fixed share of the viewport's width — 0.78 of it — with its centre
+       9vw above the stage's centre, clear of the index. The box follows that, so on a premium
+       phone the sequence and the live object stand in the same place when one gives way to
+       the other. */
+    top: calc(50% - 9vw);
+    height: auto;
+    width: 75vw;
+  }
+}
+
+.craft-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  visibility: hidden;
+  mix-blend-mode: plus-lighter;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* the assembled object stands before the timeline has written anything */
+.craft-frame[data-frame='0'] {
+  opacity: 1;
+  visibility: inherit;
+}

@@ -147,8 +147,30 @@ export interface ToolOutcome {
   compact?: boolean;
 }
 
+/**
+ * What answered a turn, and why — for the QA view and the harnesses, never for the visitor.
+ *
+ * A fallback that happens silently is a fault nobody can find: the visitor hears the
+ * keyless engine's sentence and no one knows the model was ever tried. Every engine records
+ * itself here — the rung, the reason it was reached, the language it read, the intent and
+ * the tool — and the controller keeps the last few for `?qa=1`.
+ */
+export interface TurnTrace {
+  /** Which engine answered: the text model, the keyless engine, the realtime voice, or the browser's own voice tier. */
+  rung: 'model' | 'keyless' | 'realtime' | 'browser-voice';
+  /** Why a rung below the one tried answered instead — the code and message of the failure, verbatim. */
+  fallback?: string;
+  language?: string;
+  intent?: string;
+  /** The plan the keyless engine chose, by id. */
+  plan?: string;
+  tool?: string;
+  note?: string;
+}
+
 export type ProviderEvent =
   | { type: 'turn.start'; turnId: string }
+  | { type: 'turn.trace'; turnId: string; trace: TurnTrace }
   | { type: 'text.ready'; turnId: string; text: string }
   | { type: 'text.delta'; turnId: string; delta: string }
   | { type: 'text.done'; turnId: string; text: string }

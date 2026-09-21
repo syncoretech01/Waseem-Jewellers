@@ -41,6 +41,7 @@
     "operator:check": "node scripts/dev/operator-check.mjs",
     "secret:scan": "node scripts/dev/secret-scan.mjs",
     "assets:variants": "node scripts/assets/variants.mjs",
+    "assets:craft-frames": "node scripts/assets/craft-frames.mjs",
     "ring:check": "node scripts/dev/ring-check.mjs",
     "bespoke:check": "node scripts/dev/bespoke-check.mjs",
     "qa:sweep": "node scripts/dev/qa-sweep.mjs",

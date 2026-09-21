@@ -2,6 +2,7 @@
 
 import { pulseSpeech, stopSpeechEnvelope } from './meter';
 import { RATE_FOR_ROMAN_URDU, speechRuns, voiceFor } from './languages';
+import { isRomanWord } from '../nlu/script';
 
 /**
  * Speaking, behind one seam.
@@ -80,7 +81,8 @@ function browserPlan(text: string): SpeechPlan {
   const parts = speechRuns(text)
     .flatMap((run) => {
       const voice = voiceFor(run.lang, available);
-      const romanUrdu = run.script === 'latin' && /\b(ka|ki|ke|hai|hain|mujhe|dikhao|chahiye|kitna|kya)\b/i.test(run.text);
+      // Roman Urdu or Punjabi: Latin text that is not English, read by the en-IN voice at the slower rate
+      const romanUrdu = run.script === 'latin' && run.text.toLowerCase().split(/[^a-z]+/).some((w) => w.length > 1 && isRomanWord(w));
       return sentencesOf(run.text).map((t) => ({ t, voice, lang: run.lang, romanUrdu }));
     })
     .map(({ t, voice, lang, romanUrdu }) => ({ text: t, voice, lang, rate: romanUrdu ? RATE_FOR_ROMAN_URDU : 0.95 }));

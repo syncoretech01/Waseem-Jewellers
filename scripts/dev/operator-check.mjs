@@ -251,6 +251,57 @@ try {
   })();
   ok(offPiece.result?.error === 'NOT_ON_A_PIECE', `setGalleryFrame off a piece's page is refused (${offPiece.result?.error})`);
 
+  /**
+   * The keyless replies, in the visitor's language. The model route is refused the way the
+   * live deployment refuses it today, so every sentence falls to the keyless engine — which
+   * must mirror the language, say one word for an action, one sentence for a search, and one
+   * short question for what it cannot read. Never the English capability paragraph.
+   */
+  console.log('\nthe replies, in the visitor\'s language (model route refused)');
+  await ctx.route('**/api/concierge/turn', (route) => route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: `${JSON.stringify({ type: 'turn.error', code: 'UPSTREAM', message: 'upstream 429 insufficient_quota', recoverable: true })}\n` }));
+  await page.evaluate(() => window.__wjConcierge.forget());
+  await settle(page, 400);
+  const ask = async (text) => {
+    await page.evaluate((t) => window.__wjConcierge.submitText(t, 'text'), text);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const started = performance.now();
+          const tick = () => {
+            const s = window.__wjConcierge.store;
+            const last = [...s.turns].reverse().find((t) => t.role === 'concierge');
+            const busy = ['THINKING', 'EXECUTING_ACTION', 'SPEAKING'].includes(s.state) || last?.streaming;
+            if ((!busy && last?.text && performance.now() - started > 400) || performance.now() - started > 15000) return resolve();
+            setTimeout(tick, 30);
+          };
+          tick();
+        }),
+    );
+    await arrived(page, pathOf(page));
+    await settle(page, 900);
+    return page.evaluate(() => {
+      const s = window.__wjConcierge.store;
+      const trace = window.__wjConcierge.qaTrace();
+      return { reply: [...s.turns].reverse().find((t) => t.role === 'concierge')?.text ?? '', language: s.memory.language, rung: trace[trace.length - 1]?.rung ?? null, fallback: trace[trace.length - 1]?.fallback ?? null };
+    });
+  };
+  let r = await ask('Mujhe gold rings dikhao.');
+  ok(r.language === 'ur-Latn' && r.reply === 'Ji, chaar gold rings saamne hain.', `Roman Urdu is answered in Roman Urdu ("${r.reply}")`);
+  ok(r.rung === 'keyless' && /UPSTREAM/.test(r.fallback ?? ''), `the trace records the rung and why the model did not answer (${r.rung} · ${r.fallback})`);
+  r = await ask('Doosra.');
+  ok(/^(Ji|Bilkul)\.$/.test(r.reply) && r.language === 'ur-Latn', `a one-word command inherits the language and is answered with one word ("${r.reply}")`);
+  r = await ask('Wapas jao.');
+  ok(/^(Ji|Bilkul)\.$/.test(r.reply) && pathOf(page) === '/', `"Wapas jao." goes back with one word ("${r.reply}" · ${pathOf(page)})`);
+  r = await ask('Kal shaam ka time dekhna.');
+  ok(r.reply === 'Maaf kijiye, dobara kahenge?', `what the engine cannot read is asked again, in Urdu ("${r.reply}")`);
+  r = await ask('Menu diamond de rings dikhao.');
+  ok(r.language === 'pa-Latn' && r.reply === 'Ji, chaar diamond rings saahmne ne.', `Roman Punjabi is answered in Roman Punjabi ("${r.reply}")`);
+  r = await ask('Show me gold rings.');
+  ok(r.language === 'en' && r.reply === 'Four gold rings are in view.', `a full English sentence is answered in English ("${r.reply}")`);
+  ok(!/I may have missed that|show you pieces, open a collection/.test(r.reply), 'the capability paragraph is gone');
+  await page.evaluate(() => window.__wjConcierge.forget());
+  await settle(page, 400);
+
   console.log('\nclosing');
   const bye = await run(page, 'closeConcierge');
   await settle(page, 2400);

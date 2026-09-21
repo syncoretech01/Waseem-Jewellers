@@ -22,8 +22,10 @@ export function TransitionLayer() {
 
   useLayoutEffect(() => {
     if (!curtain.current || !veil.current || !flipLayer.current) return;
-    // GSAP is the only writer of the curtain's transform (see MOTION_SYSTEM.md)
-    gsap.set(curtain.current, { yPercent: 100 });
+    // GSAP is the only writer of the curtain's transform (see MOTION_SYSTEM.md). Hidden while
+    // no flight runs: a fixed viewport-sized layer translated off screen is otherwise held as a
+    // rasterised texture on every page, for nothing
+    gsap.set(curtain.current, { yPercent: 100, visibility: 'hidden' });
     const c = new TransitionController();
     c.attach({ curtain: curtain.current, veil: veil.current, flipLayer: flipLayer.current });
     controller.current = c;

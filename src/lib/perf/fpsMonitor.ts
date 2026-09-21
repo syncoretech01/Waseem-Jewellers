@@ -70,7 +70,17 @@ export function installFpsMonitor(): () => void {
   let secondStart = 0;
   let framesThisSecond = 0;
   let longestThisSecond = 0;
-  let scrollAtSecondStart = 0;
+  /**
+   * Whether the page moved during the second being counted. A flag from a passive scroll
+   * listener rather than a `window.scrollY` comparison: `scrollY` is a layout-flushing read,
+   * and read from the ticker it lands right after the tweens' writes and forces a style pass
+   * of its own once a second — the monitor must never be a cost it then measures.
+   */
+  let scrolledThisSecond = false;
+  const onScroll = () => {
+    scrolledThisSecond = true;
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
   let lowSeconds = 0;
   /** The best second the display has shown while nothing scrolled: its own refresh rate. */
   let displayRate = 0;
@@ -115,7 +125,7 @@ export function installFpsMonitor(): () => void {
     secondStart = now;
     framesThisSecond = 0;
     longestThisSecond = 0;
-    scrollAtSecondStart = window.scrollY;
+    scrolledThisSecond = false;
   };
 
   const tick = (_time: number, deltaTime: number) => {
@@ -153,7 +163,7 @@ export function installFpsMonitor(): () => void {
     const elapsed = now - secondStart;
     if (elapsed < 1000) return;
     const fps = Math.round((framesThisSecond * 1000) / elapsed);
-    const idle = window.scrollY === scrollAtSecondStart;
+    const idle = !scrolledThisSecond;
     // a second that was mostly one long frame is a stall, counted above, not a rate
     const stalled = longestThisSecond >= elapsed * 0.5;
     beginSecond(now);
@@ -189,6 +199,7 @@ export function installFpsMonitor(): () => void {
 
   return () => {
     gsap.ticker.remove(tick);
+    window.removeEventListener('scroll', onScroll);
     ScrollTrigger.removeEventListener('refresh', onRefresh);
     observer?.disconnect();
     installed = false;

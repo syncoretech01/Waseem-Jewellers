@@ -251,6 +251,71 @@ Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `
 
 Every chapter's scroll animation lives inside its own `useGSAP` scope — and, where it branches by viewport, its own `gsap.matchMedia` context — and reverts itself. The one ticker that lives outside a GSAP context (the hero's pointer drift) is removed in its effect cleanup. Nothing kills triggers globally.
 
+## The craft object — live, sequence, still
+
+The craft chapter (`Ch02Craft`, 21 Sep 2026) puts the same object on its stage in one of three
+forms, and only ever one at a time; `npm run ring:check` samples the pin and fails on a stage
+with none of them, or with anything else over them.
+
+**Live** — the R3F `CraftScene`, on HIGH and MEDIUM (a desktop with a GPU), mounted in the
+first still moment after the loader (`warm`) or on approach at the latest (`near`, one
+viewport out). Phones do not take it: `LIVE_ON_PREMIUM_PHONES` in `Ch02Craft` is off. It
+would give a phone the detector calls `premium` (quality.ts: a recent Apple, Adreno or Mali
+GPU, or eight gigabytes reported) the object with the MEDIUM stone at DPR ≤ 1.5 — the flat
+LOW stone is never shown on a phone by any path — mounted only in a still moment, with the
+sequence beneath it until it has linked. Measured on the 390×844 emulation on an Intel HD 530
+(21 Sep 2026): once compiled, 57–58 fps through the chapter under touch flings, worst frame
+50–117 ms; but a compile that fell under a scrolling thumb was a one-frame second, which the
+frame-rate monitor answered by withdrawing WebGL (`demoteToStill`, demoted@1) — the visitor
+felt the stall and then never saw the object. The sequence is the same object at the highest
+tier with no compile and no stall, so it carries every phone until the compile has been
+measured on real ones. An object whose programs are still compiling is never unmounted under
+them (`renderScene` holds it until it links): three polls the programs from a timer, and a
+renderer disposed mid-compile throws from it.
+
+**The sequence** — `public/assets/waseem/images/craft/ring-f{0…22}-{640,1080,1600}w.webp`:
+twenty-three frames of the same object rendered once from the same scene at the HIGH tier by
+`scripts/assets/craft-frames.mjs` (SwiftShader against the dev server, `?tier=HIGH`, a 2600 px
+square canvas so the 1600w set carries real pixels), one crop box for all of them (the union
+of the object's extent across the beats, so the object never jumps between frames), on truly
+transparent ground (every page ground goes transparent for the capture; an ink rectangle
+behind the object read as a faintly lighter box on the stage), ~47 KB each at 1080w — the
+1080w set is 1.08 MB. `CRAFT_FRAMES`
+(craftProgress.ts) is the one list of beats; the script reads it. Six frames at the centre of
+each beat were tried first: a dissolve across a whole beat shows two stones, or two bands, at
+once for most of the scroll, because the object also turns through the chapter — so the beats
+are sampled every 4–8° of turn and every ~25 px of a part's travel at phone scale (the close,
+where everything moves at once, every 0.02 of progress), and a crossfade between neighbours
+reads as the part moving. The frames are in the DOM from the
+first render (the timeline binds them once; no rebuild of the pin), given their `src` only
+where the sequence stands — the assembled frame at once, the rest when the chapter is within
+150 % of the viewport (`approach`), then `decode()`d — so a fast scroller never meets a blank
+stage. The chapter's own scrubbed timeline is their one driver: frame *i* fades in and frame
+*i−1* out (`autoAlpha`, so at most two are painted) across the span the live object would
+spend moving between those two poses — `craftFrameFades()`: from `max(p[i−1],
+window(p[i]).from)` to `p[i]` — so the stone lifts while "Stone" is lit, the band falls while
+"Metal" is, and the object holds still through the assembled hold exactly as the live one
+does. `mix-blend-mode: plus-lighter` inside an isolated box makes the crossfade a true
+linear dissolve (the object never dims halfway). The frames box is sized in `vw` on a phone
+because the live camera's portrait framing (`far` in CraftScene) makes the object's height a
+fixed fraction of the viewport width; the pull back of the close is in the frames themselves,
+so the still's pull-back tween is not theirs. Where it stands: every phone, any tier without
+WebGL, a context lost twice, a desktop detected LOW. Regenerate with `node scripts/assets/craft-frames.mjs http://localhost:3300`
+after any change to the scene; the script prints the crop size for `CRAFT_FRAME_SIZE` and
+`--craft-frame-aspect` (src/styles/craft.css).
+
+**The still** — the assembled poster (`ring-{640,1080,1600}w.webp`, `scripts/assets/craft-poster.mjs`,
+captured on the same transparent ground since 21 Sep), beneath the live object while it
+compiles on a desktop, before detection, and under reduced motion, where the chapter builds no
+pin and stands as a composed still: the object lit, every label named, one closing note.
+
+**One writer each.** The GSAP timeline alone writes a frame's opacity and visibility; React
+writes the container's opacity class (a different element) when the live object takes over;
+`src/styles/craft.css` sets the box and each frame's resting state. **`useGSAP` with
+dependencies does not revert on change** unless `revertOnUpdate: true` is passed — without it
+the callback runs again over the live context and a second pin lands on the same stage (the
+spacer padded twice, the stage a pin below the visitor). `Ch02Craft` passes it.
+
 ## Reduced motion
 
 There are two independent layers, because one of them has to work before any JavaScript has run.
@@ -265,7 +330,7 @@ const still = reduce || reduced;
 
 The media query is the source of truth — GSAP reverts the other branch when it flips — and the store covers the case where the tier was reduced for another reason. The `still` branch builds no pin, no scrub and no timeline. It sets the composed end state (`Ch02Craft`: the object lit, every label named, one closing note; `Ch04Worlds`: the columns in place, the paper gone) and calls `ready()`. The unpinned chapters have no such branch: the reveal hooks set their targets to the finished state, and the heritage facade's monochrome-to-colour scrub is simply not built.
 
-Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`CraftScene` gives way to a still of the same object, rendered once by `scripts/assets/craft-poster.mjs`), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
+Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`CraftScene` gives way to the still of the same object, rendered once by `scripts/assets/craft-poster.mjs`; the scroll-driven sequence is not built either, since there is no scrub to drive it), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
 
 ## Traps we hit
 

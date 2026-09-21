@@ -41,7 +41,7 @@ function reference() {
   return `WJ-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${code}`;
 }
 
-/** Private consultation — no backend. The request is kept in sessionStorage and acknowledged by the concierge. */
+/** The appointment request — no backend. The request is kept in sessionStorage and acknowledged by the concierge. */
 export function ConsultationModal() {
   const consultation = useSiteStore((s) => s.consultation);
   /** What this deployment allows; re-read when the dialog opens, after the probe has answered. */

@@ -7,7 +7,8 @@ import { TravellingLight } from '@/components/ui/primitives';
 import { getRow } from '@/data/clientIndex';
 import { useController } from '../useConcierge';
 import { CONCIERGE } from '../copy';
-import { qaMode } from '../qa';
+import { replies } from '../replies';
+import { describeTrace, qaMode, useQaTrace } from '../qa';
 import { factsOf } from './cards/PieceTile';
 import { cn } from '@/lib/cn';
 
@@ -22,6 +23,8 @@ export function langOf(language: string | null): string | undefined {
       return 'pa-Arab';
     case 'pa-Guru':
       return 'pa';
+    case 'pa-Latn':
+      return 'pa-Latn';
     case 'en':
       return 'en';
     default:
@@ -50,6 +53,8 @@ export function ExchangeList({ latestOnly = false }: { latestOnly?: boolean }) {
   const seen = useRef(0);
   const lastText = turns[turns.length - 1]?.text;
   const lang = langOf(language);
+  const R = replies(language);
+  const trace = useQaTrace();
 
   /**
    * Follow the newest line — but not against the visitor. A new turn always brings the end
@@ -85,30 +90,34 @@ export function ExchangeList({ latestOnly = false }: { latestOnly?: boolean }) {
       )}
       {error && state === 'ERROR' && mode === 'chat' && (
         <div className="flex flex-col gap-3">
-          <p className="font-display text-[1.25rem] leading-[1.45] text-fg" style={{ fontVariationSettings: '"opsz" 20' }}>
+          <p dir="auto" lang={lang} className="font-display text-[1.25rem] leading-[1.45] text-fg" style={{ fontVariationSettings: '"opsz" 20' }}>
             {error.code === 'PROVIDER' || error.code === 'TOOL' ? (
-              <>
-                Forgive me —{' '}
-                <button type="button" className="italic underline decoration-line-strong underline-offset-4 hover:decoration-gold-hi" onClick={() => controller?.retry()}>
-                  shall we try that once more?
-                </button>
-              </>
+              <button type="button" className="text-left italic underline decoration-line-strong underline-offset-4 hover:decoration-gold-hi" onClick={() => controller?.retry()}>
+                {R.error}
+              </button>
             ) : (
               error.message
             )}
           </p>
           {/* never a dead end: what did not work is followed by what will */}
           <NextSteps
+            lang={lang}
             steps={
               error.code === 'PROVIDER' || error.code === 'TOOL'
                 ? [
-                    { label: CONCIERGE.next.once, run: () => controller?.retry() },
+                    { label: R.actions.once, run: () => controller?.retry() },
                     { label: CONCIERGE.next.showMe, run: () => controller?.runExample() },
                   ]
                 : [{ label: CONCIERGE.next.showMe, run: () => controller?.runExample() }]
             }
           />
         </div>
+      )}
+      {/* the QA view alone: which engine answered the last turn, and why — the voice stage carries its own copy */}
+      {qa && mode === 'chat' && trace.length > 0 && (
+        <p className="micro max-w-[34em] normal-case tracking-normal text-fg-muted" data-qa-trace>
+          {describeTrace(trace[trace.length - 1])}
+        </p>
       )}
       <div ref={end} />
     </div>
@@ -129,7 +138,7 @@ function latestExchange(shown: ConciergeTurn[], all: ConciergeTurn[]): Concierge
 }
 
 /** The next thing to press, set in the display face beneath a reply that could not do what was asked. */
-function NextSteps({ steps }: { steps: { label: string; run: () => void }[] }) {
+function NextSteps({ steps, lang }: { steps: { label: string; run: () => void }[]; lang?: string }) {
   return (
     <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5" data-next-steps>
       {steps.map((s, i) => (
@@ -137,6 +146,7 @@ function NextSteps({ steps }: { steps: { label: string; run: () => void }[] }) {
           key={s.label}
           type="button"
           onClick={s.run}
+          lang={lang}
           className={cn('font-display text-[1rem] underline-offset-[5px] transition-colors hover:text-fg hover:underline focus-visible:underline', i === 0 ? 'text-fg underline decoration-gold-hi' : 'text-fg-2')}
           style={{ fontVariationSettings: '"opsz" 16' }}
           data-cursor="ask"
@@ -150,6 +160,8 @@ function NextSteps({ steps }: { steps: { label: string; run: () => void }[] }) {
 
 function Exchange({ turn, first, live, lang, onHome }: { turn: ConciergeTurn; first: boolean; live?: boolean; lang?: string; onHome?: boolean }) {
   const controller = useController();
+  const language = useConciergeStore((s) => s.memory.language);
+  const R = replies(language);
   if (turn.role === 'visitor') {
     return (
       <p className={cn('flex items-baseline gap-3', !first && 'pt-1')}>
@@ -188,9 +200,10 @@ function Exchange({ turn, first, live, lang, onHome }: { turn: ConciergeTurn; fi
       {/* an empty tray is answered with another tray: the same request widened, or the bridal pieces */}
       {live && !turn.streaming && !turn.result && turn.tools?.some((t) => t.status === 'done' && (t.label === CONCIERGE.labels.nothing || t.label === CONCIERGE.labels.matchingNone || t.label === CONCIERGE.labels.weightUnknown)) && (
         <NextSteps
+          lang={lang}
           steps={[
-            { label: CONCIERGE.next.nearby, run: () => controller?.nearby() },
-            { label: CONCIERGE.next.bridal, run: () => controller?.bridalPieces() },
+            { label: R.actions.nearby, run: () => controller?.nearby() },
+            { label: R.actions.bridal, run: () => controller?.bridalPieces() },
           ]}
         />
       )}
