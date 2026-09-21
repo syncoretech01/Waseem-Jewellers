@@ -16,7 +16,6 @@ import { TrayBody, trayResultOf } from './cards/TrayBody';
 import { factsOf } from './cards/PieceTile';
 import { briefOfSlug } from '../context';
 import { getRow } from '@/data/clientIndex';
-import { SaveButton } from '@/components/commerce/SaveButton';
 import { WaseemMark } from '@/components/brand/WaseemMark';
 import { CONCIERGE } from '../copy';
 import { TravellingLight } from '@/components/ui/primitives';
@@ -32,11 +31,13 @@ import { trapFocus } from '@/lib/focusTrap';
 function PiecePlate({ strip }: { strip?: boolean }) {
   const slug = useSiteStore((s) => s.currentProduct ?? s.focusedProduct);
   const openConsultation = useSiteStore((s) => s.openConsultation);
+  const onHome = useSiteStore((s) => s.routeKind === 'home');
   const piece = briefOfSlug(slug);
   if (!piece) return null;
   const row = getRow(piece.slug);
   const facts = factsOf(row);
-  const priced = row ? row.p > 0 : false;
+  // the homepage carries no price, the plate on it included
+  const priced = row ? row.p > 0 && !onHome : false;
   const line = [priced ? piece.priceLabel : undefined, facts].filter(Boolean).join(' · ');
 
   if (strip) {
@@ -68,17 +69,14 @@ function PiecePlate({ strip }: { strip?: boolean }) {
           </p>
           {line && <p className="mt-1.5 text-[0.8125rem] text-fg-2">{line}</p>}
         </div>
-        <div className="flex shrink-0 items-center gap-4">
-          <button
-            type="button"
-            onClick={() => openConsultation({ topic: 'viewing', productSlug: piece.slug, source: 'cta' })}
-            className="micro text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
-            data-cursor="open"
-          >
-            Book a viewing
-          </button>
-          <SaveButton slug={piece.slug} variant="compact" />
-        </div>
+        <button
+          type="button"
+          onClick={() => openConsultation({ topic: 'viewing', productSlug: piece.slug, source: 'cta' })}
+          className="micro shrink-0 text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
+          data-cursor="open"
+        >
+          {CONCIERGE.bookViewing}
+        </button>
       </figcaption>
     </figure>
   );

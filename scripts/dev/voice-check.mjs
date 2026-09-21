@@ -14,6 +14,9 @@
  *                  the reply plays through /api/concierge/speak, SPEAKING lasts as long
  *                  as the audio, then the microphone reopens
  *
+ *   the native tier refused falls to the server tier and says so; the visitor's words are
+ *   kept in the store and never written on the stage — the QA view (?qa=1) alone shows them
+ *
  *   node scripts/dev/voice-check.mjs [http://localhost:3300]
  */
 import { chromium } from 'playwright';
@@ -238,17 +241,51 @@ try {
     const voice = await page.evaluate(() => ({ adapter: window.__wjConcierge.store.voice.adapter, fallback: window.__wjConcierge.store.voice.fallback, error: window.__wjConcierge.store.error?.message ?? null }));
     ok(tokenCalls === 1, `one session was asked for and refused (${tokenCalls})`);
     ok(r.hit === 'LISTENING' && voice.adapter === 'server' && voice.fallback === 'server', `the server tier listens instead, marked as the rung below (${voice.adapter}/${voice.fallback})`);
-    const status = await page.evaluate(() => document.querySelector('[aria-live="polite"]')?.textContent ?? '');
-    ok(/correct me or write to me/i.test(status) && !/WebSpeech|API|provider|model error/i.test(status), `the stage says so in the visitor's words ("${status.trim()}")`);
+    const status = await page.evaluate(() => document.querySelector('[data-voice-stage] [aria-live="polite"]')?.textContent ?? '');
+    ok(/say it once more or write to me/i.test(status) && !/WebSpeech|API|provider|model error/i.test(status), `the stage says so in the visitor's words ("${status.trim()}")`);
     await settle(page, 1200);
     await page.evaluate(() => window.__wjConcierge.stopListening());
     r = await waitFor(page, ['SPEAKING', 'RESULT', 'VOICE_READY'], 12000);
     ok(transcribeCalls === 1, `the recording went to the transcription route (${transcribeCalls})`);
-    // "Not quite? Correct it": the heard words land in a composer that mounts only after the switch
-    await page.evaluate(() => window.__wjConcierge.editHeard());
-    await settle(page, 500);
-    const corrected = await page.evaluate(() => ({ mode: window.__wjConcierge.store.mode, value: document.querySelector('form input')?.value ?? null }));
-    ok(corrected.mode === 'chat' && corrected.value === 'ab bracelets dikhao', `"Correct it" opens the composer with the heard words ("${corrected.value}")`);
+    // the words are kept, never shown: the store has them, the stage and the exchange do not
+    await settle(page, 400);
+    const kept = await page.evaluate(() => ({
+      stored: window.__wjConcierge.store.turns.filter((t) => t.role === 'visitor').map((t) => t.text).pop() ?? null,
+      onStage: document.querySelector('[data-voice-stage]')?.textContent ?? '',
+      inExchange: document.querySelector('[data-transcript]')?.textContent ?? '',
+      qaLine: Boolean(document.querySelector('[data-qa-heard]')),
+    }));
+    ok(kept.stored === 'ab bracelets dikhao', `the words are kept in the store ("${kept.stored}")`);
+    ok(!kept.onStage.includes('ab bracelets dikhao') && !kept.inExchange.includes('ab bracelets dikhao') && !kept.qaLine, 'no transcript is written on the stage or in the exchange');
+    ok(errors.length === 0, `no page errors (${errors.length})`);
+    await ctx.close();
+  }
+
+  // ── the QA view: the same words, shown for a tester only ──
+  {
+    console.log('\nQA view (?qa=1): the heard words are shown to a tester');
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'] });
+    await ctx.addInitScript(FAKES);
+    await ctx.addInitScript(() => { try { sessionStorage.removeItem('wj:concierge:capabilities:v1'); } catch {} });
+    await ctx.route('**/api/concierge/capabilities', (route) => route.fulfill({ json: { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'server', enquiry: 'local', privacy: null } }));
+    await ctx.route('**/api/concierge/transcribe', (route) => route.fulfill({ json: { text: 'ab bracelets dikhao', language: null } }));
+    await ctx.route('**/api/concierge/speak', (route) => route.fulfill({ status: 200, contentType: 'audio/mpeg', body: fs.readFileSync(TONE) }));
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto(`${BASE}/gold?qa=1`, { waitUntil: 'load', timeout: 120000 });
+    await settle(page, 3500);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } })));
+    await waitFor(page, ['VOICE_READY']);
+    await settle(page, 600);
+    await page.evaluate(() => window.__wjConcierge.startListening());
+    await waitFor(page, ['LISTENING'], 6000);
+    await settle(page, 1200);
+    await page.evaluate(() => window.__wjConcierge.stopListening());
+    await waitFor(page, ['SPEAKING', 'RESULT', 'VOICE_READY'], 12000);
+    await settle(page, 400);
+    const qa = await page.evaluate(() => document.querySelector('[data-qa-heard]')?.textContent ?? '');
+    ok(/ab bracelets dikhao/.test(qa), `the QA line shows what was heard ("${qa.trim()}")`);
     ok(errors.length === 0, `no page errors (${errors.length})`);
     await ctx.close();
   }
@@ -283,7 +320,7 @@ try {
             const st = window.__wjConcierge.store;
             const read = () => {
               const now = window.__wjConcierge.store;
-              return { state: now.state, adapter: now.voice.adapter, fallback: now.voice.fallback, status: document.querySelector('[aria-live="polite"]')?.textContent?.trim() ?? '' };
+              return { state: now.state, adapter: now.voice.adapter, fallback: now.voice.fallback, status: document.querySelector('[data-voice-stage] [aria-live="polite"]')?.textContent?.trim() ?? '' };
             };
             if (st.state === 'LISTENING' && st.voice.adapter === 'webspeech') return setTimeout(() => resolve(read()), 120);
             if (performance.now() - started > 8000) return resolve(read());
@@ -293,7 +330,7 @@ try {
         }),
     );
     ok(after.adapter === 'webspeech' && after.fallback === 'browser', `the browser's own hearing took over (${after.adapter}/${after.fallback})`);
-    ok(/could not hear that clearly/i.test(after.status) && !/WebSpeech|API|provider|model error/i.test(after.status), `the lost sentence is asked for again in the visitor's words ("${after.status}")`);
+    ok(/did not catch that clearly/i.test(after.status) && !/WebSpeech|API|provider|model error/i.test(after.status), `the lost sentence is asked for again in the visitor's words ("${after.status}")`);
     ok(errors.length === 0, `no page errors (${errors.length})`);
     await ctx.close();
   }

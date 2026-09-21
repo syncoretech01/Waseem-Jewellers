@@ -55,7 +55,7 @@ const sample = () =>
       const r = el.getBoundingClientRect();
       return r.width > 24 && r.height > 24 && r.bottom > Math.max(0, sr.top) && r.top < Math.min(innerHeight, sr.bottom) && r.right > 0 && r.left < innerWidth;
     };
-    const brand = [...document.querySelectorAll('svg, img, video, canvas, [data-mark], .ritual, header')].filter((el) => !el.closest('[data-concierge-orb]') && overStage(el) && vis(el)).map((el) => {
+    const brand = [...document.querySelectorAll('svg, img, video, canvas, [data-mark], .ritual, header')].filter((el) => !el.closest('[data-concierge-orb]') && !el.closest('footer') && overStage(el) && vis(el)).map((el) => {
       const r = el.getBoundingClientRect();
       const label = el.getAttribute('aria-label') || el.getAttribute('alt') || el.className?.baseVal || el.className || el.id || '';
       return `${el.tagName.toLowerCase()}${String(label).slice(0, 40) ? '[' + String(label).slice(0, 40) + ']' : ''}@${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`;

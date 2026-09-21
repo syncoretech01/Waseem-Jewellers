@@ -61,7 +61,6 @@
   --z-chapter-ui: 5;
   --z-nav: 20;
   --z-orb: 40;
-  --z-ledger: 50;
   --z-menu: 60;
   --z-concierge: 70;
   --z-modal: 75;
@@ -131,7 +130,7 @@
    them: ink on a dark chapter, paper on an ivory one. Their surface sits one step
    above the page, their lines are quieter than the page's, and the shadow is the
    only thing that says they float. The dark set is the default; the ivory set
-   follows <html data-theme>, which the section registry keeps current. ── */
+   follows the chrome's [data-theme], which the section registry keeps current. ── */
 [data-salon] {
   --surface: #14110e;
   --salon-well: #100e0c;
@@ -142,7 +141,7 @@
   --salon-lift: 0 -32px 90px -36px rgb(0 0 0 / 0.9), 0 -1px 0 0 rgb(228 207 163 / 0.09);
   --tile-frame: 0 0 0 1px rgb(228 207 163 / 0.14), 0 26px 44px -30px rgb(0 0 0 / 0.9);
 }
-html[data-theme="ivory"] [data-salon] {
+[data-theme="ivory"] [data-salon] {
   --surface: #faf6ee;
   --salon-well: var(--color-pearl);
   --plate: #e6dfd1;
@@ -336,7 +335,14 @@ html[data-rm="1"] footer[data-section="footer"] {
   height: auto;
   min-height: 100svh;
 }
-/* on a phone the footer's contents are taller than the screen: it flows, as under reduced motion */
+/* the gate on a phone: the frame is tall and narrow, so each photograph shows the slice its words can stand on — velvet beside the haar, hair behind the diamond's words */
+@media (max-width: 767px) {
+  #ch03-gate {
+    --gate-gold-pos: 12% 45%;
+    --gate-diamond-pos: 68% 45%;
+  }
+}
+/* on a phone the footer is a footer: in the flow of the page, at its own height */
 @media (max-width: 767px) {
   #page-root {
     margin-bottom: 0;
@@ -344,7 +350,6 @@ html[data-rm="1"] footer[data-section="footer"] {
   footer[data-section="footer"] {
     position: relative;
     height: auto;
-    min-height: 100svh;
   }
 }
 
@@ -478,8 +483,8 @@ html.is-transitioning #page-root {
 /* ── the concierge trigger: Waseem's crest on a disc, and a ring that carries the state ── */
 /*
   No sphere, no glow, no canvas. The colours are the chapter's: champagne on a charcoal disc
-  while the page is dark, ink on a pearl disc while it is ivory — [data-theme] on <html> is
-  mirrored from the chapter beneath the viewport centre (src/state/sections.ts). The mark never
+  while the page is dark, ink on a pearl disc while it is ivory — [data-theme] on the chrome's
+  wrapper is mirrored from the chapter beneath the viewport centre (src/state/sections.ts). The mark never
   changes shape or size; a state is the ring's colour, a light travelling it, a pulse, or a
   trace drawn round the crest's outline. One writer per property: the ring and the trace are
   written here and nowhere else; the hover's specular band is written by the trigger's own GSAP

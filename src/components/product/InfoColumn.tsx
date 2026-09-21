@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/Button';
-import { SaveButton } from '@/components/commerce/SaveButton';
 import { Eyebrow, UrduAccent } from '@/components/ui/primitives';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { formatAsOf, formatPrice } from '@/lib/format';
@@ -14,6 +13,7 @@ import { useSiteStore } from '@/state/siteStore';
 import { SITE } from '@/data';
 import { COPY } from '@/data/copy';
 import { WORLD_BY_SLUG } from '@/data/worlds';
+import { showroomsInOrder } from '@/data/heritage';
 import { useRise } from '@/motion/hooks/useReveals';
 import { EASE } from '@/lib/motion/easings';
 import type { Product } from '@/data/types';
@@ -26,10 +26,29 @@ const asOfLabel = (iso: string) => {
   return when ? `Indicative, as at ${when}` : 'Indicative';
 };
 
+/**
+ * The line beneath a price. Where the piece is on request, the price line already says so,
+ * so the note keeps only what it adds — the viewing — rather than saying "on request" twice.
+ */
+const priceNoteOf = (product: Product) =>
+  product.price.kind === 'fixed'
+    ? [asOfLabel(product.price.asOf), 'subject to the gold rate', 'Prices in Pakistani rupees', 'Viewings in Lahore by appointment'].join(' · ')
+    : COPY.product.priceNote;
+
+/** "Rs. 380,000", or "Price on request" in the house's sentence case rather than as a shouted label. */
+const priceLineOf = (product: Product) => (product.price.kind === 'fixed' ? formatPrice(product.price) : 'Price on request');
+
 export function InfoColumn({ product }: { product: Product }) {
   const scope = useRef<HTMLDivElement>(null);
   const openConsultation = useSiteStore((s) => s.openConsultation);
   const world = product.world ? WORLD_BY_SLUG[product.world] : undefined;
+  /**
+   * The rise is for the wide screen, where the column stands beside the photographs and
+   * enters with them. On a phone the words follow the photograph in the flow of the page,
+   * and the name, the price and the two buttons must be there at rest — an entrance that
+   * leaves the first screen of information at opacity 0 is a blank, not a reveal. The scope
+   * is withheld below the breakpoint, so the hook sets nothing to hide.
+   */
   useRise(scope, { start: 'top 95%' });
 
   /**
@@ -46,8 +65,15 @@ export function InfoColumn({ product }: { product: Product }) {
   const notes = notesFor(product);
 
   return (
-    <div ref={scope} className="flex flex-col gap-8">
-      <div data-rise>
+    <div
+      ref={(el) => {
+        scope.current = el && window.matchMedia('(min-width: 768px)').matches ? el : null;
+      }}
+      className="flex flex-col gap-7 md:gap-8"
+      data-info
+    >
+      {/* the way back, in the column on a wide screen; a phone carries it above the photograph */}
+      <div data-rise className="hidden md:block">
         <TransitionLink href={backHref} className="micro inline-flex items-center gap-3 text-fg-muted transition-colors hover:text-fg">
           <span aria-hidden>←</span>
           {backLabel}
@@ -59,34 +85,33 @@ export function InfoColumn({ product }: { product: Product }) {
           {world ? world.name : departmentLabel(product.departments[0])} · {categoryLabel(product.category)}
           {world?.urdu && <UrduAccent text={world.urdu} className="ml-3 text-[0.95rem]" />}
         </Eyebrow>
-        {product.campaign && <p className="micro text-fg-muted">{product.campaign}</p>}
-        <h1 className="display text-display-m">{product.editorialTitle ?? product.title}</h1>
+        {/* the campaign, unless the eyebrow has just said it as the world's name */}
+        {product.campaign && product.campaign.toLowerCase() !== world?.name.toLowerCase() && <p className="micro text-fg-muted">{product.campaign}</p>}
+        <h1 className="display text-balance text-display-m">{product.editorialTitle ?? product.title}</h1>
       </div>
 
       <div data-rise className="flex flex-col gap-2">
-        <p className="eyebrow text-fg">{formatPrice(product.price)}</p>
-        <p className="text-[0.75rem] text-fg-muted">
-          {product.price.kind === 'fixed'
-            ? [asOfLabel(product.price.asOf), 'subject to the gold rate', 'Prices in Pakistani rupees', 'Viewings in Lahore by appointment'].filter(Boolean).join(' · ')
-            : COPY.product.priceNote}
+        <p className="font-display text-[1.25rem] leading-none text-fg" style={{ fontVariationSettings: '"opsz" 20' }}>
+          {priceLineOf(product)}
         </p>
+        <p className="text-pretty text-[0.75rem] leading-relaxed text-fg-muted">{priceNoteOf(product)}</p>
       </div>
 
-      <div data-rise className="flex flex-wrap items-center gap-x-8 gap-y-4">
+      {/* the two doors, one above the other on a phone and clear of the orb's corner; side by side in the column */}
+      <div data-rise className="flex flex-col items-start gap-y-2 md:flex-row md:flex-wrap md:items-center md:gap-x-8 md:gap-y-3" style={{ paddingRight: 'max(0px, var(--orb-clear))' }}>
         <Button variant="bracket" onClick={() => requestConcierge({ mode: 'chat', product: product.slug, submit: 'Tell me about this piece' })}>
           Enquire
         </Button>
         <Button variant="hairline" onClick={() => openConsultation({ topic: 'viewing', productSlug: product.slug, source: 'cta' })}>
           Book a viewing
         </Button>
-        <SaveButton slug={product.slug} variant="full" />
       </div>
 
       <div data-rise className="flex flex-col gap-5">
-        <p className="font-display text-lead italic leading-[1.35] text-fg" style={{ fontVariationSettings: '"opsz" 24' }}>
+        <p className="text-pretty font-display text-lead italic leading-[1.35] text-fg" style={{ fontVariationSettings: '"opsz" 24' }}>
           {product.story?.lede ?? describe(product)}
         </p>
-        {product.story?.craft && <p className="max-w-[34em] text-fg-muted">{product.story.craft}</p>}
+        {product.story?.craft && <p className="max-w-[34em] text-pretty text-fg-muted">{product.story.craft}</p>}
       </div>
 
       <div data-rise className="flex flex-col gap-5 border-t border-line pt-6">
@@ -113,7 +138,7 @@ export function InfoColumn({ product }: { product: Product }) {
                 <dt className="font-display text-[1.0625rem] text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
                   {n.term}
                 </dt>
-                <dd className="max-w-[34em] text-[0.8125rem] leading-relaxed text-fg-muted">{n.body}</dd>
+                <dd className="max-w-[34em] text-pretty text-[0.8125rem] leading-relaxed text-fg-muted">{n.body}</dd>
               </div>
             ))}
           </dl>
@@ -140,8 +165,9 @@ export function InfoColumn({ product }: { product: Product }) {
               title: 'Visit a showroom',
               body: (
                 <div className="flex flex-col gap-3">
+                  {/* the three showrooms in the order the client set: Liberty Market, MM Alam Road, DHA */}
                   <ul className="flex flex-col gap-1">
-                    {SITE.showrooms.map((s) => (
+                    {showroomsInOrder().map((s) => (
                       <li key={s.id}>{s.address}</li>
                     ))}
                   </ul>

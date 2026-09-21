@@ -285,45 +285,6 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       };
     }
 
-    case 'saveToWishlist': {
-      const product = resolveAnchor(args, ctx);
-      if (!product) return { result: { needsPiece: true }, label: '' };
-      const already = site.wishlist.includes(product.s);
-      // recorded as kept from the conversation, which is what a consultant ringing back wants
-      if (!already) site.addToWishlist(product.s, 'concierge');
-      return {
-        result: { ok: true, slug: product.s, already },
-        runningLabel: CONCIERGE.labels.keeping,
-        label: already ? CONCIERGE.labels.alreadyKept : CONCIERGE.labels.kept,
-        ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'saved' },
-      };
-    }
-
-    case 'removeFromWishlist': {
-      // "remove it" means a piece that is kept: the named one, else the piece in view, else the last shown
-      const explicit = str(args.slug);
-      const candidates = [explicit, ctx.focusedProduct?.slug, ctx.currentProduct?.slug, ...ctx.recentResults.map((r) => r.slug)].filter((s): s is string => !!s);
-      const slug = candidates.find((s) => site.wishlist.includes(s));
-      const product = slug ? getRow(slug) : undefined;
-      if (!product) return { result: { needsPiece: true }, label: '' };
-      site.removeFromWishlist(product.s);
-      return { result: { ok: true, slug: product.s }, runningLabel: CONCIERGE.labels.removing, label: CONCIERGE.labels.removed, ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'removed' } };
-    }
-
-    case 'openWishlist':
-    case 'openSaved': {
-      const pieces = getRows(site.wishlist);
-      site.openLedger();
-      const n = countInWords(pieces.length);
-      return {
-        result: { count: pieces.length, items: pieces.map((p) => ({ slug: p.s, name: p.t })) },
-        runningLabel: CONCIERGE.labels.selection,
-        label: pieces.length ? CONCIERGE.labels.selectionDone(pieces.length, n) : CONCIERGE.labels.selectionEmpty,
-        ui: { kind: 'wishlist', pieces: cardsOf(pieces) },
-        compact: true,
-      };
-    }
-
     case 'scrollToSection': {
       const wanted = str(args.section);
       if (!wanted) return { result: { error: 'unknown section' }, label: '' };
@@ -616,9 +577,9 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
     }
     /**
      * "Take me to gold." A target is the place as the visitor names it; a path is for the
-     * pages the targets do not cover. Three of the targets are not pages at all — the
-     * showrooms are a chapter, the appointment is a form, the saved pieces are the ledger —
-     * and each is answered by the tool that owns it, validator and all.
+     * pages the targets do not cover. Two of the targets are not pages at all — the
+     * showrooms are a chapter, the appointment is a form — and each is answered by the tool
+     * that owns it, validator and all.
      */
     case 'navigate': {
       const target = str(args.target);
@@ -636,7 +597,6 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       }
       if (target === 'locations') return executeTool('scrollToSection', { section: 'heritage' });
       if (target === 'appointment') return executeTool('openAppointment', {});
-      if (target === 'saved') return executeTool('openSaved', {});
       const department_ = asDepartment(target);
       const path = target === 'home' ? '/' : target === 'bridal-collection' ? COLLECTION_ROUTE : department_ ? `/${department_}` : str(args.path);
       if (!path) return { result: { error: 'NO_DESTINATION', message: 'give a target or a path' }, label: '' };
@@ -750,7 +710,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       if (showroomWord) {
         const id = resolveShowroom(showroomWord);
         if (id) patch.showroom = id;
-        else problems.showroom = 'one of MM Alam Road, Liberty Market or DHA';
+        else problems.showroom = 'one of Liberty Market, MM Alam Road or DHA';
       }
       if (isOccasion(args.occasion)) patch.occasion = args.occasion;
       const date = str(args.date);
@@ -763,8 +723,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       const message = str(args.message);
       if (message) patch.message = message.slice(0, 1200);
       const given = Array.isArray(args.productSlugs) ? (args.productSlugs as unknown[]).filter((s): s is string => typeof s === 'string') : [];
-      const fromSelection = args.addSelection === true ? site.wishlist : [];
-      const slugs = uniq([...(draft.productSlugs ?? []), ...given, ...fromSelection]).filter((s) => Boolean(getRow(s))).slice(0, 40);
+      const slugs = uniq([...(draft.productSlugs ?? []), ...given]).filter((s) => Boolean(getRow(s))).slice(0, 40);
       if (slugs.length) patch.productSlugs = slugs;
       if (Object.keys(patch).length) site.setConsultationDraft(patch);
       const wasOpen = site.consultation.open;
@@ -872,7 +831,6 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       return {
         result: {
           // first, so the result's key budget on the model path never trims them
-          selectionCount: ctx.wishlist.length,
           appointment: { open: site.consultation.open, draft: described, missing: described.missing },
           ...ctx,
         },

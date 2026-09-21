@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { useSiteStore } from '@/state/siteStore';
@@ -7,7 +8,8 @@ import { requestConcierge } from '../bridge';
 import { Orb } from '../orb/Orb';
 import { CONCIERGE } from '../copy';
 import { EASE } from '@/lib/motion/easings';
-import { useMediaQuery, RAIL_QUERY } from '@/lib/useMediaQuery';
+import { useMediaQuery } from '@/lib/useMediaQuery';
+import { cn } from '@/lib/cn';
 
 /** The same two transitions the controller makes on hover, without the controller. */
 function hover(on: boolean) {
@@ -16,9 +18,43 @@ function hover(on: boolean) {
   else if (!on && s.state === 'HOVER') s.transition('IDLE', 'pointer');
 }
 
+const FIELD = 'input, textarea, select, [contenteditable="true"]';
+const PHONE_QUERY = '(max-width: 767px)';
+
 /**
- * The persistent trigger: Waseem's crest on a disc, bottom-right — 56px on a desktop, a 48px
- * touch target on a phone. The rail opens beside it, and covers it.
+ * Whether a form field has the keyboard. On a phone the keyboard rises over the corner the
+ * crest sits in, and a crest floating over a field the visitor is typing into is a thing in
+ * the way; it steps out until the field is left.
+ */
+function useFieldFocused(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      document.addEventListener('focusin', onChange);
+      document.addEventListener('focusout', onChange);
+      return () => {
+        document.removeEventListener('focusin', onChange);
+        document.removeEventListener('focusout', onChange);
+      };
+    },
+    () => Boolean(document.activeElement && document.activeElement.matches(FIELD) && !document.activeElement.closest('[data-salon]')),
+    () => false,
+  );
+}
+
+/**
+ * The chapters on a phone where the corner is spoken for: the window's row of kinds and the
+ * gold / diamond gate carry controls at the bottom edge, the footer is the footer, a piece's
+ * details and a department's grid put actions there. On these the crest docks — a smaller
+ * disc, quieter, the same 48px target — rather than sitting on something.
+ */
+const DOCKED_SECTIONS = new Set(['vitrine', 'gate', 'footer', 'details', 'pieces']);
+
+/**
+ * The persistent trigger: Waseem's crest on a disc, bottom-right. A 48px target everywhere;
+ * the disc inside it is 40px on a phone and 56px from the tablet up. It never sits over the
+ * salon (the rail covers it; the sheet hides it), the menu, the appointment form, a field the
+ * visitor is typing into, or the hero's own invitation — and on a phone it docks over the
+ * chapters whose bottom edge is already busy.
  */
 export function ConciergeOrb() {
   /**
@@ -32,15 +68,17 @@ export function ConciergeOrb() {
   const panel = useConciergeStore((s) => s.panel);
   const invitationVisible = useSiteStore((s) => s.heroInvitationVisible);
   const menuOpen = useSiteStore((s) => s.menuOpen);
-  const ledgerOpen = useSiteStore((s) => s.ledgerOpen);
   const modalOpen = useSiteStore((s) => s.consultation.open);
   const routeKind = useSiteStore((s) => s.routeKind);
+  const section = useSiteStore((s) => s.section);
   const loaderDone = useSiteStore((s) => s.loaderDone);
-  const isXl = useMediaQuery(RAIL_QUERY);
+  const phone = useMediaQuery(PHONE_QUERY);
+  const fieldFocused = useFieldFocused();
   const open = OPEN_STATES.includes(state);
-  // the desktop rail runs the full height of the page and sits where the trigger sits; it takes over
-  const railOpen = open && panel === 'full' && isXl;
-  const visible = !menuOpen && !ledgerOpen && !modalOpen && !invitationVisible && !railOpen && (routeKind !== 'home' || loaderDone);
+  // the full panel covers the trigger wherever it is: the rail on a desktop, the sheet on a phone
+  const panelFull = open && panel === 'full';
+  const visible = !menuOpen && !modalOpen && !invitationVisible && !panelFull && !fieldFocused && (routeKind !== 'home' || loaderDone);
+  const docked = phone && !open && section !== null && DOCKED_SECTIONS.has(section);
   const hovered = state === 'HOVER';
   const lastLine = useConciergeStore((s) => {
     for (let i = s.turns.length - 1; i >= 0; i--) {
@@ -58,14 +96,15 @@ export function ConciergeOrb() {
       {visible && (
         <motion.div
           key="orb"
-          className="fixed bottom-6 right-6 flex items-center gap-4 md:bottom-7 md:right-7"
+          className="wj-crest fixed flex items-center gap-4"
           style={{ zIndex: 'var(--z-concierge)' }}
+          data-docked={docked ? '1' : undefined}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: { duration: 0.8, ease: EASE.out } }}
           exit={{ opacity: 0, transition: { duration: 0.3 } }}
         >
           <AnimatePresence>
-            {hovered && !open && (
+            {hovered && !open && !docked && (
               <motion.span
                 key="caption"
                 className="micro pointer-events-none text-fg"
@@ -110,9 +149,9 @@ export function ConciergeOrb() {
               else if (open) requestConcierge({ action: 'close' });
               else requestConcierge({ action: 'open', mode: window.innerWidth < 768 ? 'voice' : 'chat' });
             }}
-            className="relative block h-12 w-12 rounded-full md:h-14 md:w-14"
+            className={cn('wj-crest-button relative block rounded-full')}
           >
-            <Orb state={state} className="absolute inset-0" />
+            <Orb state={state} className="wj-crest-orb absolute" />
           </button>
         </motion.div>
       )}

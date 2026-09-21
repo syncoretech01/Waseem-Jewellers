@@ -124,7 +124,7 @@ export async function runServerTool(name: ToolName, args: Record<string, unknown
      */
     case 'checkAvailability': {
       const showroom = resolveShowroom(args.showroom);
-      if (!showroom) return { error: 'UNKNOWN_SHOWROOM', message: 'one of MM Alam Road, Liberty Market or DHA' };
+      if (!showroom) return { error: 'UNKNOWN_SHOWROOM', message: 'one of Liberty Market, MM Alam Road or DHA' };
       const date = checkDate(args.date);
       if (!date.ok) return { error: 'BAD_DATE', message: date.reason };
       const provider = bookingProvider();

@@ -146,11 +146,10 @@ export function sanitiseToolResult(raw: unknown, { isKnownSlug }: SanitiseOption
  *
  * So the piece in view no longer comes from here at all: `ground()` resolves it against the
  * repository, and a slug the catalogue does not carry resolves to nothing. The route is kept
- * only when it matches a real page of this site, and the selection is reduced to a count.
+ * only when it matches a real page of this site.
  */
 export interface SafeContext {
   route: string | null;
-  wishlistCount: number;
 }
 
 /** The same shapes the tool validator allows a visitor to be sent to. */
@@ -162,12 +161,11 @@ const ROUTE_SHAPES = [
 ];
 
 export function sanitiseContext(raw: unknown): SafeContext {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { route: null, wishlistCount: 0 };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { route: null };
   const r = raw as Record<string, unknown>;
   // the query string is dropped rather than parsed: nothing in the prompt reads a facet, and
   // it is unbounded text that would otherwise be billed as input on every turn
   const path = typeof r.route === 'string' ? r.route.split('?')[0] ?? '' : '';
   const route = ROUTE_SHAPES.some((re) => re.test(path)) ? path : null;
-  const wishlistCount = Array.isArray(r.wishlist) ? Math.min(r.wishlist.length, 40) : 0;
-  return { route, wishlistCount };
+  return { route };
 }

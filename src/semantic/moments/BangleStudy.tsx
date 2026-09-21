@@ -104,8 +104,11 @@ export function BangleStudy({ moment, slug, sizes, className, driven, ref, onLit
 
   return (
     <div ref={root} className={cn('relative w-full overflow-hidden bg-pearl', className)} style={{ aspectRatio: '1 / 1', perspective: '1400px' }} data-moment="bangle" data-lit-region={lit ?? ''} data-still={still ? '1' : '0'}>
-      {/* the turn: this wrapper's transform has exactly one writer; inside it the camera has one too */}
-      <div className="bangle-turn absolute inset-0 will-change-transform" style={{ transformStyle: 'preserve-3d' }}>
+      {/* the turn: this wrapper's transform has exactly one writer; inside it the camera has one too.
+          It carries no will-change of its own: a promoted layer as the preserve-3d child of a
+          perspective box made Chromium's commit wait ~950 ms per scroll on integrated GPUs, and
+          GSAP's force3D keeps the turn composited for as long as it is tweening */}
+      <div className="bangle-turn absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
         <div ref={camera} className="absolute inset-0 will-change-transform" style={still ? { transform: transformFor(last.cx, last.cy, last.scale) } : undefined}>
           <div className="bangle-profile absolute inset-0" style={{ opacity: still ? 0 : 1 }}>
             <Img image={moment.profile} sizes={sizes} plain data={{ 'flip-source': slug }} />

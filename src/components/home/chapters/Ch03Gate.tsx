@@ -100,9 +100,66 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
     // arriving with a material already in mind: open with that side forward
     if (bias) pointerTo(bias === 'gold' ? 0.8 : 0.2);
     bindPointer();
+    /**
+     * The handle: the visitor's own control of the split, by drag on any pointer and by the
+     * arrow keys. Only the handle takes touch — the page beneath scrolls as it always does —
+     * and while a drag is held the breath rests and the hover follow stands aside.
+     */
+    const handle = root.querySelector<HTMLElement>('.gate-handle');
+    let dragging = false;
+    const fractionAt = (x: number, y: number) => {
+      const r = root.getBoundingClientRect();
+      const f = vertical ? (y - r.top) / r.height : (x - r.left) / r.width;
+      return Math.max(0.14, Math.min(0.86, f));
+    };
+    const say = (f: number) => {
+      handle?.setAttribute('aria-valuenow', String(Math.round(f * 100)));
+      handle?.setAttribute('aria-valuetext', `${Math.round(f * 100)}% diamond, ${Math.round((1 - f) * 100)}% gold`);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (s.committed) return;
+      dragging = true;
+      handle?.setPointerCapture(e.pointerId);
+      handle?.setAttribute('data-held', '1');
+      breathTween.current?.pause();
+      pointerTo(fractionAt(e.clientX, e.clientY));
+      e.preventDefault();
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const f = fractionAt(e.clientX, e.clientY);
+      pointerTo(f);
+      say(f);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      handle?.releasePointerCapture(e.pointerId);
+      handle?.removeAttribute('data-held');
+      if (live.current) breathTween.current?.play();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (s.committed) return;
+      const step = e.shiftKey ? 0.15 : 0.05;
+      let f: number | null = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') f = Math.min(0.86, s.pointer + step);
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') f = Math.max(0.14, s.pointer - step);
+      if (e.key === 'Home') f = 0.14;
+      if (e.key === 'End') f = 0.86;
+      if (f === null) return;
+      e.preventDefault();
+      pointerTo(f);
+      say(f);
+    };
+    handle?.addEventListener('pointerdown', onDown);
+    handle?.addEventListener('pointermove', onMove);
+    handle?.addEventListener('pointerup', onUp);
+    handle?.addEventListener('pointercancel', onUp);
+    handle?.addEventListener('keydown', onKey);
+    say(s.pointer);
     const tick = () => {
       if (!live.current) return;
-      if (!s.committed && !vertical && pointer.active && pointer.fine) {
+      if (!s.committed && !dragging && !vertical && pointer.active && pointer.fine) {
         const r = root.getBoundingClientRect();
         if (pointer.y >= r.top && pointer.y <= r.bottom) pointerTo(Math.max(0.14, Math.min(0.86, pointer.x / window.innerWidth)));
       }
@@ -112,20 +169,21 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
     return () => {
       gsap.ticker.remove(tick);
       window.removeEventListener('resize', onResize);
+      handle?.removeEventListener('pointerdown', onDown);
+      handle?.removeEventListener('pointermove', onMove);
+      handle?.removeEventListener('pointerup', onUp);
+      handle?.removeEventListener('pointercancel', onUp);
+      handle?.removeEventListener('keydown', onKey);
       breathTween.current?.kill();
       pointerTo.tween.kill();
     };
   }, [ref, reduced, coarse, bias]);
 
-  // a phone: the split follows the scroll through the chapter
+  // the gate is live only while it is on screen; on a phone the split is the visitor's, by the handle — never the page's scroll
   useGSAP(
     () => {
       const root = ref.current;
       if (!root || reduced) return;
-      const mm = gsap.matchMedia(root);
-      mm.add('(max-width: 767px)', () => {
-        gsap.to(split.current, { pointer: 0.72, ease: 'none', scrollTrigger: { trigger: root, start: 'top 60%', end: 'bottom 40%', scrub: true }, onStart: () => (split.current.pointer = 0.28) });
-      });
       // the diamond's drift and light, the ticker and the breath run only while the gate is on screen
       ScrollTrigger.create({
         trigger: root,
@@ -178,17 +236,37 @@ export function Ch03Gate({ goldPiece, diamondPiece }: { goldPiece?: PieceRow; di
 
       {/* gold, beneath */}
       <div className="gate-gold absolute inset-0">
-        <Img id="p05-macro" sizes="100vw" plain className="h-full w-full object-cover" style={{ objectPosition: '50% 45%' }} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35" />
+        {/* on a phone the frame is tall and narrow: the haar is kept to the right so the words stand on velvet */}
+        <Img id="p05-macro" sizes="100vw" plain className="h-full w-full object-cover" style={{ objectPosition: 'var(--gate-gold-pos, 50% 45%)' }} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35 max-md:bg-[linear-gradient(to_bottom,rgb(0_0_0/0.4)_0%,transparent_18%,rgb(0_0_0/0.55)_42%,rgb(0_0_0/0.6)_50%,rgb(0_0_0/0.6)_100%)]" />
       </div>
       {/* diamond, above, behind the mask */}
       <div className="gate-diamond absolute inset-0" style={{ clipPath: 'inset(0 0 0 50%)' }}>
-        <Img id="p07-macro" sizes="100vw" plain className="gate-drift h-full w-full object-cover" style={{ objectPosition: '50% 45%' }} />
+        <Img id="p07-macro" sizes="100vw" plain className="gate-drift h-full w-full object-cover" style={{ objectPosition: 'var(--gate-diamond-pos, 50% 45%)' }} />
         <div className="gate-light pointer-events-none absolute inset-0" aria-hidden />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-ink/35 max-md:bg-[linear-gradient(to_bottom,transparent_48%,rgb(0_0_0/0.5)_56%,rgb(0_0_0/0.15)_78%,rgb(0_0_0/0.6)_100%)]" />
       </div>
-      {/* the divider sits at the frame's origin and is moved by transform alone */}
-      <div className="gate-divider pointer-events-none absolute left-0 top-0 h-full w-px bg-gold-hi/80 will-change-transform max-md:h-px max-md:w-full" style={{ transform: 'translate3d(50vw, 0, 0)' }} />
+      {/* the divider sits at the frame's origin and is moved by transform alone; the handle rides on it and is the one thing here that takes touch */}
+      <div className="gate-divider pointer-events-none absolute left-0 top-0 z-20 h-full w-px bg-gold-hi/80 will-change-transform max-md:h-px max-md:w-full" style={{ transform: 'translate3d(50vw, 0, 0)' }}>
+        <div
+          className="gate-handle group/handle pointer-events-auto absolute left-1/2 top-1/2 z-20 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-full outline-none max-md:cursor-ns-resize"
+          role="slider"
+          tabIndex={reduced ? -1 : 0}
+          aria-label={COPY.gate.handle}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={50}
+          aria-orientation={coarse ? 'vertical' : 'horizontal'}
+          data-cursor="drag"
+        >
+          {/* a small disc on the hairline, with the two chevrons of a thing that moves both ways */}
+          <span className="gate-handle-disc flex h-7 w-7 items-center justify-center rounded-full border border-gold-hi/80 bg-ink/70 text-champagne shadow-[0_2px_12px_rgb(0_0_0/0.45)] backdrop-blur-[2px] transition-transform duration-300 group-hover/handle:scale-110 group-focus-visible/handle:scale-110 group-data-[held=1]/handle:scale-110">
+            <svg viewBox="0 0 20 20" className="h-3 w-3 max-md:rotate-90" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 5 3 10l4 5M13 5l4 5-4 5" />
+            </svg>
+          </span>
+        </div>
+      </div>
 
       {/* the eyebrow, beneath the nav band */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-gutter pt-[calc(var(--nav-h)+1.25rem)]">

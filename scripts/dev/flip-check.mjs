@@ -49,11 +49,10 @@ const PDP = '/jewellery/lavender-halo-ring-r11912';
 const DOORS = [
   { name: 'cluster card', path: '/', sel: '#ch03-gold a.group\\/piece', expect: 'flip' },
   { name: 'kinds piece door', path: '/', sel: '#ch02-kinds a[href^="/jewellery/"]', expect: 'auto' },
-  { name: 'ring study figure', path: '/', sel: '#ch02-study a.group\\/piece', expect: 'flip' },
+  { name: 'bangle study figure', path: '/', sel: '#ch02-bangle a.group\\/piece', expect: 'flip' },
   { name: 'suite light figure', path: '/', sel: '#ch05-light a.group\\/piece', expect: 'flip' },
   { name: 'parted piece figure', path: '/', sel: '#ch09 a.group\\/piece', expect: 'flip' },
   { name: 'gate in-frame credit', path: '/', sel: '#ch03-gate a[href^="/jewellery/"]', expect: 'auto' },
-  { name: 'hero credit', path: '/', sel: '#ch01 a[href^="/jewellery/"]', expect: 'curtain' },
   { name: 'department kind link', path: '/', sel: '#ch03-gold nav a', expect: 'curtain' },
   { name: 'worlds column', path: '/', sel: mobile ? '#ch04 a.world-tile' : '#ch04 a[aria-label$="explore the world"]', expect: 'flip', key: 'collection-hero' },
   { name: 'pdp related piece', path: PDP, sel: '[data-section="related"] a.group\\/piece', expect: 'flip' },

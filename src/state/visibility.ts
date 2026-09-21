@@ -5,7 +5,7 @@
  */
 import { useSiteStore } from './siteStore';
 
-const entries = new Map<Element, { slug: string; ratio: number }>();
+const entries = new Map<Element, { slug: string; ratio: number; top: number; left: number }>();
 let io: IntersectionObserver | null = null;
 let raf = 0;
 let overrideList: string[] | null = null;
@@ -13,7 +13,12 @@ let overrideList: string[] | null = null;
 function onChange(records: IntersectionObserverEntry[]) {
   for (const r of records) {
     const e = entries.get(r.target);
-    if (e) e.ratio = r.intersectionRatio;
+    if (!e) continue;
+    e.ratio = r.intersectionRatio;
+    // the observer already measured the element; kept in page coordinates, the order it gives
+    // survives the scroll, and the publish below never has to force a layout of its own
+    e.top = r.boundingClientRect.top + window.scrollY;
+    e.left = r.boundingClientRect.left + window.scrollX;
   }
   schedule();
 }
@@ -30,10 +35,7 @@ function publish() {
   }
   const visible = [...entries]
     .filter(([, e]) => e.ratio >= 0.2)
-    .map(([el, e]) => {
-      const r = el.getBoundingClientRect();
-      return { slug: e.slug, top: r.top, left: r.left };
-    })
+    .map(([, e]) => ({ slug: e.slug, top: e.top, left: e.left }))
     .sort((a, b) => (Math.abs(a.top - b.top) < 48 ? a.left - b.left : a.top - b.top))
     .map((e) => e.slug);
   const unique = visible.filter((s, i) => visible.indexOf(s) === i).slice(0, 12);
@@ -42,7 +44,7 @@ function publish() {
 
 export function observeProduct(el: Element, slug: string) {
   io ??= new IntersectionObserver(onChange, { threshold: [0, 0.2, 0.5, 0.8] });
-  entries.set(el, { slug, ratio: 0 });
+  entries.set(el, { slug, ratio: 0, top: 0, left: 0 });
   io.observe(el);
   return () => {
     io?.unobserve(el);

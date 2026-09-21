@@ -8,7 +8,7 @@ import { useIdleAfter, useLatch } from '@/lib/useLatch';
 /**
  * Chrome that is on every route and visible on none of them until asked.
  *
- * The menu, the selection ledger and the consultation form all mount closed and open on an
+ * The menu and the consultation form mount closed and open on an
  * interaction — and all three hydrated with the page, on every route, ahead of the content the
  * visitor came for. They are pulled in here on idle after the ritual, so they are ready before
  * they are wanted, or at once when their store flag flips first, so nothing a visitor opens is
@@ -18,11 +18,10 @@ import { useIdleAfter, useLatch } from '@/lib/useLatch';
  * for it at all.
  */
 const MenuOverlay = dynamic(() => import('./MenuOverlay').then((m) => m.MenuOverlay), { ssr: false });
-const SelectionLedger = dynamic(() => import('@/components/commerce/SelectionLedger').then((m) => m.SelectionLedger), { ssr: false });
 const ConsultationModal = dynamic(() => import('@/components/commerce/ConsultationModal').then((m) => m.ConsultationModal), { ssr: false });
 const CursorLayer = dynamic(() => import('@/components/motion/CursorLayer').then((m) => m.CursorLayer), { ssr: false });
 
-const wanted = (s: SiteState) => s.menuOpen || s.ledgerOpen || s.consultation.open;
+const wanted = (s: SiteState) => s.menuOpen || s.consultation.open;
 const pastTheRitual = (s: SiteState) => s.routeKind !== 'home' || s.loaderDone;
 
 export function LazyChrome() {
@@ -46,7 +45,6 @@ export function LazyChrome() {
       {ready && (
         <>
           <MenuOverlay />
-          <SelectionLedger />
           <ConsultationModal />
         </>
       )}

@@ -57,7 +57,6 @@ export function buildSiteContext(): SiteContext {
     visibleProducts: s.visibleProducts.map(briefOfSlug).filter((b): b is ProductBrief => Boolean(b)),
     selectedCollection: s.selectedCollection,
     selectedWorld: s.selectedWorld,
-    wishlist: s.wishlist.map(briefOfSlug).filter((b): b is ProductBrief => Boolean(b)),
     recentResults: c.recentResults.map((r) => briefOfSlug(r.slug)).filter((b): b is ProductBrief => Boolean(b)),
     recentCollections: c.recentCollections.map((r) => r.slug),
     lastOpenedProduct: s.lastOpenedProduct,
@@ -69,7 +68,6 @@ export function buildSiteContext(): SiteContext {
     gate: s.gate,
     highlightedCategory: s.highlightedCategory,
     menuOpen: s.menuOpen,
-    ledgerOpen: s.ledgerOpen,
     appointmentOpen: s.consultation.open,
   };
 }

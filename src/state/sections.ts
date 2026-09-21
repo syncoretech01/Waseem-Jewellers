@@ -2,7 +2,14 @@
  * Section registry. Every chapter / page section registers here; the current
  * section is the one whose rect contains the viewport centre-line (pinned
  * elements win because they are registered with `pinned: true`). It also
- * mirrors the active chapter's theme onto <html data-theme> for the chrome.
+ * mirrors the active chapter's theme onto the chrome — every `[data-chrome]` wrapper in
+ * Providers — so the nav, the orb, the salon and the cursor read as the chapter beneath them.
+ *
+ * The theme used to be written to <html>. A theme is a set of inherited custom properties,
+ * and changing one on the root makes the browser propagate new values to every element in
+ * the document — 65 ms of style recalculation on a 4,700-node page, at every chapter
+ * boundary, inside the visitor's scroll. The chapters carry their own `data-theme`, so only
+ * the fixed chrome ever needed the flip; written to its wrappers it costs a few hundred nodes.
  */
 import { useSiteStore, type SectionId } from './siteStore';
 
@@ -46,6 +53,10 @@ const entries = new Map<HTMLElement, Entry>();
 let io: IntersectionObserver | null = null;
 let raf = 0;
 let currentTheme: SectionTheme = 'dark';
+
+function writeChromeTheme(theme: SectionTheme) {
+  document.querySelectorAll<HTMLElement>('[data-chrome]').forEach((el) => el.setAttribute('data-theme', theme));
+}
 let scrollBound = false;
 
 let readyResolve: (() => void) | null = null;
@@ -102,7 +113,7 @@ function evaluate() {
       useSiteStore.getState().setSection('footer');
       if (currentTheme !== 'dark') {
         currentTheme = 'dark';
-        document.documentElement.setAttribute('data-theme', 'dark');
+        writeChromeTheme('dark');
       }
     }
     return;
@@ -110,7 +121,7 @@ function evaluate() {
   useSiteStore.getState().setSection(best.id);
   if (best.theme !== currentTheme) {
     currentTheme = best.theme;
-    document.documentElement.setAttribute('data-theme', best.theme);
+    writeChromeTheme(best.theme);
   }
 }
 
@@ -145,7 +156,7 @@ export function reevaluateSections() {
 
 export function setChromeTheme(theme: SectionTheme) {
   currentTheme = theme;
-  document.documentElement.setAttribute('data-theme', theme);
+  writeChromeTheme(theme);
 }
 
 export function sectionElement(id: SectionId): HTMLElement | null {

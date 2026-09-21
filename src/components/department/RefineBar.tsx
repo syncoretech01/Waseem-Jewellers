@@ -59,8 +59,8 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
 
   return (
     <div className="sticky z-[5] border-b border-line bg-bg/95 text-fg backdrop-blur-[2px] transition-[top] duration-500 ease-[var(--ease-silk)]" style={{ top: 'var(--nav-offset, 0px)' }} data-theme="ivory">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-10 gap-y-3 px-gutter py-4">
-        <h2 className="flex flex-wrap items-baseline gap-x-2 font-display text-[1.0625rem] leading-tight" style={{ fontVariationSettings: '"opsz" 18' }}>
+      <div className="wj-row flex flex-wrap items-baseline justify-between gap-x-10 gap-y-3 px-gutter py-3.5 md:py-4">
+        <h2 className="flex min-h-11 flex-wrap items-center gap-x-2 font-display text-[1.0625rem] leading-tight md:min-h-0 md:items-baseline" style={{ fontVariationSettings: '"opsz" 18' }}>
           <span>{leading}</span>
           {/* the locked facet is already in `leading`; repeating it reads as a stutter */}
           {phrases
@@ -72,7 +72,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                   type="button"
                   onClick={() => set(phrase.key, undefined)}
                   aria-label={`Remove ${phrase.label}`}
-                  className="group/rm relative text-fg transition-colors hover:text-fg-muted"
+                  className="group/rm wj-hit relative text-fg transition-colors hover:text-fg-muted"
                 >
                   {phrase.label}
                   <span aria-hidden className="hairline absolute inset-x-0 -bottom-px origin-left scale-x-0 transition-transform duration-500 group-hover/rm:scale-x-100" />
@@ -96,7 +96,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((v) => !v)}
-            className={cn('eyebrow relative pb-1 transition-colors', open || active ? 'text-fg' : 'text-fg-muted hover:text-fg')}
+            className={cn('wj-hit eyebrow relative pb-1 transition-colors', open || active ? 'text-fg' : 'text-fg-muted hover:text-fg')}
           >
             Refine{active > 0 ? ` · ${active}` : ''}
             <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-500', open || active ? 'scale-x-100' : 'scale-x-0')} />
@@ -113,9 +113,10 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.42, ease: EASE.out }}
-            className="overflow-hidden border-t border-line"
+            className="overflow-hidden border-t border-line bg-bg"
           >
-            <div className="flex flex-col gap-8 px-gutter py-8">
+            {/* the drawer never outgrows the screen it is stuck to: on a phone it scrolls within itself beneath the bar */}
+            <div className="wj-row flex max-h-[calc(100svh-var(--nav-offset,0px)-5rem)] flex-col gap-7 overflow-y-auto overscroll-contain px-gutter py-7 md:max-h-none md:gap-8 md:overflow-visible md:py-8">
               {FACET_KEYS.map((key) => {
                 if (key === locked) return null;
                 const values = ORDERED(key, counts[key] ?? {});
@@ -124,7 +125,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                 return (
                   <div key={key} role="group" aria-label={FACET_LABEL[key]} className="flex flex-col gap-3">
                     <p className="micro text-fg-muted">{FACET_LABEL[key]}</p>
-                    <div className="flex flex-wrap items-baseline gap-x-7 gap-y-2">
+                    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-4 md:gap-x-7 md:gap-y-2">
                       {values.map(([value, n]) => (
                         <button
                           key={value}
@@ -132,7 +133,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                           aria-pressed={facets[key] === value}
                           onClick={() => set(key, value)}
                           className={cn(
-                            'group/f relative pb-1 font-display text-[1.0625rem] transition-colors',
+                            'group/f wj-hit relative pb-1 font-display text-[1.0625rem] transition-colors',
                             facets[key] === value ? 'text-fg' : 'text-fg-muted hover:text-fg',
                           )}
                           style={{ fontVariationSettings: '"opsz" 18' }}
@@ -159,14 +160,14 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
 
               <div role="group" aria-label="Order" className="flex flex-col gap-3">
                 <p className="micro text-fg-muted">Order</p>
-                <div className="flex flex-wrap items-baseline gap-x-7 gap-y-2">
+                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-4 md:gap-x-7 md:gap-y-2">
                   {sorts.map((s) => (
                     <button
                       key={s}
                       type="button"
                       aria-pressed={facets.sort === s}
                       onClick={() => onChange({ ...facets, sort: s })}
-                      className={cn('group/s relative pb-1 font-display text-[1.0625rem] transition-colors', facets.sort === s ? 'text-fg' : 'text-fg-muted hover:text-fg')}
+                      className={cn('group/s wj-hit relative pb-1 font-display text-[1.0625rem] transition-colors', facets.sort === s ? 'text-fg' : 'text-fg-muted hover:text-fg')}
                       style={{ fontVariationSettings: '"opsz" 18' }}
                     >
                       {SORT_LABEL[s]}
@@ -180,7 +181,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                 {/* said once, in the drawer, rather than under every photograph — and in
                     sentence case, because the micro face upper-cases and a shouted paragraph
                     is not a quiet aside */}
-                <p className="mt-2 max-w-[36em] text-[0.8125rem] leading-relaxed text-fg-muted">
+                <p className="mt-2 max-w-[36em] text-[0.8125rem] leading-relaxed text-fg-muted [text-wrap:pretty]">
                   Sixteen pieces in the whole collection carry a published price, so there is no ordering by price. Weight is what Waseem publishes, and what a
                   buyer here asks for first.
                 </p>
@@ -190,7 +191,7 @@ export function RefineBar({ facets, counts, total, leading, locked, caratAvailab
                 <button
                   type="button"
                   onClick={() => onChange({ ...facets, ...Object.fromEntries(FACET_KEYS.filter((k) => k !== locked).map((k) => [k, undefined])) })}
-                  className="eyebrow self-start text-fg-muted transition-colors hover:text-fg"
+                  className="wj-hit eyebrow self-start text-fg-muted transition-colors hover:text-fg"
                 >
                   Clear
                 </button>

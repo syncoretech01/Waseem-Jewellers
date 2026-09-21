@@ -7,6 +7,8 @@ import { onConciergeRequest, type ConciergeRequest } from '../bridge';
 import { useConciergeStore, type ConciergeState } from '@/state/conciergeStore';
 import { useSiteStore, type SiteState } from '@/state/siteStore';
 import { useIdleAfter, useLatch } from '@/lib/useLatch';
+// the concierge's own stylesheet: the crest's corner, its docked form, the voice stage
+import '@/styles/concierge.css';
 
 /**
  * The door is eager; the room behind it is not.

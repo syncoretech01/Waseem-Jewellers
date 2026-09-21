@@ -267,7 +267,7 @@ class SnapshotRepository implements CatalogueRepository {
      * Featured order, not file order.
      *
      * The browser's index inherits whatever sequence this returns, and everything downstream
-     * of it — the concierge's four results, the ledger, the story — reads the head of that
+     * of it — the concierge's four results, the department index, the story — reads the head of that
      * sequence. Unordered, "show me a gold ring" answered with children's rings, because they
      * happened to come first in the catalogue.
      */

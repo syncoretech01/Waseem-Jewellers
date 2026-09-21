@@ -52,10 +52,6 @@ export function ResultTray() {
       if (idx === -1) return;
       if (e.key === 'ArrowRight') items[Math.min(items.length - 1, idx + 1)]?.focus();
       if (e.key === 'ArrowLeft') items[Math.max(0, idx - 1)]?.focus();
-      if (e.key.toLowerCase() === 's') {
-        const name = items[idx]?.dataset.name;
-        if (name) controller?.submitText(`Save the ${name}`, 'card');
-      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

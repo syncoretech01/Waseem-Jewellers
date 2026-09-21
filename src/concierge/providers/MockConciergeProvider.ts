@@ -1,6 +1,6 @@
 import type { ConciergeProvider, ProviderCapabilities, ProviderRuntime } from '../types';
 import type { TurnSource } from '@/state/conciergeStore';
-import { planFor, introFor, selectionIntro } from './mock/commands';
+import { planFor, introFor } from './mock/commands';
 import { useQualityStore } from '@/state/qualityStore';
 import { useConciergeStore } from '@/state/conciergeStore';
 import { synthesisSupported } from '../voice/speech';
@@ -71,14 +71,12 @@ export class MockConciergeProvider implements ConciergeProvider {
 
     emit({ type: 'turn.start', turnId });
 
-    // Special openings: ENQUIRE on a product ("Tell me about this piece") and the ledger's "Tell me about the pieces in my selection"
+    // a special opening: ENQUIRE on a product ("Tell me about this piece")
     let plan = planFor(text, ctx);
     const lower = text.toLowerCase();
     const inView = ctx.currentProduct ?? ctx.focusedProduct;
     if (/tell me about this piece/.test(lower) && inView) {
       plan = { id: 'enquire', tools: [], reply: () => introFor(inView.slug) };
-    } else if (/pieces in my selection/.test(lower)) {
-      plan = { id: 'selection', tools: [{ name: 'openWishlist', args: {} }], reply: () => selectionIntro(ctx.wishlist.map((w) => w.slug)) };
     }
 
     await this.wait(reduced ? 300 : 520 + (fnv1a(text) % 320));

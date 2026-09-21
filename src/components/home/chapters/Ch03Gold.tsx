@@ -35,13 +35,13 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
   if (!department) return null;
 
   return (
-    <section ref={ref} id="ch03-gold" data-theme="ivory" className="relative bg-ivory px-gutter py-[var(--chapter-y)] text-ink" aria-labelledby="gold-title">
+    <section ref={ref} id="ch03-gold" data-theme="ivory" className="relative bg-ivory px-gutter pt-[var(--chapter-pt)] pb-[var(--chapter-y)] text-ink" aria-labelledby="gold-title">
       <div ref={scope} className="wj-content">
         <DepartmentRow department={department} copy={COPY.departments.gold} href="/gold" titleId="gold-title" kindsHeading={COPY.departments.kinds} />
 
         {/* gold, closely: the worked surface named where it sits, on a set that can be opened — a square hero, the figure's own frame */}
         {figure && descriptor && (
-          <div className="wj-grid mt-[var(--chapter-y)] border-t border-ink/10 pt-[var(--block-y)] md:items-center">
+          <div className="wj-grid mt-14 gap-y-6 border-t border-ink/10 pt-10 md:mt-[var(--chapter-y)] md:gap-y-[var(--gap-y)] md:pt-[var(--block-y)] md:items-center">
             <div className="md:col-span-7" data-rise>
               <PieceLink
                 product={pieceRefOf(figure)}
@@ -68,11 +68,11 @@ export function Ch03Gold({ department, figure }: { department?: ShowcaseDepartme
                     <span className="wj-caption-name">{figure.t}</span>
                     <span className="wj-caption-tag">{tagOf(figure)}</span>
                   </span>
-                  <span className="micro shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline">{COPY.departments.gold.figure.view}</span>
+                  <span className="micro mt-1 shrink-0 text-ink/70 underline-offset-4 transition-colors group-hover/piece:text-ink group-hover/piece:underline md:mt-0">{COPY.departments.gold.figure.view}</span>
                 </span>
               </PieceLink>
             </div>
-            <div className="order-first flex flex-col gap-5 md:order-none md:col-span-4 md:col-start-9" data-rise>
+            <div className="order-first flex flex-col gap-5 md:order-none md:col-span-4 md:col-start-9">
               <p className="micro text-ink/55">{COPY.departments.gold.figure.eyebrow}</p>
               <ol className="hidden flex-col gap-3 border-t border-ink/10 pt-5 md:flex">
                 {descriptor.regions.map((r, i) => (

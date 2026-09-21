@@ -14,13 +14,13 @@ import { CONCIERGE } from '../../copy';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
-export type TrayResult = Extract<TurnResult, { kind: 'pieces' | 'wishlist' | 'collections' | 'compare' }>;
+export type TrayResult = Extract<TurnResult, { kind: 'pieces' | 'collections' | 'compare' }>;
 
 /** The last result worth a tray, if any. */
 export function trayResultOf(turns: { result?: TurnResult }[]): TrayResult | null {
   for (let i = turns.length - 1; i >= 0; i--) {
     const r = turns[i]?.result;
-    if (r && (r.kind === 'pieces' || r.kind === 'wishlist' || r.kind === 'collections' || r.kind === 'compare')) return r;
+    if (r && (r.kind === 'pieces' || r.kind === 'collections' || r.kind === 'compare')) return r;
   }
   return null;
 }
@@ -49,7 +49,7 @@ export function TrayBody({ result, onClose, compact, className }: TrayBodyProps)
   // the tray is remounted per result, so one reading of the clock is enough for its lifetime
   const [now] = useState(() => Date.now());
   const terms = topicIsLive(memory, turnCount, now) ? termsOf(memory.standingSlots) : [];
-  const title = result.kind === 'pieces' ? result.title : result.kind === 'wishlist' ? 'Your selection' : result.kind === 'compare' ? CONCIERGE.labels.compareDone : 'Five worlds';
+  const title = result.kind === 'pieces' ? result.title : result.kind === 'compare' ? CONCIERGE.labels.compareDone : 'Five worlds';
 
   const toggle = (slug: string) => setPicked((p) => (p.includes(slug) ? p.filter((s) => s !== slug) : p.length >= 3 ? [...p.slice(1), slug] : [...p, slug]));
 
@@ -98,10 +98,10 @@ export function TrayBody({ result, onClose, compact, className }: TrayBodyProps)
           data-lenis-prevent-wheel
           role="list"
         >
-          {(result.kind === 'pieces' || result.kind === 'wishlist') &&
+          {result.kind === 'pieces' &&
             result.pieces.map((p, i) => (
               <motion.li key={p.slug} className="shrink-0 snap-start" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)', transition: { duration: 0.55, ease: EASE.out, delay: 0.12 + i * 0.07 } }}>
-                <PieceTile card={p} total={result.pieces.length} compact={compact} onOpen={() => controller?.tapCard(p.slug, p.name)} onCompare={() => toggle(p.slug)} comparing={picked.includes(p.slug)} />
+                <PieceTile card={p} total={result.pieces.length} compact={compact} onOpen={() => controller?.tapCard(p.slug, p.name)} onCompare={() => toggle(p.slug)} onAsk={() => openConsultation({ topic: 'viewing', productSlug: p.slug, source: 'concierge' })} comparing={picked.includes(p.slug)} />
               </motion.li>
             ))}
           {result.kind === 'collections' &&

@@ -1,6 +1,6 @@
 /**
  * A tiny bridge so any component can ask for the concierge without importing it:
- * product ENQUIRE, the collection intro line, the ledger, the 404 page.
+ * product ENQUIRE, the collection intro line, the 404 page.
  */
 export interface ConciergeRequest {
   /**

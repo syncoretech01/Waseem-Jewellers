@@ -19,8 +19,8 @@ import type { PieceRow } from '@/lib/facets';
  * say what is published about it, and — the reason this exists at all — to answer whether a
  * slug is real before anything acts on it.
  *
- * Nothing here is available until it has been asked for. The two surfaces that need it are
- * the concierge and the selection ledger, both of which open on an interaction.
+ * Nothing here is available until it has been asked for. The surfaces that need it — the
+ * concierge, the department index — open on an interaction.
  */
 
 export interface ClientIndex {

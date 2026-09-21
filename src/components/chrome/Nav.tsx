@@ -8,14 +8,17 @@ import { useConciergeStore, OPEN_STATES } from '@/state/conciergeStore';
 import { requestConcierge } from '@/concierge/bridge';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { WaseemMark } from '@/components/brand/WaseemMark';
+import { WaseemLockup } from '@/components/brand/WaseemLockup';
 import { MENU } from '@/data/menu';
 import { usePathname } from 'next/navigation';
 import { EASE } from '@/lib/motion/easings';
 import { cn } from '@/lib/cn';
 
 /**
- * Text only at the top of a page: WASEEM (→ the crest after the hero), the five departments
- * on a wide screen — a jeweller's header names what it sells — SELECTION · 02, ASK, MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
+ * The authentic lockup at the top of a page — the crest over the ligature, the name set beside
+ * them on one line (only WASEEM on a phone) — and the crest alone once the page has moved;
+ * the five departments on a wide screen (a jeweller's header names what it sells); ASK; a
+ * quiet motion control; MENU. Recedes on scroll-down past 120px, returns on scroll-up or when a dialog opens — and
  * when it returns over content it brings a surface with it, in the chapter's own paper or
  * ink, so the mark is never floating over a photograph.
  *
@@ -26,11 +29,8 @@ export function Nav() {
   const menuOpen = useSiteStore((s) => s.menuOpen);
   const openMenu = useSiteStore((s) => s.openMenu);
   const closeMenu = useSiteStore((s) => s.closeMenu);
-  const openLedger = useSiteStore((s) => s.openLedger);
   const section = useSiteStore((s) => s.section);
   const routeKind = useSiteStore((s) => s.routeKind);
-  const hydrated = useSiteStore((s) => s.hydrated);
-  const count = useSiteStore((s) => s.wishlist.length);
   const invitationVisible = useSiteStore((s) => s.heroInvitationVisible);
   const loaderDone = useSiteStore((s) => s.loaderDone);
   const videoPaused = useSiteStore((s) => s.videoPaused);
@@ -60,7 +60,8 @@ export function Nav() {
   }, [shown]);
 
   const onHome = routeKind === 'home';
-  const showMonogram = !onHome || (section !== null && section !== 'hero' && section !== 'loader');
+  // the authentic lockup at the top of every page; the crest alone once the page has moved beneath it
+  const showMonogram = onHome ? section !== null && section !== 'hero' && section !== 'loader' : scrolled;
   const visible = !onHome || loaderDone;
 
   return (
@@ -81,19 +82,13 @@ export function Nav() {
         <AnimatePresence mode="wait" initial={false}>
           {showMonogram ? (
             <motion.span key="mono" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.4, ease: EASE.out }} className="inline-flex">
-              <WaseemMark variant="crest" tone="current" className="h-6 w-auto" />
+              <WaseemMark variant="crest" tone="current" className="h-[26px] w-auto sm:h-7" />
             </motion.span>
           ) : (
-            <motion.span
-              key="word"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.4, ease: EASE.out }}
-              className="font-display text-[0.8125rem] uppercase tracking-[0.32em]"
-              style={{ fontVariationSettings: '"opsz" 12' }}
-            >
-              Waseem
+            <motion.span key="lockup" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.4, ease: EASE.out }} className="inline-flex">
+              {/* the real lockup: the crest and ligature with the name beside them — WASEEM alone where a phone has no width for the second word */}
+              <WaseemLockup layout="inline" words="first" tone="current" title={null} className="h-[34px] w-auto sm:hidden" />
+              <WaseemLockup layout="inline" tone="current" title={null} className="hidden h-[38px] w-auto sm:block lg:h-[40px]" />
             </motion.span>
           )}
         </AnimatePresence>
@@ -113,29 +108,24 @@ export function Nav() {
       </nav>
 
       <nav className="flex items-center gap-8 md:gap-10">
-        {hydrated && count > 0 && (
-          <button type="button" onClick={openLedger} className="micro group/sel relative flex h-11 items-center gap-2 text-fg" aria-label={count === 1 ? 'Your selection, one piece' : `Your selection, ${count} pieces`}>
-            <span className="hidden sm:inline">Selection</span>
-            <span className="font-display text-[0.9rem] tracking-normal" style={{ fontVariationSettings: '"opsz" 12' }}>
-              {String(count).padStart(2, '0')}
-            </span>
-            <Underline />
-          </button>
-        )}
         {!invitationVisible && !conciergeOpen && (
           <button type="button" onClick={() => requestConcierge({ mode: 'chat' })} className="micro group/sel relative hidden h-11 items-center text-fg md:flex" data-cursor="ask">
             Ask
             <Underline />
           </button>
         )}
+        {/* the motion control stays for whoever needs it, and says nothing until it is looked at: a small glyph, its name for assistive technology and on hover */}
         <button
           type="button"
           onClick={() => setVideoPaused(!videoPaused)}
           aria-pressed={videoPaused}
-          className="micro group/sel relative hidden h-11 items-center text-fg md:flex"
+          aria-label={videoPaused ? 'Play motion' : 'Pause motion'}
+          title={videoPaused ? 'Play motion' : 'Pause motion'}
+          className="group/motion relative flex h-11 w-8 items-center justify-center text-fg/55 transition-colors hover:text-fg"
         >
-          {videoPaused ? 'Play motion' : 'Pause motion'}
-          <Underline />
+          <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden fill="currentColor">
+            {videoPaused ? <path d="M3 1.5v9l7-4.5z" /> : <path d="M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z" />}
+          </svg>
         </button>
         <button
           type="button"

@@ -1,10 +1,10 @@
 'use client';
 
 import { Img } from '@/components/media/Img';
-import { SaveButton } from '@/components/commerce/SaveButton';
 import { getRow } from '@/data/clientIndex';
 import { campaignLabel } from '@/data/labels';
 import { useQualityStore } from '@/state/qualityStore';
+import { useSiteStore } from '@/state/siteStore';
 import type { PieceCard } from '@/state/conciergeStore';
 import type { PieceRow } from '@/lib/facets';
 import { CONCIERGE } from '../../copy';
@@ -21,6 +21,8 @@ interface PieceTileProps {
   total: number;
   onOpen: () => void;
   onCompare?: () => void;
+  /** A viewing of this piece, through the appointment form. */
+  onAsk?: () => void;
   comparing?: boolean;
   /** The sheet's band on a phone: a smaller tile, the verbs always shown. */
   compact?: boolean;
@@ -28,14 +30,16 @@ interface PieceTileProps {
 
 /**
  * One piece on the tray: the photograph on its mount, the name, one or two published facts,
- * and the three things a visitor can do with it. A packshot sits on pearl and is never
- * cropped; a campaign frame fills its plate.
+ * and the three things a visitor can do with it — view it, set it beside another, ask to see
+ * it. A packshot sits on pearl and is never cropped; a campaign frame fills its plate.
  */
-export function PieceTile({ card, total, onOpen, onCompare, comparing, compact }: PieceTileProps) {
+export function PieceTile({ card, total, onOpen, onCompare, onAsk, comparing, compact }: PieceTileProps) {
   const coarse = useQualityStore((s) => s.coarse);
+  // the homepage carries no price, the tray on it included
+  const onHome = useSiteStore((s) => s.routeKind === 'home');
   const row = getRow(card.slug);
   const facts = factsOf(row);
-  const priced = row ? row.p > 0 : false;
+  const priced = row ? row.p > 0 && !onHome : false;
   const verbsShown = coarse || compact;
   return (
     <div className={cn('group/tile flex shrink-0 snap-start flex-col', compact ? 'w-[152px]' : 'w-[clamp(220px,17vw,300px)]')}>
@@ -63,14 +67,8 @@ export function PieceTile({ card, total, onOpen, onCompare, comparing, compact }
         </button>
       </div>
       <p className="mt-1 text-[0.8125rem] text-fg-2">{priced ? card.priceLabel : facts || campaignLabel(card.collection)}</p>
-      <div className={cn('mt-2.5 flex items-center gap-5 whitespace-nowrap transition-opacity duration-300', verbsShown ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100')}>
-        {/* on the sheet the photograph is the door; the verbs are the two that need a word */}
-        {!compact && (
-          <button type="button" onClick={onOpen} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="view">
-            {CONCIERGE.view}
-          </button>
-        )}
-        <SaveButton slug={card.slug} variant="compact" className="-my-2 h-8 w-8" />
+      <div className={cn('mt-3 flex items-center gap-5 whitespace-nowrap transition-opacity duration-300', verbsShown ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100')}>
+        {/* the photograph and the name are the door; the verbs are the two that need a word, and on the sheet the one that fits */}
         {onCompare && (
           <button
             type="button"
@@ -80,6 +78,11 @@ export function PieceTile({ card, total, onOpen, onCompare, comparing, compact }
             data-cursor="compare"
           >
             {CONCIERGE.compare}
+          </button>
+        )}
+        {onAsk && !compact && (
+          <button type="button" onClick={onAsk} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="open">
+            {CONCIERGE.bookViewing}
           </button>
         )}
       </div>

@@ -12,6 +12,9 @@ export interface VideoHandle {
   pause: () => void;
 }
 
+/** How long a clip stays loaded after leaving the far band before its sources are let go. */
+const UNLOAD_AFTER_MS = 4000;
+
 interface VideoProps {
   id: string;
   className?: string;
@@ -50,6 +53,16 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
   const paused = useSiteStore((s) => s.videoPaused);
   const firstFrameSent = useRef(false);
   const [revealed, setRevealed] = useState(false);
+  /**
+   * Whether the film's sources are attached at all. A clip that has been more than a
+   * viewport and a half away for a few seconds lets its sources go — `load()` on an element
+   * with none releases the decoder and the buffered film — and takes them back as the
+   * chapter comes within range again, where the still stands until the first frame as it
+   * did the first time. Five clips on a phone otherwise each hold a hardware decoder and
+   * thirty seconds of film for the life of the page.
+   */
+  const [attached, setAttached] = useState(true);
+  const inView = useRef(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   useEffect(() => {
     if (!portrait) return;
@@ -150,12 +163,19 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
       video.pause();
       return;
     }
-    // the <source> list only mounts once the tier is known — start resource selection if it is still empty
-    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY) video.load();
-    if (!autoPlayInView) return;
+    // the <source> list only mounts once the tier is known. Inserting a <source> starts resource
+    // selection by itself, one task later; this is the fallback for a browser that does not,
+    // checked after that task so it never aborts the selection already under way
+    const kick = window.setTimeout(() => {
+      if (attached && video.networkState === HTMLMediaElement.NETWORK_EMPTY) video.load();
+    }, 0);
+    if (!autoPlayInView) return () => window.clearTimeout(kick);
+    // sources taken back while the clip is in view: play as soon as they are
+    if (attached && inView.current) video.play().catch(() => undefined);
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
+          inView.current = e.isIntersecting;
           if (e.isIntersecting) {
             if (video.preload === 'none') video.preload = 'auto';
             video.play().catch(() => undefined);
@@ -167,8 +187,54 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
       { rootMargin: '25% 0px' },
     );
     io.observe(video);
-    return () => io.disconnect();
-  }, [asset, tier, paused, autoPlayInView]);
+    return () => {
+      window.clearTimeout(kick);
+      io.disconnect();
+    };
+  }, [asset, tier, paused, autoPlayInView, attached]);
+
+  // far away for a while: the decoder and the film are let go; near again: taken back
+  useEffect(() => {
+    const video = el.current;
+    if (!video || !asset || tier === 'unresolved' || tier === 'REDUCED') return;
+    let timer = 0;
+    const letGo = () => {
+      // a fetch still in flight is left to finish rather than aborted: an abort is a failed
+      // request in every audit, and the bytes are on their way regardless
+      if (video.networkState === HTMLMediaElement.NETWORK_LOADING) {
+        timer = window.setTimeout(letGo, UNLOAD_AFTER_MS);
+        return;
+      }
+      setRevealed(false);
+      setAttached(false);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          window.clearTimeout(timer);
+          if (e.isIntersecting) setAttached(true);
+          else timer = window.setTimeout(letGo, UNLOAD_AFTER_MS);
+        }
+      },
+      { rootMargin: '150% 0px' },
+    );
+    io.observe(video);
+    return () => {
+      window.clearTimeout(timer);
+      io.disconnect();
+    };
+  }, [asset, tier]);
+
+  // the element only forgets a film once its <source>s are gone from the DOM
+  useEffect(() => {
+    const video = el.current;
+    if (!video) return;
+    if (!attached) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
+  }, [attached]);
 
   if (!asset) return null;
   /**
@@ -186,7 +252,7 @@ export function Video({ id, className, style, autoPlayInView = true, preload = '
   const src = isPortraitPhone ? asset.srcPortrait : landscape;
   const srcAv1 = isPortraitPhone ? asset.srcPortraitAv1 : landscapeAv1;
   const subject = `${Math.round(asset.subject[0] * 100)}% ${Math.round(asset.subject[1] * 100)}%`;
-  const tierKnown = tier !== 'unresolved';
+  const tierKnown = tier !== 'unresolved' && attached;
 
   return (
     <span className={cn('absolute inset-0 block overflow-hidden', className)} style={style}>

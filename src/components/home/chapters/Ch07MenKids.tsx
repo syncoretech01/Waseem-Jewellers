@@ -26,14 +26,15 @@ export function Ch07MenKids({ men, kids }: { men?: ShowcaseDepartment; kids?: Sh
   if (!men && !kids) return null;
 
   return (
-    <section ref={ref} id="ch07-menkids" data-theme="ivory" className="relative bg-ivory px-gutter py-[var(--chapter-y)] text-ink" aria-labelledby="menkids-title">
+    <section ref={ref} id="ch07-menkids" data-theme="ivory" className="relative bg-ivory px-gutter pt-[var(--chapter-pt)] pb-[var(--chapter-y)] text-ink" aria-labelledby="menkids-title">
       <h2 id="menkids-title" className="sr-only">
         Men and Kids
       </h2>
       <div ref={scope} className="wj-content">
         {men && <DepartmentRow department={men} copy={COPY.departments.men} href="/men" titleId="men-title" level="h3" kindsHeading={COPY.departments.kinds} />}
         {kids && (
-          <div className={men ? 'mt-[var(--chapter-y)] border-t border-ink/10 pt-[var(--chapter-y)]' : undefined}>
+          // on a phone the two rows are a rule and a breath apart; from md the chapter's own space
+          <div className={men ? 'mt-14 border-t border-ink/10 pt-14 md:mt-[var(--chapter-y)] md:pt-[var(--chapter-y)]' : undefined}>
             <DepartmentRow department={kids} copy={COPY.departments.kids} href="/kids" titleId="kids-title" level="h3" reverse kindsHeading={COPY.departments.kinds} />
           </div>
         )}

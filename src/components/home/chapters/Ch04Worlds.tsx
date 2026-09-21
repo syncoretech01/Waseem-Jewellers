@@ -14,6 +14,7 @@ import type { PieceRow } from '@/lib/facets';
 import { WORLDS } from '@/data/worlds';
 import { COPY } from '@/data/copy';
 import { cn } from '@/lib/cn';
+import { gatedTicker } from '@/lib/perf/onScreen';
 import { tagOf } from './showcase';
 
 const SPEEDS = [1.0, -0.55, 0.8, -0.65, 1.1];
@@ -75,8 +76,8 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
             setters[i]!(proxy.progress * SPEEDS[i]! * t + (drift.current[`d${i}`] ?? 0));
           });
         };
-        gsap.ticker.add(tick);
-        ctx.add(() => () => gsap.ticker.remove(tick));
+        // the columns are written only while the worlds are near the screen
+        ctx.add(() => gatedTicker(root, tick));
 
         const tl = gsap.timeline({
           scrollTrigger: {
@@ -138,7 +139,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
         ))}
       </div>
 
-      <div className="relative z-10 px-gutter pt-[calc(var(--nav-h)+1.25rem)] md:absolute md:inset-x-0 md:top-0">
+      <div className="relative z-10 px-gutter pt-[var(--chapter-top)] md:absolute md:inset-x-0 md:top-0">
         <div className="wj-content flex items-start justify-between">
           <p className="micro text-champagne">{COPY.collections.eyebrow}</p>
           <h2 id="worlds-title" className="sr-only">
@@ -222,7 +223,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
         {WORLDS.map((w, i) => (
           <div key={w.slug} className="world-row">
             <div className="mb-4 flex items-baseline justify-between">
-              <p className="display text-[2.4rem] leading-none text-ivory">{w.name}</p>
+              <p className="display text-[2.25rem] leading-none text-ivory">{w.name}</p>
               <span className="font-display text-[0.875rem] text-champagne/70">{w.numeral}</span>
             </div>
             <div className="grid grid-cols-2 gap-[var(--gap)]">
@@ -246,7 +247,7 @@ export function Ch04Worlds({ doors = {} }: { doors?: Record<string, PieceRow> })
               {w.mood}
             </p>
             {doors[w.pieces[0] ?? ''] && (
-              <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door mt-3 flex w-fit flex-col gap-0.5 py-2" data-cursor="view">
+              <TransitionLink href={`/jewellery/${w.pieces[0]}`} className="group/door mt-2 flex min-h-11 w-fit flex-col justify-center gap-0.5 py-2" data-cursor="view">
                 <span className="font-display text-[0.9375rem] leading-tight text-ivory/85" style={{ fontVariationSettings: '"opsz" 14' }}>
                   {doors[w.pieces[0] ?? '']!.t}
                 </span>

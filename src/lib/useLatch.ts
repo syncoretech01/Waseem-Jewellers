@@ -6,7 +6,7 @@ import type { StoreApi, UseBoundStore } from 'zustand';
 /**
  * True once a store has ever satisfied a predicate, and true from then on.
  *
- * Chrome that opens on interaction — the menu, the ledger, the salon — must not be *unmounted*
+ * Chrome that opens on interaction — the menu, the form, the salon — must not be *unmounted*
  * when it closes, or its exit animation dies with it. So "should this be in the tree" is not
  * "is it open" but "has it ever been wanted", which is a latch. Set from the store's own
  * subscription, an event callback, rather than from an effect watching a hook value: React

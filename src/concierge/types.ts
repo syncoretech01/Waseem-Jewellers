@@ -13,9 +13,6 @@ export type ToolName =
   | 'filterProducts'
   | 'clearFilters'
   | 'showPriceGuidance'
-  | 'saveToWishlist'
-  | 'removeFromWishlist'
-  | 'openWishlist'
   | 'scrollToSection'
   | 'openPrivateConsultation'
   | 'compareProducts'
@@ -33,8 +30,7 @@ export type ToolName =
   | 'openMenu'
   | 'closeMenu'
   | 'closeConcierge'
-  /** `openSaved` is `openWishlist` under the name the visitor uses; `openAppointment` is `openPrivateConsultation` likewise. */
-  | 'openSaved'
+  /** `openAppointment` is `openPrivateConsultation` under the name the visitor uses. */
   | 'openAppointment'
   | 'setGalleryFrame'
   | 'activateGate'
@@ -117,7 +113,6 @@ export interface SiteContext {
   visibleProducts: ProductBrief[];
   selectedCollection: string | null;
   selectedWorld: string | null;
-  wishlist: ProductBrief[];
   recentResults: ProductBrief[];
   recentCollections: string[];
   lastOpenedProduct: string | null;
@@ -134,7 +129,6 @@ export interface SiteContext {
   gate: 'gold' | 'diamond' | null;
   highlightedCategory: string | null;
   menuOpen: boolean;
-  ledgerOpen: boolean;
   appointmentOpen: boolean;
 }
 

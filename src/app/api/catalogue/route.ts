@@ -6,8 +6,8 @@ import { getRepository } from '@/data/repository';
  * One row per listable piece — about a hundred bytes each, some 60 kB for the whole shop —
  * against the megabyte the full catalogue costs. It is prerendered at build time, so this is
  * a static file with a route's name rather than a function call, and it is fetched once, on
- * demand, by the two surfaces that genuinely need to look pieces up in the browser: the
- * concierge and the selection ledger.
+ * demand, by the surface that genuinely needs to look pieces up in the browser: the
+ * concierge.
  *
  * It is projected by the repository from the *merged* catalogue, so it carries the seven
  * pieces an editor's names made listable and the authored slugs of the ten — and it carries

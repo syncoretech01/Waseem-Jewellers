@@ -2,7 +2,6 @@
 
 import { useRef } from 'react';
 import { PieceLink } from '@/components/commerce/PieceLink';
-import { SaveButton } from '@/components/commerce/SaveButton';
 import { Img } from '@/components/media/Img';
 import { Video } from '@/components/media/Video';
 import { UrduAccent } from '@/components/ui/primitives';
@@ -30,7 +29,6 @@ function Caption({ product, caption, align = 'left' }: { product: PieceRow; capt
         >
           Enquire
         </button>
-        <SaveButton slug={product.s} className="-my-2" />
       </div>
       {caption && (
         <p className="mt-2 font-display italic text-small text-fg-muted" style={{ fontVariationSettings: '"opsz" 14' }}>

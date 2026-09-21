@@ -56,12 +56,20 @@ export const viewport: Viewport = {
 
 /**
  * Runs synchronously before the body paints. It only stamps attributes on <html>
- * (returning visitor, reduced motion, coarse pointer) so CSS and the loader can
- * choose the right path before hydration. `suppressHydrationWarning` on <html>
- * covers the attribute difference.
+ * (returning visitor, reduced motion, coarse pointer, and a first guess at the tier) so
+ * CSS and the loader can choose the right path before hydration. `suppressHydrationWarning`
+ * on <html> covers the attribute difference.
+ *
+ * `data-tier-guess` is what the device says about itself before a WebGL probe can be run:
+ * `reduced`, `low` (a coarse pointer, save-data, four gigabytes or less, a narrow window) or
+ * `medium` (a desktop; HIGH needs the renderer string, which only `detectQuality` reads).
+ * `data-weak` marks two gigabytes, two cores or save-data — the device that is handed the
+ * prerendered chapter rather than the scene. `detectQuality` (`src/lib/quality.ts`) makes the
+ * same decisions with more information a few hundred milliseconds later and overwrites
+ * `data-tier`; the guess exists so nothing heavy has to be built first and taken back.
  */
 const STAMP_SCRIPT =
-  "(function(){try{var d=document.documentElement;var v=localStorage.getItem('wj:visited');if(v&&Date.now()-Number(v)<86400000){d.setAttribute('data-visited','1')}if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){d.setAttribute('data-rm','1')}if(window.matchMedia('(pointer: coarse)').matches){d.setAttribute('data-coarse','1')}}catch(e){}})();";
+  "(function(){try{var d=document.documentElement;var v=localStorage.getItem('wj:visited');if(v&&Date.now()-Number(v)<86400000){d.setAttribute('data-visited','1')}var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(rm){d.setAttribute('data-rm','1')}var co=window.matchMedia('(pointer: coarse)').matches;if(co){d.setAttribute('data-coarse','1')}var n=navigator;var m=n.deviceMemory||8;var c=n.hardwareConcurrency||4;var sd=!!(n.connection&&n.connection.saveData);if(m<=2||c<=2||sd){d.setAttribute('data-weak','1')}d.setAttribute('data-tier-guess',rm?'reduced':(co||sd||m<=4||window.innerWidth<768)?'low':'medium')}catch(e){}})();";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // development-only, and on the server: it needs the whole catalogue, which is exactly

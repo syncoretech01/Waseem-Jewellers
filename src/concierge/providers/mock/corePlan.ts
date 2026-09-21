@@ -22,8 +22,8 @@ import { resolveOrdinal } from '../../ordinals';
  */
 
 const pieces = (outcomes: ToolOutcome[]) => {
-  const o = outcomes.find((x) => x.ui?.kind === 'pieces' || x.ui?.kind === 'wishlist');
-  return o?.ui && (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist') ? o.ui.pieces : [];
+  const o = outcomes.find((x) => x.ui?.kind === 'pieces');
+  return o?.ui && o.ui.kind === 'pieces' ? o.ui.pieces : [];
 };
 
 /** What the visitor asked for, said back in their own terms. */
@@ -171,21 +171,17 @@ export function corePlan(text: string, ctx: SiteContext): Plan | null {
         reply: (o) => (pieces(o).length ? CONCIERGE.matchingResult(pieces(o).length) : o[0]?.label || CONCIERGE.nothing),
       };
 
-    case 'save': {
-      // "doosra save karo": the ordinal names which of the shown pieces; otherwise the piece in view
-      const target = s.ordinal !== undefined ? resolveOrdinal(s.ordinal, ctx) : null;
-      const args = target?.kind === 'product' ? { slug: target.slug } : {};
-      return { id: 'core_save', tools: [tool('saveToWishlist', args)], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
-    }
-
-    case 'remove': {
-      const target = s.ordinal !== undefined ? resolveOrdinal(s.ordinal, ctx) : null;
-      const args = target?.kind === 'product' ? { slug: target.slug } : {};
-      return { id: 'core_remove', tools: [tool('removeFromWishlist', args)], reply: (o) => o[0]?.label || CONCIERGE.whichPiece };
-    }
+    /**
+     * Saving is not offered on this build. The intents stay in the lexicon — the fixture set
+     * is frozen — and each is answered with what the concierge can do instead, so the sentence
+     * never ends in silence or in an action nobody asked for.
+     */
+    case 'save':
+    case 'remove':
+      return { id: 'core_save', tools: [], reply: () => CONCIERGE.savingNotOffered };
 
     case 'selection':
-      return { id: 'core_selection', tools: [tool('openWishlist', {})], reply: (o) => (pieces(o).length ? CONCIERGE.selectionIntro(pieces(o).map((p) => p.name)) : CONCIERGE.wishlistEmpty) };
+      return { id: 'core_selection', tools: [], reply: () => CONCIERGE.selectionNotOffered };
 
     case 'price': {
       const slug = ctx.currentProduct?.slug ?? ctx.focusedProduct?.slug;

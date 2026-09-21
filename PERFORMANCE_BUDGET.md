@@ -47,7 +47,7 @@ Where the 349 kB on the homepage goes, by chunk:
 | 68 | Application shell: the `motion` library, Loader, Nav, `Img`, the client index | partly — `motion` is only used by surfaces that open on interaction |
 | **39** | **The concierge: lexicon, parser, tools, controller** | **yes — nothing here is visible until the panel opens** |
 | **25** | **Concierge UI, Lenis** | **yes, the UI part** |
-| 45 | Chapters and the rest | partly — `MenuOverlay`, `SelectionLedger`, `ConsultationModal` all mount on every route, invisible |
+| 45 | Chapters and the rest | `MenuOverlay` and `ConsultationModal` mount closed behind `LazyChrome`; five homepage chapters hydrate on approach (`lazyChapter`) |
 
 The 179 kB overage is not the animation system; it is that everything a visitor *might* open is
 hydrated before they can open anything. That is the S2F hydration work, and its target — at least
@@ -118,17 +118,23 @@ A live `prefers-reduced-motion` change is followed: turning it on forces REDUCED
 
 ### What each tier turns off
 
-| | HIGH | MEDIUM | LOW | REDUCED |
-|---|---|---|---|---|
-| Loader stone in WebGL (`LoaderGem`) | yes | no | no | chunk never requested |
-| Craft object (`CraftScene`, CH02) | yes | yes | no | no |
-| Stone refraction | 2 bounces, aberration 0.006 | 1 bounce, no aberration | — | — |
-| Menu ambient and world films | yes | yes | no | no |
-| Video source | 1280 | 1280 | 720 | not played |
-| FLIP page transition | yes | yes | curtain/veil instead | veil |
-| Custom cursor | yes | yes | off on coarse pointers | off |
-| Chapter scrubs | yes | yes | yes | replaced by composed stills |
-| Concierge trigger | crest + ring, CSS | same | same | same, nothing moving |
+| | HIGH (A) | MEDIUM (C: integrated GPU) | LOW (B/C: phones, 4 GB, narrow) | LOW + still (D: weak, or demoted twice) | REDUCED |
+|---|---|---|---|---|---|
+| Loader stone in WebGL (`LoaderGem`) | yes | no | no | no | chunk never requested |
+| Craft object (`CraftScene`, CH02) | live emerald | live emerald | the prerendered still (since 21 Sep: the client refused the flat LOW stone) | the still; WebGL withheld, the three chunk never fetched | the still |
+| Stone | 3 bounces, dispersion 0.011 | 2 bounces, 0.007 | — | — | — |
+| Canvas DPR cap | 1.75 | 1.5 | 1 (1.5 on a premium phone: `data-premium`) | 1 | 1 |
+| Menu ambient and world films | yes | yes | no | no | no |
+| Video source | 1280 | 1280 | 720 / portrait | 720 / portrait | not played |
+| Video sources kept while far away | let go after 4 s beyond 1.5 viewports, on every tier (see *Final pass*) | same | same | same | never attached |
+| Scroll owner | Lenis (wheel smoothed) | Lenis | native touch; Lenis observes only (`data-scroll="native"` on coarse pointers) | same | same |
+| FLIP page transition | yes | yes | curtain/veil instead | curtain/veil | veil |
+| Custom cursor | yes | yes | off on coarse pointers | off | off |
+| Chapter scrubs | yes | yes | yes | yes | replaced by composed stills |
+| Once-reveals (rise, split, mask) | IntersectionObserver per scope, on every tier | same | same | same | shown at once |
+| Concierge trigger | crest + ring, CSS | same | same | same | same, nothing moving |
+
+The letters are the client's device tiers (A modern desktop, B premium phone, C mainstream phone or integrated GPU, D weak). Detection puts a phone on LOW whatever its GPU — the phone paths are written against LOW — and marks a recent Apple, Adreno 7xx/8xx or Mali-G7x+ GPU, or eight gigabytes reported, as `premium` (`data-premium`, canvas DPR 1.5 instead of 1). `weak` — two gigabytes, two cores or save-data — is LOW with WebGL withheld (`data-weak`), so the craft chapter shows its still and the three chunk is never fetched. The inline stamp in `src/app/layout.tsx` writes `data-tier-guess` (`reduced` / `low` / `medium`) and `data-weak` before first paint from the same facts, so a stylesheet or the loader can choose a path before hydration; `detectQuality` overwrites `data-tier` a few hundred milliseconds later with the renderer string in hand.
 
 Notes on the edges. The craft chapter's object is for everyone (16 Sep 2026): HIGH and MEDIUM render it with the refractive stone; LOW — every phone — renders the same geometry at DPR 1 with the non-refractive stone, on a demand frameloop, which is what makes the three chunk (253 kB gz, fetched only as the chapter approaches) affordable there; REDUCED and a browser without WebGL show a still of the same object rendered once from the same scene (`public/assets/waseem/images/craft/ring-*.webp`, 11–36 kB, cut by `scripts/assets/craft-poster.mjs`). The SVG stone, halo, ring and band remain in the DOM only for the drawing's own reveal and are hidden the moment the object or the still is up. Under REDUCED the pinned chapters take their still path — the `reduce` condition of `gsap.matchMedia` — which sets the finished composition (labels lit, reveals at rest) instead of building a scrubbed timeline. `scrollTo` collapses to an immediate jump, and no video ever plays. The concierge trigger (17 Sep 2026) is the crest on a disc with a hairline ring, DOM and CSS on every tier — it has no renderer to choose, so `qualityStore.orbRenderer` no longer has a reader.
 
@@ -327,25 +333,204 @@ After: nodes 2,189 on every loop, listeners 740 on every loop, concierge cycles 
 
 ## The frame-rate monitor
 
-`src/lib/perf/fpsMonitor.ts` samples the same `gsap.ticker` that drives every tween — a 120-frame
-ring of frame durations, plus a `PerformanceObserver('longtask')` count for the inspector. Three
-consecutive seconds under 45 fps demotes the tier one step through `useQualityStore.demote`,
-which cascades exactly as a detected tier does: DPR cap, `useCanWebGL`, video variant, `data-tier`.
+`src/lib/perf/fpsMonitor.ts` counts frames on the same `gsap.ticker` that drives every tween —
+per wall-clock second, not over a ring — plus a `PerformanceObserver('longtask')` count for the
+inspector. Two readings demote, and either is enough (21 Sep 2026):
 
-Once per session, never back up. A page that promotes itself the moment it recovers oscillates,
-and the visitor sees the site change its mind. `data-demoted` on `<html>` carries the fps that
-caused it, and `detectedTier` in the store keeps what the device claimed, so the two can be told
-apart.
+- **two consecutive seconds under the floor** — 50 fps on a coarse pointer, 48 on a fine one,
+  scaled to 80 % of the display's own rate (the best second seen while nothing scrolled), so a
+  30 Hz screen is not demoted for being one;
+- **three stalls** — frames of 120 ms or longer — inside any three-second window.
+
+A second that was mostly one long frame (the craft object's compile, a large decode) is the
+stall's business and does not count as a low second. The step is one tier: HIGH → MEDIUM → LOW →
+the still (`demoteToStill`: WebGL withheld, `data-still` on `<html>`, so the craft chapter lets
+its object go and shows the prerendered one). Once per session, never back up — a page that
+promotes itself the moment it recovers oscillates, and the visitor sees the site change its mind.
+`data-demoted` on `<html>` carries the fps that caused it, and `detectedTier` in the store keeps
+what the device claimed, so the two can be told apart.
 
 Held off where a low reading would be true and irrelevant: during the loading ritual, while
-`html.is-transitioning`, for 800 ms after any `ScrollTrigger.refresh()` (the one place a
-stale-clock trap actually lives), and while the document is hidden. REDUCED is never a demotion
-target — it is the visitor's own preference.
+`html.is-transitioning`, for a second after any `ScrollTrigger.refresh()` (the one place a
+stale-clock trap actually lives), for 700 ms after any hold lifts, and while the document is
+hidden. REDUCED is never a demotion target — it is the visitor's own preference.
+
+The tier itself is resolved earlier than it was: `TierResolver` (`src/lib/perf/TierResolver.tsx`)
+runs `detect()` in the first layout effect of the page, before any chapter's `useGSAP`, so the
+first ScrollTrigger, the first video source and the first figure's fidelity are decided against
+the real tier rather than against `unresolved`. `detect()` runs once; a second call is a no-op
+unless forced (reduced motion turned off), so it can never undo a demotion.
 
 Not drei's `PerformanceMonitor`, which sees only R3F frames; this page's cost is DOM and
 compositing, and the object it would watch is the smallest part of it.
 
-Proven in a browser (11 Sep 2026): a QA build on `?tier=HIGH`, CPU throttled 30× under CDP while
-scrolling, demoted to MEDIUM at a measured 2 fps after the ring filled and the three-second window
-elapsed, and stayed at MEDIUM after the throttle was lifted. `__wjFps()` is exposed on QA and dev
-builds so the reading can be watched rather than trusted.
+Proven in a browser (21 Sep 2026, dev server, Intel HD 530): a scripted full-page scroll on
+1440×900 demotes MEDIUM → LOW at 42–46 fps after two low seconds (`demotedAt` 4,644–7,020 px);
+on a 390×844 headed window LOW → still at 22–25 fps; the touch-fling pass with Lenis's listeners
+demoted at 48 fps and the same pass with native touch did not. `__wjFps()` on QA and dev builds
+returns the per-second history, the display rate and the stall count, so the reading can be
+watched rather than trusted.
+
+## Final pass (21 Sep 2026)
+
+Everything here was measured on the same Intel HD 530 laptop as the earlier sections — tier C
+hardware, detected MEDIUM on 1440×900 and LOW on a 390×844 mobile window — against the **dev
+server** on port 3300 (`next dev`; a production build was not permitted during this pass).
+Dev-server numbers are worse than production's: React's development build, unminified chunks,
+`checkShaderErrors` on (the craft object's shader compile is 1.7 s here and 0.4 s on the live
+build). Compare the columns with each other, not with the S2H production table above. The
+harnesses are in `.cache/s22/perf/` (gitignored); the scripted scroll is `slowfind.mjs`
+(12 % of a viewport every 55 ms, the same pace as `vitals.mjs`).
+
+### The finding that mattered: the bangle study
+
+The first full-page pass at HEAD ran at **1 fps** with a 1,017 ms worst frame and 206 long
+tasks (164 s of them): from the bangle chapter onward every `scrollTo` blocked the main thread
+for ~950 ms in `LayerTreeHost::WaitForCommitCompletion`, with the compositor and GPU threads
+idle — a compositor pathology, not script. Bisected by hiding elements and by injecting CSS: it
+is `will-change: transform` on `.bangle-turn`, the `preserve-3d` element directly inside the
+study's `perspective: 1400px` box (`src/semantic/moments/BangleStudy.tsx`). Removing that one
+`will-change` (or the perspective) returns the page to 39–46 fps; removing the camera's
+`will-change` alone does not. The fault is intermittent — one run in five passes the chapter
+clean — and it poisons every subsequent scroll on the page, not just the chapter. The patch
+belongs to the main session (the file is not this agent's); every "after" number below has
+the equivalent CSS injected (`.bangle-turn{will-change:auto}`), and is marked so.
+
+### Before / after
+
+| Scenario | Before | After |
+|---|---|---|
+| 1440×900 headed, full scripted scroll, HEAD as found | **1 fps**, worst 1,017 ms, 206 long tasks / 163.8 s, demoted MEDIUM → LOW | — (needs the bangle patch) |
+| 1440×900 headed, same, bangle CSS injected | 38.8–43.6 fps, worst 100–117 ms, 29–47 long tasks / 1.7–3.2 s (12,900 px runs) | **45.6–46.5 fps**, worst 83–117 ms, 9–22 long tasks / 0.5–1.3 s (full 24,900 px, three runs) |
+| `vitals.mjs`, 1440×900 headed, bangle CSS injected | not run on the dev server before; S2H production: 41.6–41.9 fps, 117–133 ms, 67–68 / 4.0–4.1 s | 46.3 fps, worst 83 ms, 13 / 0.8 s; LCP 2.4 s (dev), CLS 0.000 after load |
+| 390×844 headed (tier C: LOW with WebGL), full scripted scroll | 42.5 fps, worst 117 ms, 53 long tasks / 3.1 s | **48.9 fps**, worst 68 ms, 7 / 0.4 s |
+| 390×844 headless (tier D: LOW, no WebGL) | 43.2 fps, worst 117 ms, 32 / 2.0 s | **54.5 fps**, worst 67 ms, 4 / 0.24 s |
+| 390×844 headed, 15 thumb flings (touch events dispatched by CDP) | Lenis's window listeners: 53.6 fps, worst 117 ms, monitor demoted at 48 fps | native touch: 54.0 fps, worst 100 ms, no demotion; the main thread's touch handlers ≤ 1 ms in both |
+| ScrollTriggers alive after load, 1440×900 | 49 (7 pins, 12 scrubs, 36 once-reveals) | **13** (7 pins, 12 scrubs, 0) |
+| `gsap.ticker` callbacks at rest, 1440×900 | 6 everywhere (`updateRoot`, hero pointer, gate, worlds, SmoothScroll, monitor) + the craft invalidator once mounted | 6 away from the craft chapter, 7 within half a viewport of it; 4 once the hero and worlds tickers take the gate (patches below) |
+| Videos held far from the viewport | every mounted clip kept its sources, decoder and buffer for the life of the page | let go 4 s after leaving a 150 % band, taken back on approach; measured: hero 2 sources → 0 twelve viewports down → 2 and playing again at the top |
+| Leaks (`npm run leak:check -- http://localhost:3300`) | clean | clean — nodes −1 %, listeners 0 %, heap +10 % over five loops and twenty concierge cycles |
+
+Load phase, for the record (same machine): the **live production build** (751bbe4, before this
+pass) ran the loading ritual at 20 fps on the desktop window and 29 on the mobile one, with
+11 / 4 long tasks (1.7 s / 0.8 s) before the loader left — hydration, the first
+`ScrollTrigger.refresh()` and the craft object's environment compile, in that order. The
+dev-server profile of the same phase puts 1.2 s in React's commit, 0.17 s in `_refreshAll`,
+0.25 s in GSAP's computed-style reads and 1.7 s in three's `onFirstUse` (dev only: the sync
+link-status query `checkShaderErrors` makes). That is what lazy hydration is for; see below.
+
+### What changed, by lever
+
+1. **Offscreen gating.** `src/lib/perf/onScreen.ts` — one IntersectionObserver per margin, and
+   `gatedTicker(el, fn)`, a `gsap.ticker` callback that exists only while its element is within
+   a viewport of the screen. The craft object's demand invalidator now goes through it
+   (`useDemandInvalidate`, margin 50 %): the ticker is off the list four screens away, so a
+   pointer moving over bespoke no longer has the ring easing its rotation to follow it. The
+   moments and semantic figures were already inert off screen — a scrubbed ScrollTrigger calls
+   `onUpdate` only when its progress changes — and were left alone. The hero's pointer ticker
+   and the worlds' column ticker run everywhere on the page today; the one-line patches to put
+   them on the gate are in this pass's report, for the files' owner.
+2. **The tier monitor** — above. Demotes in two seconds instead of three, on stalls as well as
+   on averages, resolves the tier before the chapters mount, and has one more step below LOW.
+3. **Native touch.** Lenis registers `touchstart`, `touchmove`, `touchend` and `wheel` on the
+   window with `passive: false`; with `syncTouch` off they did nothing on a phone but make the
+   compositor wait for the main thread on every touch event. On a coarse pointer Lenis is now
+   given an inert element as `eventsTarget`: it keeps following the native scroll (the nav, the
+   tray and ScrollTrigger subscribe to it as before), `scrollTo()`, `stop()` and `start()` keep
+   working, and the finger scrolls the page the way the platform does. Verified with CDP
+   `DOMDebugger.getEventListeners`: no non-passive `touchmove` remains on the window or the
+   document; the remaining non-passive `touchstart`/`pointerdown` on the window in the harness
+   are Playwright's own injected script, not the site's. The main-thread benchmark is a tie
+   (Lenis's handler costs a millisecond); the difference is that a 120 ms decode no longer
+   freezes a drag. `?scroll=lenis` restores the listeners in development for comparison.
+   Providers also stopped using `ReactLenis`: its context value is a new object after its
+   effect runs, and a Suspense boundary still waiting for its chapter is client-rendered the
+   moment a context above it changes (below). The instance is created once, on the client's
+   first render, and the context value memoised on it.
+4. **Lazy hydration** — `src/components/motion/LazyChapter.tsx`, `src/lib/perf/chapterGates.ts`.
+   `lazyChapter(id, () => import(...))` wraps a chapter in a Suspense boundary whose `lazy`
+   loader waits behind a gate; the server renders the chapter in full and streams it, the
+   client leaves the boundary *dehydrated* (React keeps the server DOM untouched) until the
+   chapter comes within 150 % of the viewport, or the page is idle after the ritual (one
+   chapter per idle callback, top first), or a programmatic glide is requested — then the
+   chunk is fetched and React attaches to the existing nodes in place. Proven in the tree on a
+   scaffold route: the same DOM node before and after (`__ssrMark` preserved), the chapter's
+   chunk requested only on approach, the section registered on hydration, reveals playing.
+   Two things had to be true for that: no ancestor context may change while a boundary is
+   dehydrated (React's `updateDehydratedSuspenseComponent` client-renders on
+   `didReceiveUpdate`; `ReactLenis` did exactly that after its effect, which is why Providers
+   owns the context now), and the wrapper must never hand the boundary a new element (it is
+   memoised on the chapter's prop values, and the ritual is watched through the store's own
+   subscription rather than React state). Only for chapters that do not pin — a pin spacer
+   arriving late would move everything beneath it. **Not yet wired**: `Home.tsx` belongs to the
+   main session; the wrapping is a five-line change described in the report, and the numbers
+   for it are the next measurement, not this one.
+5. **Reveals.** `useRise`, `useSplitReveal` and `useMaskReveal` watch their elements with one
+   IntersectionObserver per scope instead of a ScrollTrigger per element (36 of the homepage's
+   49). The root is extended 200,000 px upward, so an element jumped over — a deep link, a
+   restored position, a fling — still enters the root and is shown composed, which is what
+   ScrollTrigger's `once` gave for free. Verified at reading pace and after a jump to the
+   bottom, on 1440×900 and 390×844: nothing left hidden, nothing replayed.
+6. **Video.** Sources are let go 4 s after a clip leaves a 150 % band (never while a fetch is
+   in flight, so nothing is aborted by us), and taken back on approach, where the still stands
+   until the first frame as it did the first time. A re-fetch from a warm cache shows in a
+   Playwright audit as one `net::ERR_ABORTED` on the clip — Chromium abandoning a range
+   request it no longer needs, the same thing `scripts/dev/qa-sweep.mjs` and `shot.mjs`
+   already classify as not a failure. The explicit `load()` after the `<source>` list mounts
+   is now deferred one task, so it can never abort the resource selection that inserting a
+   `<source>` already started.
+7. **Images.** On a 390 px phone the bangle study's `sizes="(min-width: 768px) 110vw, 200vw"`
+   resolves to 780 CSS px × DPR 2 = 1,560 → the 1600w variant (measured: `profile-1600w.webp`,
+   both photographs). The phone should fetch 1080w at most; the change is in the chapters'
+   `sizes` strings (patches in the report), not in this agent's files.
+8. **The concierge trigger and the voice meter** already cost nothing at rest: the ring's
+   ticker exists only in LISTENING and SPEAKING, the meter's only while a stream is open, and
+   the only idle timer is the context ribbon's thirty-second clock. Verified by reading
+   `VoiceStage.tsx` and `voice/meter.ts`; no change needed.
+
+## The production numbers (21 Sep 2026, S2I)
+
+Same Intel HD 530 laptop, same `vitals.mjs` scripted scroll (12 % of a viewport every 55 ms),
+**production build** on port 3399, headed (the real GPU). The S2H row is the last production
+measurement before this round; the middle row is this round with every lever above landed
+(the bangle `will-change`, the gated tickers, the reveals on IntersectionObserver, native touch
+scrolling, the video sources let go, lazy hydration of the five non-pinned chapters); the last
+row adds one more lever, found by tracing what remained.
+
+| | fps | worst frame | long tasks during the scroll | tier at the end |
+|---|---|---|---|---|
+| S2H production (751bbe4), 1440×900 | 41.6–41.9 | 117–133 ms | 67–68 / 4.0–4.1 s | demoted to LOW |
+| S2I, every lever but the last, 1440×900 | 44 | 150–167 ms | 40–44 / 2.7–2.9 s | demoted to LOW at 32–34 fps |
+| **S2I shipped, 1440×900** | **59.2–59.6** | **67–83 ms** | **0** | **MEDIUM, never demoted** |
+| **S2I shipped, 390×844 headed** (tier C) | **59.8** | **50 ms** | **0** | LOW, never demoted |
+| S2I shipped, 390×844 headless (tier D) | 59.8 | 50 ms | 1 / 60 ms | LOW |
+
+Interactions, measured in isolation (`inp-probe.mjs`, event durations ≥ 16 ms): the gate's
+pointer sweep 72–80 ms, the concierge trigger's click 88 ms. `vitals.mjs` reports a
+1.2–1.3 s `pointerenter` in its interaction section; that event is the first pointer move after
+the harness jumps 17,000 px from the bottom of the page to the gate in one `scrollTo`, and is
+the cost of that jump, not of the gate.
+
+### The last lever: the chrome's theme was written to `<html>`
+
+A devtools trace with invalidation tracking over the gate → gold stretch showed
+`UpdateLayoutTree` (style recalculation) at 1.3 s in 2.6 s of scrolling, with single recalcs of
+65–73 ms, and after each one every element with a `transition-*` class on the whole page
+animating for its duration (`reason=Animation`, hundreds of per-frame recalcs). The trigger was
+`src/state/sections.ts` mirroring the chapter theme onto `<html data-theme>` at every chapter
+boundary. A theme is a set of inherited custom properties; changing one on the root makes the
+browser re-propagate it to every node of a 4,700-node page — 65 ms — and hands every
+`transition-colors` on the page a colour to animate. The chapters already carry their own
+`data-theme`; only the fixed chrome ever needed the flip. It is now written to two `[data-chrome]`
+wrappers in Providers (`display: contents`, so nothing about the fixed chrome's layout changes);
+`<html>` keeps its static `data-theme="dark"`. The nav, the orb, the salon and the cursor read
+the chapter's register exactly as before (`theme-probe.mjs`: gold and heritage → ivory, the rest
+dark), and the style recalculation at a chapter boundary is a few hundred nodes.
+
+Two smaller reads went with it: `src/state/visibility.ts` published the visible pieces from
+`getBoundingClientRect()` calls inside a rAF (122 ms of forced layout in the same trace); it
+now keeps the rectangles the IntersectionObserver already measured, in page coordinates, so the
+reading order costs no layout at all.
+
+LCP on the desktop is 1.44–1.57 s on this build (S2H: 1.1 s); the mobile window's 2.8–3.6 s is
+the hero film's poster on a 7 s cold load of the harness. CLS after load is 0.000 on every run.

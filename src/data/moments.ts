@@ -5,8 +5,8 @@ import type { ImageRef } from './types';
  * photograph. Each is authored against one piece Waseem publishes, and each is honest in the
  * same way the semantic figures are — nothing is shown that was not photographed.
  *
- *   study     a drawing of the piece, derived from its own photograph, becomes the photograph;
- *             then the piece turns between two angles Waseem actually shot.
+ *   bangle    one set of bangles, turned in the hand between the two angles the shop
+ *             photographed: profile, surface, rhythm, inside, the complete set.
  *   light     the frame goes dark and one light finds the parts of a suite in turn, and names
  *             them, before the whole suite is lit again. The photograph never moves.
  *   parted    one photograph of a pair, cut at the joints a jeweller would name — crown, bell,
@@ -18,16 +18,6 @@ import type { ImageRef } from './types';
  * Every rectangle, band and ellipse below is a fraction of the one frame it belongs to. The
  * captions say what is in the frame and what Waseem publishes; they never narrate a making.
  */
-
-export interface StudyMoment {
-  /** The angle the drawing is traced from, and the photograph it becomes. */
-  hero: ImageRef;
-  /** A second angle of the same piece, as shot — the turn ends on it. */
-  second: ImageRef;
-  /** The drawing: a pencil pass over the hero, rendered by scripts/assets/sketch.mjs. */
-  sketch: { dir: string; widths: number[]; alt: string };
-  beats: { drawn: string; made: string; turned: string };
-}
 
 export interface Light {
   key: string;
@@ -62,19 +52,6 @@ export interface PartedMoment {
   bands: Band[];
   closing: string;
 }
-
-export const STUDY: Record<string, StudyMoment> = {
-  'lavender-halo-ring-r11912': {
-    hero: { kind: 'local', id: 'p09-hero' },
-    second: { kind: 'local', id: 'p09-second' },
-    sketch: { dir: '/assets/waseem/images/products/lavender-halo-ring-r11912', widths: [640, 1080, 1600], alt: 'The lavender halo ring, drawn' },
-    beats: {
-      drawn: 'Drawn first: the oval stone, the halo, the split shank.',
-      made: 'Then made — in rose gold, stamped 21K on the inside. Reference R11912, 9.444 grams.',
-      turned: 'And seen from above: the halo of small white diamonds, and the four claws that hold the stone clear of it.',
-    },
-  },
-};
 
 export const LIGHTS: Record<string, LightMoment> = {
   'diamond-bridal-sapphire-suite': {
@@ -197,7 +174,6 @@ export const BANGLES: Record<string, BangleMoment> = {
   },
 };
 
-export const studyFor = (slug: string) => STUDY[slug];
 export const bangleFor = (slug: string) => BANGLES[slug];
 export const journeyFor = (slug: string) => JOURNEYS[slug];
 export const lightsFor = (slug: string) => LIGHTS[slug];

@@ -98,9 +98,8 @@ export interface CompareRow {
 
 export type TurnResult =
   | { kind: 'pieces'; title: string; pieces: PieceCard[] }
-  | { kind: 'wishlist'; pieces: PieceCard[] }
   | { kind: 'compare'; title: string; pieces: PieceCard[]; rows: CompareRow[] }
-  | { kind: 'piece'; piece: PieceCard; verb: 'opened' | 'focused' | 'saved' | 'removed' }
+  | { kind: 'piece'; piece: PieceCard; verb: 'opened' | 'focused' }
   | { kind: 'collection'; collection: CollectionCard }
   | { kind: 'collections'; collections: CollectionCard[] }
   | { kind: 'navigation'; label: string; href: string }
@@ -288,7 +287,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
     const patch: Partial<ConciergeStoreState> = {
       turns: get().turns.map((t) => (t.id === turnId ? { ...t, result } : t)),
     };
-    if (result?.kind === 'pieces' || result?.kind === 'wishlist') patch.recentResults = result.pieces;
+    if (result?.kind === 'pieces') patch.recentResults = result.pieces;
     if (result?.kind === 'collections') patch.recentCollections = result.collections;
     set(patch);
   },

@@ -10,13 +10,13 @@ const COLLECTIONS = ['bridal', 'rukh-e-jana', 'aks-e-noor', 'rang-e-jamal', 'dew
 const DEPARTMENTS = ['gold', 'diamond', 'bridal', 'men', 'kids'];
 /**
  * The places a visitor names rather than the paths they resolve to: "take me to gold",
- * "go back", "where are your showrooms", "my saved pieces". `navigate` accepts either.
+ * "go back", "where are your showrooms". `navigate` accepts either.
  */
-const NAV_TARGETS = ['home', 'back', 'gold', 'diamond', 'bridal', 'men', 'kids', 'bridal-collection', 'locations', 'appointment', 'saved'];
+const NAV_TARGETS = ['home', 'back', 'gold', 'diamond', 'bridal', 'men', 'kids', 'bridal-collection', 'locations', 'appointment'];
 const OCCASIONS = ['bridal', 'bespoke', 'viewing', 'gift'];
 const WINDOWS = ['afternoon', 'evening'];
 /** A showroom as the visitor says it — an id or a name; the tool resolves it and refuses what matches none. */
-const SHOWROOM = { type: 'string' as const, description: 'MM Alam Road, Liberty Market or DHA — the name the visitor used, or the id mm-alam, liberty, dha' };
+const SHOWROOM = { type: 'string' as const, description: 'Liberty Market, MM Alam Road or DHA — the name the visitor used, or the id liberty, mm-alam, dha' };
 const ISO_DATE = { type: 'string' as const, pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'YYYY-MM-DD, today or later; turn "Saturday" or "the 20th" into a date before calling' };
 
 /**
@@ -40,7 +40,7 @@ const CATEGORIES = ['bridal-set', 'set', 'necklace', 'choker', 'earrings', 'ring
 export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'searchProducts',
-    description: 'Find pieces in the Waseem catalogue. Prefer this before opening a piece by name.',
+    description: 'Bring pieces from the Waseem catalogue onto the page — "show rings", "rings", "bridal necklaces", "kuch halka dikhao". A bare kind of jewellery ("Rings." "Bangles." "Jhumke.") is this call with that category. Prefer this before opening a piece by name.',
     parameters: {
       type: 'object',
       properties: {
@@ -71,12 +71,13 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   },
   { name: 'showCollection', description: 'Take the visitor into a collection world.', parameters: { type: 'object', properties: { slug: { type: 'string', enum: COLLECTIONS } }, required: ['slug'] }, runtime: 'browser' },
   { name: 'focusProduct', description: 'Draw attention to a piece on the current page without opening it.', parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } }, required: ['slug'] }, runtime: 'browser' },
-  { name: 'openProduct', description: "Open a piece's own page.", parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } }, required: ['slug'] }, runtime: 'browser' },
+  {
+    name: 'openProduct',
+    description: 'Open the page of one piece — "open it", "second one", "doosra kholo", "the first". An ordinal names one of the pieces just shown; "it" / "this one" / "yeh" is the piece in view, else the piece last spoken about, else the first piece just shown. Never ask which when one of those exists.',
+    parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } }, required: ['slug'] },
+    runtime: 'browser',
+  },
   { name: 'showSimilarPieces', description: 'Pieces in the same spirit as a piece (defaults to the piece in view).', parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 } } }, runtime: 'browser' },
-  { name: 'saveToWishlist', description: "Keep a piece in the visitor's selection (defaults to the piece in view).", parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } }, runtime: 'browser' },
-  { name: 'removeFromWishlist', description: "Remove a piece from the visitor's selection.", parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } }, runtime: 'browser' },
-  { name: 'openWishlist', description: "Show the visitor's selection — the pieces they have saved.", parameters: { type: 'object', properties: {} }, runtime: 'browser' },
-  { name: 'openSaved', description: 'Open the saved pieces — "show my saved pieces", "meri selection dikhao", "what have I kept". The same as openWishlist.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   {
     name: 'scrollToSection',
     description:
@@ -92,14 +93,14 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   },
   {
     name: 'openAppointment',
-    description: 'Open the appointment form — "open the appointment form", "I want to visit", "appointment book karo". Use fillAppointment instead when the visitor has already given details.',
+    description: 'Open the appointment form — "book an appointment", "appointment", "I want to visit", "appointment book karo", "mulaqat". Use fillAppointment instead when the visitor has already given a detail.',
     parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string', format: 'piece-slug' } } },
     runtime: 'browser',
   },
   { name: 'showBridal', description: 'Open the bridal collection.', parameters: { type: 'object', properties: {} }, runtime: 'browser' },
   {
     name: 'showDepartment',
-    description: 'Open a department of the shop: Gold, Diamond, Bridal, Men or Kids. Each is a real page with its own pieces, filters and counts.',
+    description: 'Open a department of the shop — Gold, Diamond, Bridal, Men or Kids — each a real page of its own pieces. A single word that names a department ("Gold." "Diamond." "Bridal." "Sona.") is this call, immediately.',
     parameters: { type: 'object', properties: { department: { type: 'string', enum: DEPARTMENTS } }, required: ['department'] },
     runtime: 'browser',
   },
@@ -158,7 +159,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'navigate',
     description:
-      'Take the visitor somewhere — "take me to gold", "go back", "home", "the bridal collection", "where are your showrooms" (locations), "my saved pieces" (saved), "the appointment form" (appointment). Give a target, or a path for a page the targets do not name.',
+      'Take the visitor somewhere — "back" / "go back" / "wapas" (back), "home", "take me to gold", "the bridal collection", "where are your showrooms" (locations), "the appointment form" (appointment). Give a target, or a path for a page the targets do not name.',
     parameters: {
       type: 'object',
       properties: {
@@ -194,7 +195,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'fillAppointment',
     description:
-      'Write what the visitor has told you into the appointment form, opening it if it is closed — name, telephone, showroom, occasion, date, time, a note, the pieces. "This piece" is the piece in view; addSelection adds their saved pieces. Returns the draft and what is still missing; ask for the missing fields one at a time. Never invent a value.',
+      'Write what the visitor has told you into the appointment form, opening it if it is closed — name, telephone, showroom, occasion, date, time, a note, the pieces. While the form is open, a bare answer is the field it answers: "Liberty" / "MM Alam" / "DHA" is the showroom, a name is the name, a number is the telephone, "bridal" is the occasion. "This piece" is the piece in view. Returns the draft and what is still missing; ask for the missing fields one at a time. Never invent a value.',
     parameters: {
       type: 'object',
       properties: {
@@ -207,7 +208,6 @@ export const TOOL_DEFS: readonly ToolDef[] = [
         window: { type: 'string', enum: WINDOWS, description: 'afternoon is 12–4, evening is 4–9:30' },
         message: { type: 'string', description: 'a note for the team in the visitor\'s words' },
         productSlugs: { type: 'array', items: { type: 'string', format: 'piece-slug', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' }, maxItems: 8 },
-        addSelection: { type: 'boolean', description: 'true to include every piece the visitor has saved' },
       },
     },
     runtime: 'browser',
@@ -232,7 +232,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
    */
   {
     name: 'checkAvailability',
-    description: 'Whether a showroom publishes free times for a date. Today none does: the answer says our team confirms times. Never state a time this does not return.',
+    description: 'Whether a showroom publishes free times for a date. Today none does: the answer says our team confirms times. Never state a time this does not return; offer to prepare the appointment request instead (fillAppointment), which our team answers.',
     parameters: { type: 'object', properties: { showroom: SHOWROOM, date: ISO_DATE }, required: ['showroom', 'date'] },
     runtime: 'server',
   },
@@ -279,7 +279,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   },
   {
     name: 'getCurrentContext',
-    description: 'What the visitor is looking at right now: the page, the chapter, the piece in view and how many photographs it has, the saved count, whether the appointment form is open and what is in it.',
+    description: 'What the visitor is looking at right now: the page, the chapter, the piece in view and how many photographs it has, whether the appointment form is open and what is in it.',
     parameters: { type: 'object', properties: {} },
     runtime: 'browser',
   },

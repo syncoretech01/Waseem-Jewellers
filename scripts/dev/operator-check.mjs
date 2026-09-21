@@ -10,7 +10,6 @@
  *   navigate 'gold'          lands on /gold through the curtain
  *   navigate 'back'          returns to the previous page
  *   scrollToSection          a homepage chapter from a department page: home first, then the chapter in view
- *   openSaved                the ledger opens
  *   fillAppointment          the form opens with the values visibly in its fields
  *   submitAppointment        refused without confirmation; with it, 'prepared' with a WJ- reference,
  *                            and no request ever reaches /api/enquiry
@@ -34,9 +33,8 @@ const DOORS = ['royal-wedding-polki-raani-haar', 'diamond-bridal-sapphire-suite'
 
 const settle = (page, ms) => page.waitForTimeout(ms);
 const pathOf = (page) => new URL(page.url()).pathname;
-/** The appointment form and the ledger, by the label each dialog announces. */
+/** The appointment form, by the label the dialog announces. */
 const FORM = '[role="dialog"][aria-label="Book an appointment"]';
-const LEDGER = '[role="dialog"][aria-label="Your Selection"]';
 /** The dialog's own Close control — the veil beside it closes it too, but this is the one a visitor reads. */
 const closeDialog = (page, selector) =>
   page.evaluate((sel) => {
@@ -158,15 +156,9 @@ try {
   const afterKinds = await context(page);
   ok(kinds.result?.ok === true && afterKinds.highlightedCategory === 'bangle', `highlightCategory 'bangle' is recorded for the window (${afterKinds.highlightedCategory})`);
 
-  // the ledger
-  const saved = await run(page, 'openSaved');
-  await settle(page, 600);
-  const afterSaved = await context(page);
-  ok(saved.result && typeof saved.result.count === 'number' && afterSaved.ledgerOpen === true, `openSaved opens the ledger (ledgerOpen ${afterSaved.ledgerOpen})`);
-  const ledgerShown = await page.evaluate((sel) => Boolean(document.querySelector(sel)), LEDGER);
-  ok(ledgerShown, 'the ledger is on screen');
-  ok(await closeDialog(page, LEDGER), 'the ledger is closed again by hand');
-  await settle(page, 600);
+  // saving is not offered on this build: the tool is gone, and the validator says so
+  const saved = await run(page, 'openSaved').catch(() => null);
+  ok(saved?.result?.error === 'TOOL_UNKNOWN', `openSaved is no longer a tool (${saved?.result?.error})`);
 
   console.log('\nthe appointment');
   const fill = await run(page, 'fillAppointment', { name: 'Ayesha Khan', phone: '0300 7122859', showroom: 'Liberty Market', occasion: 'bridal' });

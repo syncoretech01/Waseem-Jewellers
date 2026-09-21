@@ -7,6 +7,7 @@ import { Field, ChoiceRow } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { useSiteStore, type ConsultationDraftField } from '@/state/siteStore';
 import { SITE } from '@/data';
+import { showroomsInOrder } from '@/data/heritage';
 import { getRow, getRows, loadIndex } from '@/data/clientIndex';
 import { whatsappHref } from '@/data/site';
 import { COPY } from '@/data/copy';
@@ -379,7 +380,7 @@ export function ConsultationModal() {
             />
             <ChoiceRow
               label="Showroom"
-              options={SITE.showrooms.map((s) => ({ value: s.id, label: s.name }))}
+              options={showroomsInOrder().map((s) => ({ value: s.id, label: s.name }))}
               value={values.showroom}
               onChange={(v) => {
                 setShowroom(v);

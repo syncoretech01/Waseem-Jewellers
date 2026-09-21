@@ -2,7 +2,7 @@ import { realtimeEnv } from '@/server/env';
 import { getRepository } from '@/data/repository';
 import type { PieceRow } from '@/lib/facets';
 import { clientIp, sameOrigin, takeToken, type Limit } from '@/server/concierge/limits';
-import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
+import { NOISE_REDUCTION, REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, TURN_DETECTION, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext, type VoiceContextInput } from '@/concierge/voice/realtimePrompt';
 
 /**
  * A short-lived key for one realtime conversation.
@@ -16,8 +16,13 @@ import { REALTIME_VOICES, TRANSCRIPTION_KEYWORDS, TRANSCRIPTION_PROMPT, VOICE_IN
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Sessions, not sentences: a conversation reconnects only after four minutes of silence or a closed panel. */
-const TOKEN_LIMIT: Limit = { perMinute: 4, perHour: 24 };
+/**
+ * Sessions, not sentences: a conversation reconnects only after four minutes of silence or a
+ * closed panel. The session is now opened the moment the voice stage is shown, before the
+ * visitor taps, so a visitor who opens and closes the panel a few times mints a few — and a
+ * showroom's shared connection is many visitors behind one address.
+ */
+const TOKEN_LIMIT: Limit = { perMinute: 6, perHour: 48 };
 const UPSTREAM_TIMEOUT_MS = 12_000;
 /** The window for the handshake, which takes about two seconds; the call itself outlives it. A shorter secret is a smaller thing to lose. */
 const SECRET_SECONDS = 120;
@@ -57,7 +62,6 @@ async function sanitiseContext(raw: unknown): Promise<VoiceContextInput> {
     route: ROUTE.test(route) ? route : '/',
     pieceInView: known ? { slug: pieceSlug, ...known } : null,
     recent,
-    wishlistCount: Math.max(0, Math.min(40, Number(r.wishlistCount) || 0)),
     standing: str(r.standing, 160),
   };
 }
@@ -106,8 +110,9 @@ export async function POST(request: Request) {
       input: {
         format: { type: 'audio/pcm', rate: 24000 },
         transcription,
-        turn_detection: { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: true },
-        noise_reduction: { type: 'near_field' },
+        // server VAD, measured against semantic VAD on the short-command set — see realtimePrompt.ts
+        turn_detection: TURN_DETECTION,
+        noise_reduction: NOISE_REDUCTION,
       },
       output: { voice, speed: 0.95 },
     },

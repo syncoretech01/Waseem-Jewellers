@@ -3,6 +3,8 @@
  * Set once by RuntimeBridge / SmoothScroll / TransitionLayer; read by tools and chapters.
  */
 import type Lenis from 'lenis';
+import { gsap } from '@/lib/motion/gsap';
+import { openAllChapterGates } from '@/lib/perf/chapterGates';
 import { useQualityStore } from './qualityStore';
 
 export type FlipKey = 'collection-hero' | 'product-hero';
@@ -48,12 +50,53 @@ export interface ScrollToOptions {
 
 const quartOut = (t: number) => 1 - Math.pow(1 - t, 4);
 
+/** The page's y for a scroll target, measured now. */
+function resolveY(target: number | string | HTMLElement, offset: number): number | null {
+  if (typeof target === 'number') return target + offset;
+  const el = typeof target === 'string' ? document.querySelector<HTMLElement>(target) : target;
+  if (!el) return null;
+  return el.getBoundingClientRect().top + window.scrollY + offset;
+}
+
+let glide: gsap.core.Tween | null = null;
+
+/**
+ * A programmatic glide without Lenis: one GSAP tween on a proxy, writing `window.scrollTo`
+ * each frame, so the page has exactly one writer and the caller gets its `onComplete`.
+ * Native `scroll-behavior: smooth` gives neither — it cannot be timed, eased or awaited.
+ */
+function tweenScroll(y: number, opts: ScrollToOptions, reduced: boolean) {
+  glide?.kill();
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const to = Math.max(0, Math.min(max, y));
+  if (reduced || opts.immediate) {
+    window.scrollTo(0, to);
+    opts.onComplete?.();
+    return;
+  }
+  const proxy = { y: window.scrollY };
+  glide = gsap.to(proxy, {
+    y: to,
+    duration: opts.duration ?? 1.4,
+    ease: opts.easing ?? quartOut,
+    onUpdate: () => window.scrollTo(0, proxy.y),
+    onComplete: () => {
+      glide = null;
+      opts.onComplete?.();
+    },
+  });
+}
+
 /**
  * The only sanctioned way to scroll programmatically. Forces past Lenis' stopped
- * state and collapses to an immediate jump under reduced motion.
+ * state and collapses to an immediate jump under reduced motion. Before Lenis exists —
+ * or should it ever not — the same glide is a GSAP tween owned here.
  */
 export function scrollTo(target: number | string | HTMLElement, opts: ScrollToOptions = {}) {
   const reduced = useQualityStore.getState().tier === 'REDUCED';
+  // a glide can land anywhere: every lazily hydrated chapter starts hydrating now — except
+  // for the jump to the top that every arrival makes, which lands on chapters already live
+  if (!(typeof target === 'number' && target <= 0)) openAllChapterGates();
   const lenis = runtime.lenis;
   if (lenis) {
     // measure the page as it is now, not as the previous route left it: a glide to a chapter
@@ -70,15 +113,12 @@ export function scrollTo(target: number | string | HTMLElement, opts: ScrollToOp
     });
     return;
   }
-  const el =
-    typeof target === 'string'
-      ? document.querySelector<HTMLElement>(target)
-      : typeof target === 'number'
-        ? null
-        : target;
-  if (el) el.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
-  else if (typeof target === 'number') window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
-  opts.onComplete?.();
+  const y = resolveY(target, opts.offset ?? 0);
+  if (y === null) {
+    opts.onComplete?.();
+    return;
+  }
+  tweenScroll(y, opts, reduced);
 }
 
 let settledUntil = 0;
@@ -95,10 +135,23 @@ export function currentScroll() {
   return runtime.lenis?.scroll ?? window.scrollY;
 }
 
+/**
+ * Freeze and release the page. Through Lenis where it exists (its `lenis-stopped` class clips
+ * the root's overflow); otherwise the same clip is written here, so an overlay or the loading
+ * ritual holds the page still whichever owns the scroll.
+ */
 export function stopScroll() {
-  runtime.lenis?.stop();
+  if (runtime.lenis) {
+    runtime.lenis.stop();
+    return;
+  }
+  document.documentElement.style.overflow = 'clip';
 }
 
 export function startScroll() {
-  runtime.lenis?.start();
+  if (runtime.lenis) {
+    runtime.lenis.start();
+    return;
+  }
+  document.documentElement.style.removeProperty('overflow');
 }

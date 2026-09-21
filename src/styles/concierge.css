@@ -1,0 +1,60 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   WASEEM JEWELLERS — the concierge's own stylesheet
+   The floating crest's place on the page, its docked form on a phone, and the
+   voice stage. Imported from globals.css after the tokens; the .wj-orb block
+   (the disc, the ring, the trace) stays in globals.css and is not repeated here.
+   Writers: this sheet owns the crest's position and size; Motion owns the
+   wrapper's opacity (ConciergeOrb.tsx); the orb's GSAP timeline owns the
+   specular band alone (Orb.tsx). No property has two writers.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* the corner: clear of the device's home indicator, a breath from both edges */
+.wj-crest {
+  --crest-gap: 20px;
+  --crest-size: 48px;
+  --crest-disc: 40px;
+  right: var(--crest-gap);
+  bottom: calc(var(--safe-bottom) + var(--crest-gap));
+}
+@media (min-width: 768px) {
+  .wj-crest {
+    --crest-gap: 28px;
+    --crest-size: 56px;
+    --crest-disc: 56px;
+  }
+}
+
+/* a 48px target on every device; the disc inside it is smaller on a phone */
+.wj-crest-button {
+  width: var(--crest-size);
+  height: var(--crest-size);
+  transition: transform 600ms var(--ease-out-expo), opacity 600ms var(--ease-silk);
+}
+.wj-crest-orb {
+  width: var(--crest-disc);
+  height: var(--crest-disc);
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+/* docked: over a chapter whose bottom edge is already busy, the crest becomes a smaller,
+   quieter disc in the same corner — the target stays the full 48px */
+.wj-crest[data-docked="1"] .wj-crest-button {
+  transform: scale(0.72);
+  transform-origin: 100% 100%;
+  opacity: 0.78;
+}
+.wj-crest[data-docked="1"] .wj-orb-disc {
+  --orb-lift: none;
+}
+
+/* reduced motion: the crest is where it is, at once */
+html[data-rm="1"] .wj-crest-button {
+  transition: none;
+}
+
+/* the voice stage's label lights with the microphone; the hairline beneath the mic sits still */
+[data-voice-stage] .micro {
+  letter-spacing: var(--tracking-micro);
+}

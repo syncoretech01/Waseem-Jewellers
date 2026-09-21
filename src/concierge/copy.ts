@@ -1,6 +1,10 @@
 /**
  * Every consumer-facing concierge string. House register: one or two sentences,
  * no exclamation marks, no software vocabulary, facts only as published.
+ *
+ * Every line that reports a failure names the next thing the visitor can do — there is no
+ * sentence here that leaves them with nothing to press or say. Showrooms, wherever three are
+ * named together, are in the order Liberty Market, MM Alam Road, DHA.
  */
 export const CONCIERGE = {
   name: 'Waseem Concierge',
@@ -13,74 +17,92 @@ export const CONCIERGE = {
   beginAgain: 'Begin again',
   inView: 'In view',
   broughtFor: 'Brought for',
-  view: 'View',
   compare: 'Compare',
   compareSelected: (n: number) => `Set ${n === 3 ? 'three' : 'two'} side by side`,
   ask: 'Ask',
+  bookViewing: 'Book a viewing',
   notPublished: 'not published',
   whichToCompare: 'Tell me which two — the first and the second, say, or their names — and I will set them side by side.',
   compared: (names: string[]) => `${names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join(' and ')}, side by side — only what Waseem publishes, nothing filled in.`,
   letMeShowYou: 'Let me show you',
   youMightSay: 'you might say —',
-  heard: 'heard —',
+  /** The next thing to press, wherever a reply could otherwise have ended the conversation. */
+  next: {
+    tryAgain: 'Try again',
+    write: 'Write instead',
+    showMe: 'Let me show you',
+    once: 'Try that once more',
+    nearby: 'Show nearby pieces',
+    bridal: 'The bridal pieces',
+  },
   voice: {
+    /** The state, set as a small label above the line: the visitor always knows which of five things is happening. */
+    state: {
+      ready: 'Ready',
+      listening: 'Listening',
+      thinking: 'Thinking',
+      bringing: 'Bringing it to you',
+      speaking: 'Speaking',
+      tryAgain: 'Try again',
+      preparing: 'One moment',
+      micOff: 'Microphone off',
+    },
     ready: 'Speak when you are ready.',
-    preparing: 'One moment — the microphone, if you will allow it.',
-    listening: 'Listening.',
+    preparing: 'The microphone, if you will allow it.',
+    listening: 'I am listening.',
     thinking: 'A moment.',
     executing: 'Bringing it to you.',
     speaking: 'Speaking.',
     answering: 'Answering.',
     result: 'Here you are.',
-    stop: 'Stop listening',
+    stop: 'Rest the microphone',
     start: 'Speak to the concierge',
     tapToInterrupt: 'Tap to interrupt',
+    speakingInterruptible: 'Speaking — tap the ring, or simply speak, to interrupt.',
     hearing: 'A moment — hearing you.',
-    hearingUnavailable: 'Hearing is not available just now. You can write to me instead, or let me show you.',
+    hearingUnavailable: 'Hearing is not available just now.',
     /** A rung down from the best hearing this deployment offers — said in the visitor's words, never the engine's. */
-    listeningFallback: 'Listening — if I mishear, correct me or write to me.',
-    notQuite: 'Not quite?',
-    editHeard: 'Correct it',
-    retry: 'Once more',
-    couldNotHear: 'I could not hear that clearly. You can try once more or write to me.',
-    /** The visitor's own line in the exchange when the transcript did not come; the answer still does. */
+    listeningFallback: 'Listening — if I mishear, say it once more or write to me.',
+    couldNotHear: 'I did not catch that clearly.',
+    /** What is kept of a spoken line the transcript could not write; never shown to a visitor. */
     unheard: 'Not caught in writing.',
     interrupted: 'Go on — I am listening.',
     write: 'Write instead',
-    heardHeading: 'Heard',
     preparingLabel: 'Opening the microphone',
     deniedLabel: 'The microphone is switched off for this site',
-    unavailable: 'Speech is not offered in this browser. Let me show you instead.',
+    unavailable: 'Speech is not offered in this browser.',
+    /** The session ended on its own — the network, or a long silence. */
+    sessionEnded: 'The line went quiet.',
   },
   greeting: (hour: number) => `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}. I am the Waseem Concierge — ask about a piece, a collection or a private appointment.`,
   greetingAgain: 'Still here. What would you like to see?',
   thanks: 'A pleasure.',
   close: 'Until next time.',
-  help: 'I can bring pieces to you, open a collection, keep a piece in your selection, or book you a viewing.',
+  help: 'I can bring pieces to you, open a collection, set two side by side, or book you a viewing.',
   unknown: 'I may have missed that. I can show you pieces, open a collection or book an appointment.',
   outOfScope: 'That is outside what we make, I am afraid. I can help with pieces, collections and appointments.',
-  watches: 'We work in gold and diamond jewellery. I can show you pieces, or book a viewing at MM Alam Road.',
-  micDenied: 'Your microphone is switched off for this site. You can write to me instead, or let me show you.',
-  micNoAnswer: 'The microphone did not open. You can write to me instead, or let me show you.',
+  watches: 'We work in gold and diamond jewellery. I can show you pieces, or book a viewing at Liberty Market.',
+  micDenied: 'Your microphone is switched off for this site.',
+  micNoAnswer: 'The microphone did not open.',
   noSpeech: 'I did not catch that — once more, a little closer.',
   /**
- * Said once, and only once, and only when it is true.
- *
- * No browser on most platforms carries an Urdu or Punjabi voice. Reading the reply aloud in
- * English anyway would be confident nonsense; saying nothing at all would look like a
- * fault. Naming it plainly and continuing in writing is what a person would do.
- */
+   * Said once, and only once, and only when it is true.
+   *
+   * No browser on most platforms carries an Urdu or Punjabi voice. Reading the reply aloud in
+   * English anyway would be confident nonsense; saying nothing at all would look like a
+   * fault. Naming it plainly and continuing in writing is what a person would do.
+   */
   noVoiceForLanguage: 'I have no voice for this language in your browser — I will write instead.',
   error: 'Forgive me — shall we try that once more?',
   errorLink: 'once more',
   house: 'Waseem Jewellers was founded in Lahore in 1952 by Chaudhry Muhammad Afzal, and receives visitors today at three showrooms across the city.',
-  showrooms: 'Three showrooms in Lahore — MM Alam Road, Liberty Market and DHA — open from noon until half past nine.',
+  showrooms: 'Three showrooms in Lahore — Liberty Market, MM Alam Road and DHA — open from noon until half past nine.',
   collections: 'Five worlds — Rukh-e-Jana, Aks-e-Noor, Rang-e-Jamal, Dewan and Royal Wedding. Say a name and I will take you there.',
   bridal: 'Bridal. Take your time — I am here if a piece speaks to you.',
   diamond: 'Diamond — bracelets, pendants, earrings, rings and nose pins set in gold. Shall I open one?',
   gold: 'Gold — pendants, chains, bracelets, bangles and rings, mostly twenty-one karat. Shall I open one?',
   traditional: 'For a traditional hand I would begin with polki and kundan — these are closest to how our jewellers have always worked.',
-  consultation: 'With pleasure. Choose a showroom and a time that suits you — MM Alam Road, Liberty or DHA.',
+  consultation: 'With pleasure. Choose a showroom and a time that suits you — Liberty Market, MM Alam Road or DHA.',
   /**
    * Below the confidence floor the engine asks rather than acts. It names both readings, so
    * the visitor answers a question instead of correcting a mistake — and no piece opens that
@@ -100,11 +122,10 @@ export const CONCIERGE = {
   consultationKnown: (code: string) => `Your reference is ${code}. I can arrange a further viewing whenever you wish.`,
   priceOnRequest: 'This piece is priced on request — we share full details when you visit, and I can book a time.',
   priceKnown: (label: string, karat?: string) => `This piece is ${label}${karat ? `, in ${karat}` : ''}. Shall I arrange a viewing?`,
-  saved: 'Kept in your selection. It will be here when you return.',
-  alreadySaved: 'That one is already in your selection.',
-  removed: 'Removed from your selection.',
+  /** Saving is not offered on this build; the intent is answered with what is. */
+  savingNotOffered: 'Saving pieces is not offered here. I can set two side by side for you, or prepare a viewing.',
+  selectionNotOffered: 'There is no saved selection here — tell me what you are looking for and I will bring it, or I can prepare a viewing.',
   whichPiece: 'Which piece would you like? I can bring the bridal pieces first.',
-  whichPieceToSave: 'Which piece shall I keep for you? Open one, or tell me its name.',
   whichPieceSimilar: 'Show me the piece you have in mind and I will find its company.',
   opened: (name: string) => `Here it is — the ${name}.`,
   similar: 'Four pieces in the same spirit — the same stones, a different hand.',
@@ -114,12 +135,12 @@ export const CONCIERGE = {
     houses.length > 1
       ? `${count} ${what}, drawn from ${houses.slice(0, -1).join(', ')} and ${houses[houses.length - 1]}. Tell me which one draws you.`
       : `${count} ${what}. Tell me which one draws you.`,
-  nothing: 'Nothing quite like that in the collection today. Shall I show you the bridal pieces instead?',
-  wishlistEmpty: 'Your selection is empty for now. Say "keep this" when a piece speaks to you.',
-  wishlist: (count: number, n: string) => (count === 1 ? 'One piece so far. Shall I open it, or arrange a viewing?' : `${n} pieces so far. Shall I open one, or arrange a viewing for them?`),
+  nothing: 'Nothing quite like that in the collection today. I can show you nearby pieces, or the bridal pieces instead.',
+  /** The nearby search, said back: what was kept of the request. */
+  nearby: (what: string) => `Nearby — ${what}, with the other conditions set aside.`,
+  nearbyNothing: 'Nothing nearby either. Tell me the kind of piece, and I will begin from there.',
   tellAbout: (name: string, lede: string) => `The ${name}: ${lede.charAt(0).toLowerCase()}${lede.slice(1)} Weight, purity and stones are confirmed by our jewellers when you see it in the showroom.`,
   tellAboutSpecs: (name: string, lede: string, specs: string) => `The ${name}: ${lede.charAt(0).toLowerCase()}${lede.slice(1)} ${specs}`,
-  selectionIntro: (names: string[]) => `Your selection holds ${names.join(', ')}. Shall I arrange a viewing for them?`,
   labels: {
     searching: (what: string) => `Exploring ${what}…`,
     found: (count: string, what: string) => `${count} ${what}`,
@@ -149,14 +170,6 @@ export const CONCIERGE = {
     cleared: 'Filters cleared',
     price: 'Checking what is published…',
     priceOnRequest: 'Price on request',
-    keeping: 'Keeping this piece…',
-    kept: 'Saved to your selection',
-    alreadyKept: 'Already in your selection',
-    removing: 'Setting it aside…',
-    removed: 'Removed from your selection',
-    selection: 'Your selection…',
-    selectionDone: (count: number, n: string) => (count === 1 ? 'Your selection · one piece' : `Your selection · ${n} pieces`),
-    selectionEmpty: 'Your selection is empty',
     consultation: 'Opening the appointment form…',
     consultationDone: 'Appointment form',
     compare: 'Setting them side by side…',

@@ -24,7 +24,7 @@ As the production build reports them (alongside Next's own `/_global-error`):
 
 | Route | Kind | Renders |
 |---|---|---|
-| `/` | Static | `Home` — fifteen chapters in one continuous scroll, in the order a shop is walked: the hero (the name, the five departments as doors, the worn piece, the concierge line — no counts), the window by kind (the category system, from `repository.showcase()`), the craft (the emerald study, universal), the study (drawing → photograph → second angle, pinned), the gate (Gold and Diamond in one frame), Gold, the goldwork (from the work to the piece, pinned), Diamond, one suite in one light (pinned), Bridal (from behind velvet), the signature collections, Men and Kids, since 1952 (the showrooms), Bespoke (the parted pair, pinned), the concierge invitation; the loading ritual (CH00) and the footer mount in `Providers`. Section ids: hero, vitrine, craft, study, gate, gold, goldwork, diamond, light, bridal, collections, menkids, heritage, bespoke, invitation, footer |
+| `/` | Static | `Home` — fourteen chapters in one continuous scroll, in the order a shop is walked: the hero (the authentic lockup, *Lahore · since 1952*, the name, one proposition, the five departments as doors — no counts), the window by kind (the category system, from `repository.showcase()`), the craft (the emerald study, universal), the bangle (one set of bangles turned in the hand: profile → surface → rhythm → inside → the complete set, pinned), the gate (Gold and Diamond in one frame, with a draggable handle), Gold, the goldwork (from the work to the piece, pinned), Diamond, one suite in one light (pinned), Bridal (from behind velvet), the signature collections, Men and Kids, since 1952 (the showrooms), Bespoke (the parted pair, pinned); the loading ritual (CH00) and the footer mount in `Providers`. Gold, Diamond, Bridal, Men and Kids and the history are server-rendered in full and hydrated on approach (`lazyChapter`). Section ids: hero, vitrine, craft, bangle, gate, gold, goldwork, diamond, light, bridal, collections, menkids, heritage, bespoke, footer |
 | `/_not-found` | Static | `src/app/not-found.tsx` — two links back into the site |
 | `/collections/[slug]` → `/collections/bridal` | SSG | `CollectionExperience` for the one collection in `src/data/collections.ts` |
 | `/jewellery/[slug]` → ten paths | SSG | `ProductExperience` for each of the ten products |
@@ -68,10 +68,10 @@ ritual can choose their path before hydration.
    gem and the concierge orb keep a loop of their own, and only while they are mounted.
 5. **`RuntimeBridge`** — publishes the App Router instance into the imperative runtime registry.
 6. **`RouteTracker`** (inside `Suspense`, because it reads `useSearchParams`) — publishes the route.
-7. **`StoreHydrator`** — rehydrates the persisted selection after mount so SSR and client markup agree.
+7. **`StorageSweeper`** — clears what earlier builds kept in the browser (the selection ledger's `wj:selection:v1`/`v2`); nothing in the site store is persisted.
 8. **`#page-root`** — the routed tree.
 9. **Persistent chrome, mounted once outside the routed tree**: `Footer`, `TransitionLayer`, `Nav`,
-   `MenuOverlay`, `ConciergeRoot`, `SelectionLedger`, `ConsultationModal`, `Loader`, `CursorLayer`.
+   `MenuOverlay`, `ConciergeRoot`, `ConsultationModal`, `Loader`, `CursorLayer`.
    These survive navigation, which is what allows the curtain and FLIP transitions to span routes.
 
 A single effect in `Providers` sets `history.scrollRestoration = 'manual'`, configures ScrollTrigger
@@ -85,15 +85,16 @@ store: non-serialisable handles and hot, per-frame data.
 
 ### `siteStore.ts`
 
-Persisted under `wj:selection:v1` with `skipHydration: true`; `partialize` writes **only** `wishlist`.
-Everything else is session state.
+Nothing is persisted. The saved selection — Save piece, the ledger, the count in the nav, the
+`persist` middleware and its `wj:selection` storage — is gone; `StorageSweeper` removes a returning
+visitor's old record. Everything is session state.
 
 | Field group | Fields |
 |---|---|
 | Route | `route`, `pathname`, `search`, `routeKind` (`home`/`collection`/`product`/`other`), `navEpoch` |
 | Position | `section` (the current `SectionId`), `currentProduct`, `focusedProduct`, `visibleProducts`, `selectedCollection`, `selectedWorld` |
-| Selection | `wishlist`, `lastOpenedProduct` |
-| Chrome | `menuOpen`, `ledgerOpen`, `consultation` (`{ open, topic, productSlug(s), source }`) |
+| Last piece | `lastOpenedProduct` |
+| Chrome | `menuOpen`, `consultation` (`{ open, topic, productSlug(s), source }`) |
 | One-shot requests | `spotlight` (`{ slug, token }`), `pendingSection`, `pendingSpotlight`, `dualityBias` |
 | Environment | `videoPaused`, `heroInvitationVisible`, `loaderDone`, `hydrated` |
 
@@ -132,7 +133,7 @@ back/forward or deep-link arrival instead of replaying.
 Every chapter registers through `useChapter({ id, theme, pinned })`. One `IntersectionObserver` plus a
 passive scroll listener schedule a rAF pass; the current section is the one whose rect contains the
 viewport centre-line, with pinned entries winning ties. The winner is written to `siteStore.section`
-and its theme mirrored onto `<html data-theme>` for the chrome. Below the page root the fixed footer
+and its theme mirrored onto the chrome's `[data-chrome]` wrappers (never `<html>`: a root-level token change re-propagates to every node — see PERFORMANCE_BUDGET, S2I). Below the page root the fixed footer
 takes over. `sectionsReady()` resolves once every registered section has reported its pins ready —
 `Home`'s pending-section effect, `CollectionExperience` and the transition layer each race it against
 a short timeout before scrolling, so an arrival lands after the pins exist. `SECTION_LABELS` gives
@@ -161,7 +162,7 @@ generated asset map. Adding a piece or a collection is a data edit, not a compon
 | `heritage.ts` | The five moments of CH03, from 1952 to the three showrooms |
 | `menu.ts` | The six full-screen navigation items; each `target` exists in Stage 1 |
 | `site.ts` | House facts as published: founder, successor, three Lahore showrooms, hours, phone, WhatsApp, email, socials, plus `whatsappHref(text)` |
-| `copy.ts` | Consumer-facing copy: the homepage chapters, the consultation form and the ledger |
+| `copy.ts` | Consumer-facing copy: the homepage chapters, the product page, the footer and the consultation form |
 | `search.ts` | `searchCatalogue()` (structured query, synonym expansion, scoring, featured-rank tiebreak), `similarTo()` (world → material → category → shared tags), `findByName()` (distinctive-word matching for spoken and typed names) |
 | `generated/asset-map.ts` | Written by the asset pipeline; `IMAGES` and `VIDEOS` as `const satisfies` records, with the `ImageId` / `VideoId` types derived from them |
 | `index.ts` | The single import surface: `getProduct`, `getCollection`, `getImage`, `getVideo`, `productsBySlugs`, and `assertCatalogue()` |
@@ -258,7 +259,7 @@ src/
     chrome/               Nav, MenuOverlay, Monogram, Footer (CH10)
     collection/           CollectionExperience, CollectionOpening, StoryBlocks, IndexView
     product/              ProductExperience, Gallery, InfoColumn, InspectImage, WornTogetherRail
-    commerce/             SelectionLedger, ConsultationModal, SaveButton, PieceLink
+    commerce/             ConsultationModal, PieceLink
     media/                Img, Video
     motion/               SmoothScroll, TransitionLayer, TransitionLink, CursorLayer, Arrive
     three/craft/          CraftScene
@@ -327,7 +328,7 @@ headless Edge or Chromium with SwiftShader enabled; the `.js` files are expressi
 |---|---|
 | `shot.mjs` | Loads a URL, collects console and page errors, scrolls with real wheel events so Lenis and ScrollTrigger behave as they do for a visitor, and writes screenshots. Flags: `--out --w --h --steps --to --wait --mobile --reduced --full --click --eval --tag --hover` |
 | `eval.mjs` | Loads a URL, scrolls to a given Y, evaluates one expression and prints the result |
-| `concierge-matrix.mjs` | Drives the keyless concierge through a matrix of commands on each route kind and reports the reply, tool labels, navigation, scroll, tray, ledger and consultation for each |
+| `concierge-matrix.mjs` | Drives the keyless concierge through a matrix of commands on each route kind and reports the reply, tool labels, navigation, scroll, tray and consultation for each |
 | `cycle-probe.js` | Opens and closes the concierge twenty times and compares ScrollTrigger, tween, ticker and canvas counts before and after — the leak check |
 | `probe-reveals.js` | Reports the computed clip-path, visibility and geometry of the first reveals and split-text elements |
 | `reduced-probe.js` | Under `REDUCED`, reports the tier, trigger and pin counts, the heritage track transform, the worlds clip-path and video paused state |

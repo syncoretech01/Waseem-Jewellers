@@ -4,16 +4,14 @@
 
   Structure is shared — one gutter, one content width, one twelve-column grid, one gap, one
   caption offset — and variation is authored: three card scales, one composition per tray,
-  one named lift. Nothing is offset with a negative margin.
+  one named lift. Nothing is offset with a negative margin, except the phone's rail, which
+  scrolls edge to edge with the gutter folded inside it as padding.
 */
 
 @layer components {
   /* ── the layout discipline ─────────────────────────────────────────────── */
   :root {
-    /* the measured width every chapter's content sits within; the gutter is outside it. The
-       chapters of the card pass carry .wj-content; the nav, the footer, the menu and the pinned
-       chapters do not yet, and a cap on half a page misaligns the other half on a wide monitor —
-       so the cap is `none` until every surface carries the wrapper, and 1600px then. */
+    /* the measured width every chapter's content sits within; the gutter is outside it */
     --content-max: 1600px;
     /* the one column gap — 24px at 1440, never under 16 */
     --gap: clamp(1rem, 1.667vw, 1.5rem);
@@ -22,11 +20,17 @@
     /* the space a chapter keeps above and below itself, and between its title block and its tray */
     --chapter-y: clamp(4.5rem, 12svh, 8rem);
     --block-y: clamp(2.5rem, 8svh, 5rem);
+    /* a chapter's padding above its first line: the chapter's own space, and never less than the
+       clearance beneath the fixed header (--chapter-top, globals.css) — so a chapter scrolled to
+       its top on a short phone keeps its first line out from behind the nav */
+    --chapter-pt: max(var(--chapter-y), var(--chapter-top));
     /* the caption's distance beneath its plate, and the height every caption is given so a row's plates share a baseline */
     --caption-gap: 0.875rem;
     --caption-h: 4rem;
     /* the one editorial offset a composition may use, at most once */
     --lift: 6svh;
+    /* the fade a phone's rail draws over its trailing edge while there is more to scroll */
+    --rail-fade: 3.25rem;
   }
 
   /* the content box: gutter outside, a shared maximum inside */
@@ -62,6 +66,8 @@
     --packshot-inset: 12%;
     --card-name: 1rem;
     --card-opsz: 14;
+    /* the caption measures its own column, so a narrow card can set its tag on two lines */
+    container-type: inline-size;
   }
   [data-card="hero"] {
     --packshot-inset: 10%;
@@ -130,6 +136,47 @@
     line-height: 1.2;
     font-variation-settings: "opsz" var(--card-opsz);
     color: currentColor;
+    text-wrap: balance;
+  }
+  /* the tag is a row of facts — purity, weight, carat, the reference — each one word that never
+     breaks inside itself ("9.29 g" is one word), joined by the house's middle dot on a card wide
+     enough to hold them on one line … */
+  .wj-caption-tag {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.4em;
+    row-gap: 0;
+    line-height: 1.7;
+  }
+  .wj-caption-part,
+  .wj-caption-ref {
+    white-space: nowrap;
+  }
+  .wj-caption-part + .wj-caption-part::before,
+  .wj-caption-ref::before {
+    content: "·";
+    margin-inline-end: 0.4em;
+  }
+  /* … on a card too narrow for the whole line (a tray's pair beside the hero at 1440, a tablet's
+     third) the reference takes a line of its own beneath the facts, with no dot before it — a
+     composed second line, never a wrap with a dot dangling at a line's end … */
+  @container (max-width: 18rem) {
+    .wj-caption-ref {
+      flex-basis: 100%;
+    }
+    .wj-caption-ref::before {
+      content: none;
+    }
+  }
+  /* … and on a card too narrow even for the facts (a phone's pair, a small laptop's) they are set
+     as a small table, spaced apart with no dots at all */
+  @container (max-width: 12rem) {
+    .wj-caption-tag {
+      column-gap: 0.9em;
+    }
+    .wj-caption-part + .wj-caption-part::before {
+      content: none;
+    }
   }
   .group\/piece:hover .wj-caption-tag,
   .group\/piece:focus-visible .wj-caption-tag {
@@ -140,7 +187,8 @@
    Twelve columns, two rows. The HERO stands in columns 1–6 across both rows and fills the height
    the other four give it; two EDITORIAL plates stand beside it in the first row, two STANDARD
    plates beneath them in the second, so every plate's bottom edge and every caption share a
-   line. The reverse variant mirrors it. On a phone: two columns, the hero across both. */
+   line. The reverse variant mirrors it. On a phone: two columns, the hero across both, then the
+   editorial pair, then the standard pair — the same five pieces, the same order, one hero. */
   .wj-cluster {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -196,6 +244,26 @@
     }
   }
 
+  /* ── the index: a department's pieces, two columns on a phone and three from md ──────────
+   The same cards as the trays (EDITORIAL in the columns, HERO for the promoted piece), the
+   same gap, so a department page and the homepage read as one shop. */
+  .wj-index {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--gap);
+    row-gap: clamp(2rem, 5svh, 3.5rem);
+    align-items: start;
+  }
+  @media (min-width: 768px) {
+    .wj-index {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      row-gap: clamp(3rem, 7svh, 5rem);
+    }
+  }
+  .wj-index > [data-wide] {
+    grid-column: 1 / -1;
+  }
+
   /* ── the window by kind: one plate, and a rail of kinds ───────────────────
    The active kind's packshot is one of several layers stacked on one pearl plate; only opacity
    moves, and only here — the layers carry no transform, so the plate's hover scale on the
@@ -209,13 +277,52 @@
   .wj-kind-layer[data-active="1"] {
     opacity: 1;
   }
-  /* the rail: a column of kinds from md; a row that scrolls on a phone */
+
+  /* the rail's frame: on a phone it draws a fade over whichever edge has more to scroll — the
+     chapter's own paper or ink, so nothing is clipped, only softened — and none once the end is
+     reached, so the last kind stands whole. From md the rail is a column and the frame is nothing. */
+  .wj-rail-wrap {
+    position: relative;
+  }
+  .wj-rail-wrap::before,
+  .wj-rail-wrap::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: var(--rail-fade);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 400ms var(--ease-silk);
+    z-index: 1;
+  }
+  .wj-rail-wrap::before {
+    left: calc(-1 * var(--spacing-gutter));
+    background: linear-gradient(90deg, var(--bg), transparent);
+  }
+  .wj-rail-wrap::after {
+    right: calc(-1 * var(--spacing-gutter));
+    background: linear-gradient(270deg, var(--bg), transparent);
+  }
+  .wj-rail-wrap[data-start="0"]::before,
+  .wj-rail-wrap[data-end="0"]::after {
+    opacity: 1;
+  }
+
+  /* the rail: a row that scrolls on a phone, edge to edge — the gutter is inside it as padding, so
+     the first kind lines up with the chapter's left edge and the last has the gutter after it; a
+     column of kinds from md */
   .wj-rail {
     display: flex;
-    gap: 0;
+    gap: 1.5rem;
+    margin-inline: calc(-1 * var(--spacing-gutter));
+    padding-inline: var(--spacing-gutter);
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     scroll-snap-type: x proximity;
+    scroll-padding-inline: var(--spacing-gutter);
   }
   .wj-rail::-webkit-scrollbar {
     display: none;
@@ -225,8 +332,15 @@
     scroll-snap-align: start;
   }
   @media (min-width: 768px) {
+    .wj-rail-wrap::before,
+    .wj-rail-wrap::after {
+      display: none;
+    }
     .wj-rail {
       flex-direction: column;
+      gap: 0;
+      margin-inline: 0;
+      padding-inline: 0;
       overflow: visible;
       scroll-snap-type: none;
     }
@@ -234,7 +348,8 @@
       flex: initial;
     }
   }
-  /* a rail item: the kind's name, a hairline that draws beneath the active one, and Explore beside it */
+  /* a rail item: the kind's name, a hairline that draws beneath the active one, and Explore beside it.
+     On a phone it is a touch target first — 48px tall, the name centred in it */
   .wj-rail-item {
     position: relative;
     display: flex;
@@ -242,8 +357,8 @@
     justify-content: space-between;
     gap: 1.5rem;
     width: 100%;
-    padding-block: 0.625rem;
-    padding-inline-end: 1.25rem;
+    min-height: 3rem;
+    padding-block: 0.75rem;
     color: currentColor;
     transition: opacity 500ms var(--ease-silk);
     opacity: 0.58;
@@ -287,7 +402,8 @@
   }
   @media (min-width: 768px) {
     .wj-rail-item {
-      padding-inline-end: 0;
+      min-height: 0;
+      padding-block: 0.625rem;
       border-bottom: 1px solid
         color-mix(in oklab, currentColor 10%, transparent);
     }
@@ -300,12 +416,45 @@
     color: var(--color-gold-deep);
   }
 
+  /* ── the kinds of a department: a list of doors beneath its tray ──────────
+   Two columns of hairline rows on a phone (seven kinds in four rows, not seven screens of
+   list), one column from md with the arrow that answers a hand. */
+  .wj-kinds {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--gap);
+    border-top: 1px solid color-mix(in oklab, currentColor 10%, transparent);
+  }
+  .wj-kinds > li {
+    border-bottom: 1px solid color-mix(in oklab, currentColor 10%, transparent);
+  }
+  @media (min-width: 768px) {
+    .wj-kinds {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* ── a touch target that is larger than the words it wraps ───────────────
+   A text control on a phone keeps its line but answers a finger 44px tall: the hit area is
+   drawn beneath it, never laid out. */
+  .wj-hit {
+    position: relative;
+  }
+  .wj-hit::before {
+    content: "";
+    position: absolute;
+    inset-block: -0.625rem;
+    inset-inline: -0.375rem;
+  }
+
   /* ── the one thing that stops ─────────────────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
     .wj-kind-layer,
     .wj-rail-item,
     .wj-rail-item > .wj-rail-name::after,
     .wj-rail-item > .wj-rail-go,
+    .wj-rail-wrap::before,
+    .wj-rail-wrap::after,
     .wj-caption-kind,
     .wj-caption-tag {
       transition: none;
@@ -314,7 +463,9 @@
   html[data-rm="1"] .wj-kind-layer,
   html[data-rm="1"] .wj-rail-item,
   html[data-rm="1"] .wj-rail-item > .wj-rail-name::after,
-  html[data-rm="1"] .wj-rail-item > .wj-rail-go {
+  html[data-rm="1"] .wj-rail-item > .wj-rail-go,
+  html[data-rm="1"] .wj-rail-wrap::before,
+  html[data-rm="1"] .wj-rail-wrap::after {
     transition: none;
   }
 }

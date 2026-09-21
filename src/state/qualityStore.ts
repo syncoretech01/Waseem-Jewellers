@@ -9,11 +9,20 @@ interface QualityState {
   saveData: boolean;
   webgl: boolean;
   renderer: string;
+  premium: boolean;
+  weak: boolean;
   detected: boolean;
-  detect: () => void;
+  /** Resolve the tier. Runs once; `force` re-runs it (used when reduced motion is turned off). */
+  detect: (force?: boolean) => void;
   setReducedMotion: (value: boolean) => void;
   /** One step down, from the frame-rate monitor. Never up, never past LOW, never from REDUCED. */
   demote: (to: 'MEDIUM' | 'LOW', measuredFps: number) => void;
+  /**
+   * The step below LOW: WebGL is withheld, so the craft chapter lets its object go and shows
+   * the still of the same object. For a phone that is already LOW and still cannot hold a
+   * frame — the visitor gets the prerendered chapter rather than a stuttering live one.
+   */
+  demoteToStill: (measuredFps: number) => void;
   /** The tier the device was detected at, kept so a demotion can be seen for what it is. */
   detectedTier: Tier | 'unresolved';
   /** The FPS that caused a demotion, or null. For the dev inspector and for honesty in the budget. */
@@ -28,18 +37,27 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
   saveData: false,
   webgl: false,
   renderer: '',
+  premium: false,
+  weak: false,
   detected: false,
   detectedTier: 'unresolved',
   demotedAtFps: null,
-  detect: () => {
+  detect: (force = false) => {
     if (typeof window === 'undefined') return;
+    // once: the probe creates a WebGL context, and a second detection would undo a demotion
+    if (get().detected && !force) return;
     const q = detectQuality();
     set({
       ...q,
       detected: true,
       detectedTier: q.tier,
+      demotedAtFps: null,
     });
-    document.documentElement.setAttribute('data-tier', q.tier.toLowerCase());
+    const html = document.documentElement;
+    html.setAttribute('data-tier', q.tier.toLowerCase());
+    html.removeAttribute('data-demoted');
+    if (q.weak) html.setAttribute('data-weak', '1');
+    if (q.premium) html.setAttribute('data-premium', '1');
   },
   /**
    * The same cascade a detection produces, so nothing downstream needs to know it was a
@@ -60,13 +78,20 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
     document.documentElement.setAttribute('data-tier', to.toLowerCase());
     document.documentElement.setAttribute('data-demoted', String(measuredFps));
   },
+  demoteToStill: (measuredFps) => {
+    const current = get();
+    if (current.tier !== 'LOW' || !current.webgl) return;
+    set({ webgl: false, dprCap: 1, demotedAtFps: measuredFps });
+    document.documentElement.setAttribute('data-demoted', String(measuredFps));
+    document.documentElement.setAttribute('data-still', '1');
+  },
   setReducedMotion: (value) => {
     const current = get();
     if (value) {
       set({ reducedMotion: true, tier: 'REDUCED', dprCap: 1 });
       document.documentElement.setAttribute('data-tier', 'reduced');
     } else if (current.tier === 'REDUCED') {
-      current.detect();
+      current.detect(true);
     }
   },
 }));

@@ -12,7 +12,7 @@ interface Inspector {
   tickerFns: () => number;
   gl: () => unknown;
   glInfo: unknown[];
-  site: () => { ledgerOpen: boolean; consultationOpen: boolean; wishlist: string[]; focusedProduct: string | null; pendingSection: string | null; pendingSpotlight: string | null; section: string | null };
+  site: () => { consultationOpen: boolean; focusedProduct: string | null; pendingSection: string | null; pendingSpotlight: string | null; section: string | null };
   closeOverlays: () => void;
 }
 
@@ -37,12 +37,11 @@ export function installDevInspector() {
     gsap,
     site: () => {
       const s = useSiteStore.getState();
-      return { ledgerOpen: s.ledgerOpen, consultationOpen: s.consultation.open, wishlist: s.wishlist, focusedProduct: s.focusedProduct, pendingSection: s.pendingSection, pendingSpotlight: s.pendingSpotlight, section: s.section };
+      return { consultationOpen: s.consultation.open, focusedProduct: s.focusedProduct, pendingSection: s.pendingSection, pendingSpotlight: s.pendingSpotlight, section: s.section };
     },
     closeOverlays: () => {
       const s = useSiteStore.getState();
       s.closeConsultation();
-      s.closeLedger();
       s.closeMenu();
     },
   };

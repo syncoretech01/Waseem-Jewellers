@@ -30,7 +30,8 @@ export function Button(props: ButtonProps) {
   const base = cn(
     'group/btn relative inline-flex items-center gap-3 select-none whitespace-nowrap',
     'font-sans uppercase tracking-[0.22em]',
-    size === 'sm' ? 'text-[0.6875rem] py-2' : 'text-[0.75rem] py-3',
+    // a finger's target: the house button is never shorter than 44px at its full size
+    size === 'sm' ? 'text-[0.6875rem] py-2' : 'min-h-11 text-[0.75rem] py-3',
     'transition-colors duration-500 ease-[var(--ease-silk)]',
     'text-fg hover:text-fg focus-visible:outline-none focus-visible:text-accent',
     className,

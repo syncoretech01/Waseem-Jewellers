@@ -26,7 +26,7 @@ export function Ch04Diamond({ department }: { department?: ShowcaseDepartment })
   if (!department) return null;
 
   return (
-    <section ref={ref} id="ch04-diamond" className="relative bg-ink px-gutter py-[var(--chapter-y)] text-ivory" aria-labelledby="diamond-title">
+    <section ref={ref} id="ch04-diamond" className="relative bg-ink px-gutter pt-[var(--chapter-pt)] pb-[var(--chapter-y)] text-ivory" aria-labelledby="diamond-title">
       <div ref={scope} className="wj-content">
         <DepartmentRow department={department} copy={COPY.departments.diamond} href="/diamond" tone="ivory" reverse titleId="diamond-title" kindsHeading={COPY.departments.kinds} />
       </div>

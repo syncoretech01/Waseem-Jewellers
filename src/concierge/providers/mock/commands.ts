@@ -1,5 +1,5 @@
 import { WORLDS } from '@/data/worlds';
-import { byName, getRow, getRows, similarRows, describeRow, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { byName, getRow, similarRows, describeRow, priceLabelOf, specLineOf } from '@/data/clientIndex';
 import { countInWords, capitalise } from '@/lib/format';
 import { CONCIERGE } from '../../copy';
 import { ordinalFromWord, resolveOrdinal } from '../../ordinals';
@@ -99,8 +99,8 @@ export function extract(t: string): Entities {
 // ── replies helpers ───────────────────────────────────────────────────────────
 
 function firstPieces(outcomes: ToolOutcome[]) {
-  const o = outcomes.find((x) => x.ui?.kind === 'pieces' || x.ui?.kind === 'wishlist');
-  return o?.ui && (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist') ? o.ui.pieces : [];
+  const o = outcomes.find((x) => x.ui?.kind === 'pieces');
+  return o?.ui && o.ui.kind === 'pieces' ? o.ui.pieces : [];
 }
 
 function searchReply(outcomes: ToolOutcome[], what: string) {
@@ -190,36 +190,20 @@ export const COMMANDS: Command[] = [
       };
     },
   },
+  /**
+   * Saving is not offered on this build. The three wishlist commands stay recognised so the
+   * sentence is answered with what the concierge can do — never with silence or a search
+   * that was not asked for.
+   */
   {
-    id: 'wishlist_open',
-    test: (t) => /\b(my (selection|wishlist|saved|favou?rites|pieces|list)|what (have|did) i (save|keep)|show .*selection|in my selection)\b/.test(t),
-    plan: () => ({
-      id: 'wishlist_open',
-      tools: [{ name: 'openWishlist', args: {} }],
-      reply: (o) => {
-        const pieces = firstPieces(o);
-        if (pieces.length === 0) return CONCIERGE.wishlistEmpty;
-        return CONCIERGE.wishlist(pieces.length, capitalise(countInWords(pieces.length)));
-      },
-    }),
+    id: 'selection_not_offered',
+    test: (t) => /\b(my (selection|wishlist|saved|favou?rites|list)|what (have|did) i (save|keep)|show .*selection|in my selection)\b/.test(t),
+    plan: () => ({ id: 'selection_not_offered', tools: [], reply: () => CONCIERGE.selectionNotOffered }),
   },
   {
-    id: 'wishlist_remove',
-    test: (t) => /\b(remove|unsave|delete|take .*out|set .*aside|hata\w*|nikal\w*)\b/.test(t),
-    plan: (_t, e, ctx) => ({ id: 'wishlist_remove', tools: [{ name: 'removeFromWishlist', args: e.ordinal !== null && resolveOrdinal(e.ordinal, ctx)?.kind === 'product' ? { slug: resolveOrdinal(e.ordinal, ctx)!.slug } : {} }], reply: (o) => (o[0]?.label ? CONCIERGE.removed : CONCIERGE.whichPieceToSave) }),
-  },
-  {
-    id: 'wishlist_save',
-    test: (t) => /\b(save|keep|shortlist|wishlist|remember|hold|i (like|love) (this|that|it)|add .*(selection|wishlist))\b/.test(t),
-    plan: (_t, e, ctx) => ({
-      id: 'wishlist_save',
-      tools: [{ name: 'saveToWishlist', args: e.ordinal !== null && resolveOrdinal(e.ordinal, ctx)?.kind === 'product' ? { slug: resolveOrdinal(e.ordinal, ctx)!.slug } : {} }],
-      reply: (o) => {
-        const out = o[0];
-        if (!out || out.label === '') return CONCIERGE.whichPieceToSave;
-        return (out.result as { already?: boolean }).already ? CONCIERGE.alreadySaved : CONCIERGE.saved;
-      },
-    }),
+    id: 'saving_not_offered',
+    test: (t, e) => !e.category && !e.material && /\b(save|keep|shortlist|wishlist|unsave|add .*(selection|wishlist)|remove .*(selection|wishlist))\b/.test(t),
+    plan: () => ({ id: 'saving_not_offered', tools: [], reply: () => CONCIERGE.savingNotOffered }),
   },
   {
     id: 'similar',
@@ -359,11 +343,6 @@ export function introFor(slug: string) {
   if (!p) return CONCIERGE.unknown;
   const specs = specsLine(slug);
   return specs ? CONCIERGE.tellAboutSpecs(p.t, describeRow(p), specs) : CONCIERGE.tellAbout(p.t, describeRow(p));
-}
-
-export function selectionIntro(slugs: string[]) {
-  const names = getRows(slugs).map((p) => p.t);
-  return names.length ? CONCIERGE.selectionIntro(names) : CONCIERGE.wishlistEmpty;
 }
 
 export { similarRows };

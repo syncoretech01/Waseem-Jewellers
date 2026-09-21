@@ -11,6 +11,7 @@ import { runtime, scrollTo, startScroll, stopScroll } from '@/state/runtime';
 import { sectionElement } from '@/state/sections';
 import { trapFocus } from '@/lib/focusTrap';
 import { MENU, MENU_ALL, MENU_SECONDARY, SITE } from '@/data';
+import { showroomsInOrder } from '@/data/heritage';
 import { EASE } from '@/lib/motion/easings';
 import { useQualityStore } from '@/state/qualityStore';
 import type { MenuItem } from '@/data/types';
@@ -217,7 +218,7 @@ export function MenuOverlay() {
 
             <motion.div className="mt-6 flex flex-col gap-6 text-[0.75rem] text-ivory/70 md:flex-row md:items-end md:justify-between" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.16, duration: 0.34 } }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>
               <div className="flex flex-col gap-1">
-                {SITE.showrooms.map((s) => (
+                {showroomsInOrder().map((s) => (
                   <span key={s.id}>{s.address}</span>
                 ))}
                 <span className="mt-2">

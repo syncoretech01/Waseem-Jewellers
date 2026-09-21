@@ -2,18 +2,17 @@
 
 import { registerVoiceEngine } from './engine';
 import { pulseSpeech, startMeter, stopMeter, stopSpeechEnvelope } from './meter';
-import { renderVoiceContext, withContext } from './realtimePrompt';
+import { NOISE_REDUCTION, REALTIME_TOOL_ALIASES, TURN_DETECTION, VOICE_INSTRUCTIONS, realtimeTools, renderVoiceContext, withContext } from './realtimePrompt';
 import type { VoiceAdapter, VoiceHandlers, VoiceSessionRuntime } from './adapters';
 import type { ToolName } from '../types';
 import { romaniseDevanagari } from '@/lib/romanise';
 import { stripBannedPhrases } from '../register';
-import { REALTIME_TOOL_ALIASES } from './realtimePrompt';
 import { CONCIERGE } from '../copy';
 
 /**
  * The realtime tier: one model that hears, understands and speaks.
  *
- * Everything the browser holds is a ten-minute client secret and a WebRTC call. The
+ * Everything the browser holds is a short-lived client secret and a WebRTC call. The
  * microphone track goes up; the voice comes back on a remote track; a data channel carries
  * the events. The permanent credential is minted against on the server and never seen here.
  *
@@ -22,6 +21,13 @@ import { CONCIERGE } from '../copy';
  * and a typed correction goes into the same conversation as the spoken sentences. The
  * concierge's state machine is driven through the same provider events every other engine
  * emits — the exchange, the tray, the voice stage cannot tell which engine is talking.
+ *
+ * **The call is opened before the visitor taps.** Measured on the deployment (21 September
+ * 2026): minting the secret took 1.0–2.3 s and the WebRTC handshake 3.7–4.4 s, so the first
+ * tap waited six seconds for "Listening". The call is now opened with an audio transceiver
+ * and no microphone the moment the voice stage is shown — nothing is heard, no permission is
+ * asked — and the tap only attaches the microphone track (`replaceTrack`, ~100 ms). The
+ * browser's microphone indicator lights on the tap, as a visitor expects.
  *
  * What it validates itself: every function call passes `executeTool`, which refuses an
  * unknown tool or a slug the catalogue does not carry, exactly as it would for the text model.
@@ -32,7 +38,7 @@ interface TokenResponse {
   token: string;
   model: string;
   voice: string;
-  instructions: string;
+  instructions?: string;
   callsUrl: string;
 }
 
@@ -45,21 +51,27 @@ interface PendingCall {
   callId: string;
   name: string;
   args: string;
+  /** The response the call arrived in; its `response.done` releases the continuation. */
+  responseId: string;
 }
 
-/** A small trace the QA harness reads; cheap enough to keep on. */
+/** The timeline the latency harness reads; cheap enough to keep on. */
 export interface TraceEntry {
   t: number;
   type: string;
   detail?: string;
 }
-const TRACE_MAX = 400;
+const TRACE_MAX = 600;
 
 let counter = 0;
 const uid = (p: string) => `${p}${Date.now().toString(36)}${(counter++).toString(36)}`;
 
 /** Ended by the visitor's silence: a muted session costs nothing but is torn down after this. */
 const IDLE_MS = 4 * 60_000;
+/** A call opened for a tap that never came is let go sooner. */
+const WARM_IDLE_MS = 3 * 60_000;
+/** A call that would not open is not asked for again this soon; the tap steps down the ladder instead. */
+const RETRY_AFTER_MS = 30_000;
 const CONTEXT_DEBOUNCE_MS = 700;
 
 export function realtimeSupported(): boolean {
@@ -83,11 +95,14 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private handlers: VoiceHandlers | null = null;
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
+  private sender: RTCRtpSender | null = null;
   private mic: MediaStream | null = null;
   private remote: HTMLAudioElement | null = null;
   private meterCtx: AudioContext | null = null;
   private meterRaf = 0;
   private live = false;
+  /** The microphone track is attached and enabled: the session hears the room. */
+  private hearing = false;
   private connecting: Promise<void> | null = null;
   /** Bumped by every teardown; a connect() that was cancelled mid-handshake sees it and lets go. */
   private generation = 0;
@@ -95,11 +110,14 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private rounds = 0;
   /** A sentence has been sent and no reply has finished for it yet. */
   private outstanding = false;
-  private baseInstructions = '';
+  private baseInstructions = VOICE_INSTRUCTIONS;
   private lastContext = '';
   private contextTimer: number | null = null;
   private idleTimer: number | null = null;
   private unsubscribe: (() => void)[] = [];
+  private lastError: { code: 'MIC_DENIED' | 'UNSUPPORTED' | 'NETWORK'; message: string } | null = null;
+  /** When the last attempt to open the call failed; a tap soon after steps down at once rather than waiting to fail the same way. */
+  private failedAt = 0;
 
   /** The conversation as the store sees it. */
   private turnId: string | null = null;
@@ -111,7 +129,11 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   /** A reply continued after an action joins the transcript with a space, not mid-word. */
   private joinReply = false;
   private pending = new Map<string, PendingCall>();
+  /** Calls answered whose response has not yet closed; the continuation waits for it. */
+  private answeredThisResponse = 0;
   private running = 0;
+  /** The response currently open on the server, so a continuation is never asked for while one is. */
+  private openResponseId: string | null = null;
   /** Bumped whenever the visitor moves on; an action still running finds it changed and stays out of the room. */
   private epoch = 0;
   private answered = new Set<string>();
@@ -128,39 +150,78 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     return this.live;
   }
 
+  /** The call is open before any tap: the tap only attaches the microphone. */
+  isWarm() {
+    return this.live;
+  }
+
+  /** The microphone is attached and enabled: the session hears the room. */
+  isHearing() {
+    return this.live && this.hearing;
+  }
+
   bind(runtime: VoiceSessionRuntime) {
     this.runtime = runtime;
   }
 
-  private note(type: string, detail?: string) {
+  note(type: string, detail?: string) {
     this.trace.push({ t: Date.now(), type, detail });
     if (this.trace.length > TRACE_MAX) this.trace.splice(0, this.trace.length - TRACE_MAX);
   }
 
   // ── lifecycle ───────────────────────────────────────────────────────────
-  async start(h: VoiceHandlers) {
-    this.handlers = h;
-    if (this.live) {
-      // a paused conversation resumes: same session, same context
-      this.setMicEnabled(true);
-      this.armIdle();
-      h.onStart();
-      return;
+  /**
+   * Open the call before the tap: the secret, the handshake and the data channel — nothing
+   * that needs a permission. Resolves true when the session is live. A failure is kept for
+   * the tap to report properly (the ladder steps down there), never surfaced from here.
+   */
+  async warm(): Promise<boolean> {
+    if (this.live) return true;
+    if (!this.runtime || !realtimeSupported()) return false;
+    if (!this.connecting) {
+      this.note('warm.start');
+      this.connecting = this.connect().finally(() => {
+        this.connecting = null;
+      });
     }
-    if (this.connecting) {
-      await this.connecting;
-      return;
-    }
-    this.connecting = this.connect(h).finally(() => {
-      this.connecting = null;
-    });
     await this.connecting;
+    return this.live;
   }
 
-  /** A tap while listening: the microphone rests, the conversation stays. */
+  async start(h: VoiceHandlers) {
+    this.handlers = h;
+    // inside the tap: the phone allows the remote voice to play only when a gesture asks first
+    void this.remote?.play().catch(() => undefined);
+    if (this.live) {
+      await this.attachMic(h);
+      return;
+    }
+    if (!this.connecting && this.lastError && Date.now() - this.failedAt < RETRY_AFTER_MS) {
+      h.onError(this.lastError);
+      return;
+    }
+    if (!this.connecting) {
+      this.connecting = this.connect().finally(() => {
+        this.connecting = null;
+      });
+    }
+    await this.connecting;
+    if (!this.live) {
+      h.onError(this.lastError ?? { code: 'NETWORK', message: 'connect' });
+      return;
+    }
+    await this.attachMic(h);
+  }
+
+  /**
+   * A tap while listening, "Write instead", or the panel closing: the microphone is released
+   * — the track stopped, its seat on the call left empty, the browser's indicator off — and
+   * the conversation stays open for a while, so the next tap is a re-attach, not a handshake.
+   */
   stop() {
     if (!this.live) return;
-    this.setMicEnabled(false);
+    this.restMic();
+    this.armIdle();
     this.handlers?.onEnd();
   }
 
@@ -183,10 +244,12 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private supersede(reason: string) {
     this.epoch += 1;
     this.pending.clear();
+    this.answeredThisResponse = 0;
     // audio still in the buffer after the response completed is cleared alone; a cancel then has nothing to cancel
     if (this.responseOpen || this.speaking) this.send({ type: 'output_audio_buffer.clear' });
     if (this.responseOpen) this.send({ type: 'response.cancel' });
     this.responseOpen = false;
+    this.openResponseId = null;
     if (this.speaking) {
       this.speaking = false;
       stopSpeechEnvelope();
@@ -208,28 +271,53 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     return true;
   }
 
-  private async connect(h: VoiceHandlers) {
+  /** The microphone, attached to the open call. Asked for here, inside the tap, never earlier. */
+  private async attachMic(h: VoiceHandlers) {
+    const gen = this.generation;
+    if (!this.mic) {
+      const tap = Date.now();
+      let mic: MediaStream;
+      try {
+        mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      } catch (e) {
+        const name = e instanceof Error ? e.name : '';
+        h.onError({ code: name === 'NotAllowedError' || name === 'SecurityError' ? 'MIC_DENIED' : 'UNSUPPORTED', message: name });
+        return;
+      }
+      if (gen !== this.generation || !this.live) {
+        mic.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.mic = mic;
+      this.note('mic.granted', `${Date.now() - tap} ms`);
+      const track = mic.getAudioTracks()[0] ?? null;
+      try {
+        if (this.sender) await this.sender.replaceTrack(track);
+        else if (this.pc && track) this.sender = this.pc.addTrack(track, mic);
+      } catch (e) {
+        this.note('mic.attach.failed', e instanceof Error ? e.message : 'replaceTrack');
+        h.onError({ code: 'NETWORK', message: 'attach' });
+        return;
+      }
+      void startMeter(mic, { own: false });
+    }
+    this.setMicEnabled(true);
+    this.hearing = true;
+    this.armIdle();
+    this.pushContext(true);
+    h.onStart();
+  }
+
+  private async connect() {
     if (!this.runtime) {
-      h.onError({ code: 'UNSUPPORTED', message: 'no runtime' });
+      this.lastError = { code: 'UNSUPPORTED', message: 'no runtime' };
       return;
     }
     // an abort during the handshake bumps the generation; every step below checks it and lets go
     const gen = ++this.generation;
     const cancelled = () => gen !== this.generation;
-    let mic: MediaStream;
-    try {
-      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    } catch (e) {
-      if (cancelled()) return;
-      const name = e instanceof Error ? e.name : '';
-      h.onError({ code: name === 'NotAllowedError' || name === 'SecurityError' ? 'MIC_DENIED' : 'UNSUPPORTED', message: name });
-      return;
-    }
-    if (cancelled()) {
-      mic.getTracks().forEach((t) => t.stop());
-      return;
-    }
-    this.mic = mic;
+    this.lastError = null;
+    const started = Date.now();
 
     let token: TokenResponse;
     try {
@@ -243,16 +331,17 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       token = (await res.json()) as TokenResponse;
     } catch (e) {
       if (cancelled()) return;
-      this.releaseMic();
-      h.onError({ code: 'UNSUPPORTED', message: e instanceof Error ? e.message : 'token' });
+      this.lastError = { code: 'UNSUPPORTED', message: e instanceof Error ? e.message : 'token' };
+      this.failedAt = Date.now();
+      this.note('token.failed', this.lastError.message);
       return;
     }
-    if (cancelled()) {
-      this.releaseMic();
-      return;
-    }
-    this.baseInstructions = token.instructions;
-    this.note('token', token.model);
+    if (cancelled()) return;
+    // the browser and the server share the module the instructions live in; the local copy is
+    // the one refreshed behind the context block, so a harness against an older deployment
+    // still speaks the current words
+    this.baseInstructions = VOICE_INSTRUCTIONS;
+    this.note('token', `${token.model} · ${Date.now() - started} ms`);
 
     try {
       const pc = new RTCPeerConnection();
@@ -268,8 +357,9 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         void remote.play().catch(() => undefined);
         this.meterRemote(stream);
       };
-      const track = mic.getAudioTracks()[0];
-      if (track) pc.addTrack(track, mic);
+      // the microphone comes later, inside the tap: the call is opened with an empty seat for it
+      const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+      this.sender = transceiver.sender;
       const dc = pc.createDataChannel('oai-events');
       this.dc = dc;
       dc.onmessage = (ev) => {
@@ -318,23 +408,36 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         return;
       }
       this.teardown('connect');
-      h.onError({ code: 'NETWORK', message: e instanceof Error ? e.message : 'connect' });
+      this.lastError = { code: 'NETWORK', message: e instanceof Error ? e.message : 'connect' };
+      this.failedAt = Date.now();
+      this.note('connect.failed', this.lastError.message);
       return;
     }
 
     this.live = true;
-    this.note('live');
+    this.note('live', `${Date.now() - started} ms`);
     this.unsubscribe.push(this.runtime.subscribe(() => this.scheduleContext()));
-    void startMeter(mic, { own: false });
     this.runtime.emit({ type: 'voice.session', status: 'live' });
+    this.tune();
     this.pushContext(true);
     this.armIdle();
-    h.onStart();
+  }
+
+  /**
+   * The QA hook: a harness against a deployment whose baked session differs pushes this
+   * build's own turn detection, tools and noise reduction over the channel, so a change can
+   * be timed before it is deployed. Off unless `window.__wjVoiceTune` is set.
+   */
+  private tune() {
+    if (typeof window === 'undefined' || !window.__wjVoiceTune) return;
+    this.send({ type: 'session.update', session: { type: 'realtime', tools: realtimeTools(), audio: { input: { turn_detection: TURN_DETECTION, noise_reduction: NOISE_REDUCTION } } } });
+    this.note('tune', TURN_DETECTION.type);
   }
 
   private teardown(reason: string) {
     const wasLive = this.live;
     this.live = false;
+    this.hearing = false;
     this.generation += 1;
     this.connecting = null;
     this.settleOpen?.(new Error('aborted'));
@@ -360,6 +463,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       /* already closed */
     }
     this.pc = null;
+    this.sender = null;
     this.releaseMic();
     stopMeter();
     this.stopRemoteMeter();
@@ -370,7 +474,9 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     }
     this.pending.clear();
     this.answered.clear();
+    this.answeredThisResponse = 0;
     this.responseOpen = false;
+    this.openResponseId = null;
     if (this.speaking) {
       this.speaking = false;
       this.runtime?.emit({ type: 'voice.speaking', active: false });
@@ -391,7 +497,7 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
     this.lastContext = '';
     if (wasLive) {
       if (openTurn || lost) this.runtime?.emit({ type: 'turn.error', turnId: openTurn ?? uid('t'), message: reason, recoverable: true });
-      this.runtime?.emit({ type: 'voice.session', status: 'ended' });
+      this.runtime?.emit({ type: 'voice.session', status: 'ended', message: reason });
       this.handlers?.onEnd();
     }
   }
@@ -399,24 +505,32 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private releaseMic() {
     this.mic?.getTracks().forEach((t) => t.stop());
     this.mic = null;
+    this.hearing = false;
+  }
+
+  /** The microphone off the call, the call kept. */
+  private restMic() {
+    if (!this.mic) return;
+    this.note('mic.off');
+    stopMeter();
+    void this.sender?.replaceTrack(null).catch(() => undefined);
+    this.releaseMic();
+    // whatever half-sentence the buffer holds is not sent on resume
+    this.send({ type: 'input_audio_buffer.clear' });
   }
 
   private setMicEnabled(on: boolean) {
     this.mic?.getAudioTracks().forEach((t) => {
       t.enabled = on;
     });
-    if (on) this.note('mic.on');
-    else {
-      this.note('mic.off');
-      // whatever half-sentence the buffer holds is not sent on resume
-      this.send({ type: 'input_audio_buffer.clear' });
-    }
+    this.hearing = on && Boolean(this.mic);
+    this.note(on ? 'mic.on' : 'mic.muted');
   }
 
   private armIdle() {
     if (!this.live) return;
     if (this.idleTimer) window.clearTimeout(this.idleTimer);
-    this.idleTimer = window.setTimeout(() => this.teardown('idle'), IDLE_MS);
+    this.idleTimer = window.setTimeout(() => this.teardown('idle'), this.mic ? IDLE_MS : WARM_IDLE_MS);
   }
 
   private send(event: Record<string, unknown>) {
@@ -481,14 +595,14 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private onEvent(e: RealtimeEvent) {
     const rt = this.runtime;
     const h = this.handlers;
-    if (!rt || !h) return;
+    if (!rt) return;
     switch (e.type) {
       case 'session.created':
       case 'session.updated':
         break;
 
       case 'input_audio_buffer.speech_started': {
-        this.note('speech.started');
+        this.note('speech.started', typeof e.audio_start_ms === 'number' ? `${e.audio_start_ms}` : undefined);
         this.armIdle();
         // the visitor speaks over the reply, or over an action still running: what was in flight is over
         if (this.speaking || this.responseOpen || this.running > 0 || this.turnId) {
@@ -501,33 +615,32 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
       }
 
       case 'input_audio_buffer.speech_stopped': {
-        this.note('speech.stopped');
+        this.note('speech.stopped', typeof e.audio_end_ms === 'number' ? `${e.audio_end_ms}` : undefined);
         this.outstanding = true;
         this.armIdle();
         this.utteranceId = uid('v');
         if (typeof e.item_id === 'string') this.utterances.set(e.item_id, this.utteranceId);
         if (this.utterances.size > 12) this.utterances.delete(this.utterances.keys().next().value!);
         rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: this.interim || '…', final: false });
-        h.onTranscribing?.();
+        h?.onTranscribing?.();
         rt.emit({ type: 'voice.thinking' });
         break;
       }
 
       case 'conversation.item.input_audio_transcription.delta': {
         this.interim += String(e.delta ?? '');
-        h.onInterim(romaniseDevanagari(this.interim));
+        h?.onInterim(romaniseDevanagari(this.interim));
         break;
       }
 
       case 'conversation.item.input_audio_transcription.completed': {
-        // what is shown is Roman where the model wrote Devanagari; Urdu script and English stay as they are
+        // kept for the conversation, the tools and the QA view — never shown to a visitor
         const text = romaniseDevanagari(tidy(String(e.transcript ?? '')) || this.interim);
         this.note('heard', text.slice(0, 80));
         this.interim = '';
         const language = scriptOf(text);
         if (language) rt.onLanguage(language);
-        h.onFinal(text, { language });
-        // the words usually land after the sentence ended; if they land first, the line is written now
+        h?.onFinal(text, { language });
         const itemId = typeof e.item_id === 'string' ? e.item_id : '';
         let id = this.utterances.get(itemId) ?? this.utteranceId;
         if (!id) {
@@ -541,17 +654,19 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
 
       case 'conversation.item.input_audio_transcription.failed': {
         this.note('heard.failed');
-        // the words are not coming, though the model heard the sentence and answers it: the stage
-        // stops waiting, and the visitor's line says so rather than standing as three dots to "correct"
+        // the words are not coming, though the model heard the sentence and answers it
         const partial = this.interim;
         this.interim = '';
-        h.onFinal(partial, {});
+        h?.onFinal(partial, {});
         if (this.utteranceId) rt.emit({ type: 'voice.utterance', id: this.utteranceId, text: partial || CONCIERGE.voice.unheard, final: true, lost: !partial });
         break;
       }
 
       case 'response.created': {
         this.responseOpen = true;
+        const response = (e.response ?? {}) as Record<string, unknown>;
+        this.openResponseId = typeof response.id === 'string' ? response.id : null;
+        this.answeredThisResponse = 0;
         this.outstanding = false;
         this.armIdle();
         if (!this.turnId) {
@@ -595,19 +710,25 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
         break;
       }
 
+      /**
+       * The action starts here — the moment the arguments are complete — not at the end of
+       * the response. The output goes back as soon as the page has acted, and the model is
+       * asked to continue once its own response has closed.
+       */
       case 'response.function_call_arguments.done': {
-        this.queueCall(String(e.call_id ?? ''), String(e.name ?? ''), String(e.arguments ?? '{}'));
+        this.queueCall(String(e.call_id ?? ''), String(e.name ?? ''), String(e.arguments ?? '{}'), String(e.response_id ?? this.openResponseId ?? ''));
         break;
       }
 
       case 'response.output_item.done': {
         const item = (e.item ?? {}) as Record<string, unknown>;
-        if (item.type === 'function_call') this.queueCall(String(item.call_id ?? ''), String(item.name ?? ''), String(item.arguments ?? '{}'));
+        if (item.type === 'function_call') this.queueCall(String(item.call_id ?? ''), String(item.name ?? ''), String(item.arguments ?? '{}'), String(e.response_id ?? this.openResponseId ?? ''));
         break;
       }
 
       case 'response.done': {
         this.responseOpen = false;
+        this.openResponseId = null;
         const response = (e.response ?? {}) as Record<string, unknown>;
         this.note('response.done', String(response.status ?? ''));
         if (response.status === 'failed') {
@@ -621,10 +742,11 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
           rt.emit({ type: 'turn.error', turnId, message: 'response failed', recoverable: true });
           break;
         }
-        // calls queued from this response are answered first; the next response continues the turn
-        void this.drainCalls().then(() => {
-          if (this.pending.size === 0 && this.running === 0 && !this.responseOpen) this.finishTurn();
-        });
+        // an action still running continues the turn when it lands; otherwise the turn is over
+        if (this.running === 0 && this.pending.size === 0) {
+          if (this.answeredThisResponse > 0) this.continueTurn();
+          else this.finishTurn();
+        }
         break;
       }
 
@@ -640,72 +762,77 @@ export class RealtimeVoiceAdapter implements VoiceAdapter {
   private static readonly CALLS_PER_TURN = 4;
   private callsThisTurn = 0;
 
-  private queueCall(callId: string, rawName: string, args: string) {
+  private queueCall(callId: string, rawName: string, args: string, responseId: string) {
     const name = REALTIME_TOOL_ALIASES[rawName] ?? rawName;
     if (!callId || !name || this.answered.has(callId) || this.pending.has(callId)) return;
-    this.pending.set(callId, { callId, name, args });
+    const call: PendingCall = { callId, name, args, responseId };
+    this.pending.set(callId, call);
     this.note('tool.queued', name);
+    void this.runCall(call);
   }
 
-  /** Runs the queued calls through the validator and the page, then asks the model to continue. */
-  private async drainCalls() {
+  /** One call through the validator and the page, then the output back; the continuation follows the response's close. */
+  private async runCall(call: PendingCall) {
     const rt = this.runtime;
-    if (!rt || this.pending.size === 0) return;
+    if (!rt) return;
+    this.pending.delete(call.callId);
+    this.answered.add(call.callId);
     const epoch = this.epoch;
-    const calls = [...this.pending.values()];
-    this.pending.clear();
-    let answered = false;
-    for (const call of calls) {
-      this.answered.add(call.callId);
-      this.callsThisTurn += 1;
-      if (this.callsThisTurn > RealtimeVoiceAdapter.CALLS_PER_TURN) {
-        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_BUDGET', message: 'no more actions for this sentence; answer with what you have' }) } });
-        answered = true;
-        continue;
-      }
-      // the visitor moved on while an earlier action ran: this one never touches the page
-      if (this.epoch !== epoch) {
-        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'CANCELLED', message: 'the visitor moved on before this ran' }) } });
-        continue;
-      }
-      this.running += 1;
-      this.turnHadTool = true;
-      let args: Record<string, unknown> = {};
-      try {
-        const parsed = JSON.parse(call.args) as unknown;
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
-      } catch {
-        /* unreadable arguments: the validator will refuse an empty object where fields are required */
-      }
-      const turnId = this.turnId ?? uid('t');
-      this.turnId = turnId;
-      rt.emit({ type: 'tool.call', turnId, callId: call.callId, name: call.name as ToolName, args });
-      try {
-        const outcome = await rt.executeTool(call.name as ToolName, args);
-        // an action that finished after the visitor moved on reaches the conversation, not the stage
-        const stale = this.epoch !== epoch;
-        if (!stale) rt.emit({ type: 'tool.result', turnId, callId: call.callId, outcome });
-        this.note(stale ? 'tool.stale' : 'tool.done', `${call.name}${outcome.label ? ` — ${outcome.label}` : ''}`);
-        const output = JSON.stringify(outcome.result ?? {}).slice(0, 4000);
-        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output } });
-        answered = true;
-      } catch (err) {
-        if (this.epoch === epoch) rt.emit({ type: 'tool.error', turnId, callId: call.callId, message: err instanceof Error ? err.message : 'tool' });
-        this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_FAILED' }) } });
-        answered = true;
-      } finally {
-        this.running -= 1;
-      }
+    this.callsThisTurn += 1;
+    if (this.callsThisTurn > RealtimeVoiceAdapter.CALLS_PER_TURN) {
+      this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_BUDGET', message: 'no more actions for this sentence; answer with what you have' }) } });
+      this.answeredThisResponse += 1;
+      this.maybeContinue();
+      return;
     }
-    // the sentence these answered is over; the next one has the floor and asks for its own reply
+    this.running += 1;
+    this.turnHadTool = true;
+    let args: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(call.args) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
+    } catch {
+      /* unreadable arguments: the validator will refuse an empty object where fields are required */
+    }
+    const turnId = this.turnId ?? uid('t');
+    this.turnId = turnId;
+    this.note('tool.start', call.name);
+    rt.emit({ type: 'tool.call', turnId, callId: call.callId, name: call.name as ToolName, args });
+    try {
+      const outcome = await rt.executeTool(call.name as ToolName, args);
+      // an action that finished after the visitor moved on reaches the conversation, not the stage
+      const stale = this.epoch !== epoch;
+      if (!stale) rt.emit({ type: 'tool.result', turnId, callId: call.callId, outcome });
+      this.note(stale ? 'tool.stale' : 'tool.visible', `${call.name}${outcome.label ? ` — ${outcome.label}` : ''}`);
+      const output = JSON.stringify(outcome.result ?? {}).slice(0, 4000);
+      this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output } });
+    } catch (err) {
+      if (this.epoch === epoch) rt.emit({ type: 'tool.error', turnId, callId: call.callId, message: err instanceof Error ? err.message : 'tool' });
+      this.note('tool.failed', call.name);
+      this.send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: call.callId, output: JSON.stringify({ error: 'TOOL_FAILED', message: 'the page could not do that; say so in one sentence and offer what the visitor can do instead' }) } });
+    } finally {
+      this.running -= 1;
+    }
     if (this.epoch !== epoch) return;
-    if (answered && this.live) {
-      this.rounds += 1;
-      this.responseOpen = true;
-      // after three rounds of actions the model answers with what it has; it may not act again
-      this.send(this.rounds >= 3 || this.callsThisTurn >= RealtimeVoiceAdapter.CALLS_PER_TURN ? { type: 'response.create', response: { tool_choice: 'none' } } : { type: 'response.create' });
-      this.pushContext(true);
-    }
+    this.answeredThisResponse += 1;
+    this.maybeContinue();
+  }
+
+  /** The model continues only once every call of the closed response is answered. */
+  private maybeContinue() {
+    if (this.responseOpen || this.running > 0 || this.pending.size > 0) return;
+    this.continueTurn();
+  }
+
+  private continueTurn() {
+    if (!this.live) return;
+    this.answeredThisResponse = 0;
+    this.rounds += 1;
+    this.responseOpen = true;
+    // after three rounds of actions the model answers with what it has; it may not act again
+    this.send(this.rounds >= 3 || this.callsThisTurn >= RealtimeVoiceAdapter.CALLS_PER_TURN ? { type: 'response.create', response: { tool_choice: 'none' } } : { type: 'response.create' });
+    this.note('continue');
+    this.pushContext(true);
   }
 
   private finishTurn() {
@@ -735,9 +862,13 @@ export function registerRealtimeEngine() {
 }
 
 export const realtimeTrace = () => engine?.trace ?? [];
+/** A mark on the same timeline the adapter keeps, from the controller (the tap, the stage's states). */
+export const realtimeMark = (type: string, detail?: string) => engine?.note(type, detail);
 
 declare global {
   interface Window {
     __wjVoiceTrace?: () => TraceEntry[];
+    /** QA only: push this build's session settings over the channel — see `RealtimeVoiceAdapter.tune`. */
+    __wjVoiceTune?: boolean;
   }
 }

@@ -54,7 +54,17 @@ export function Ch02Craft() {
    * a diagram where the client had been promised the object. LOW gets the same geometry at
    * DPR 1 with the non-refractive stone; REDUCED, and a browser with no WebGL, get the still.
    */
-  const wantsScene = webgl && !reduced && loaderDone && (near || warm) && lostOnce < 2;
+  /**
+   * The object is live on the tiers that can carry the emerald — HIGH and MEDIUM. LOW (a
+   * phone, an integrated GPU under load, a device that demoted) shows the poster: the same
+   * object rendered once at the highest tier, which is a premium still rather than a lesser
+   * live stone. The client saw the flat LOW shader on a phone and rightly refused it.
+   */
+  const detectedTier = useQualityStore((s) => s.detectedTier);
+  // the tier the device was detected at, not the one it may have demoted to: a demotion lowers
+  // the object's DPR and stone, it does not swap a live object for its poster mid-chapter
+  const capable = detectedTier === 'HIGH' || detectedTier === 'MEDIUM';
+  const wantsScene = webgl && !reduced && capable && loaderDone && (near || warm) && lostOnce < 2;
   // the still stands whenever the object is not on stage: before it compiles, after a lost
   // context, under reduced motion, without WebGL — never a third thing
   const stillShown = !(wantsScene && sceneReady);

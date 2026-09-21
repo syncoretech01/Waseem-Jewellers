@@ -9,16 +9,23 @@ import { Ch02Kinds } from './chapters/Ch02Kinds';
 import { Ch02Craft } from './chapters/Ch02Craft';
 import { Ch02Bangle } from './chapters/Ch02Bangle';
 import { Ch03Gate } from './chapters/Ch03Gate';
-import { Ch03Gold } from './chapters/Ch03Gold';
 import { Ch06Goldwork } from './chapters/Ch06Goldwork';
-import { Ch04Diamond } from './chapters/Ch04Diamond';
 import { Ch05Light } from './chapters/Ch05Light';
-import { Ch05Bridal } from './chapters/Ch05Bridal';
 import { Ch04Worlds } from './chapters/Ch04Worlds';
-import { Ch07MenKids } from './chapters/Ch07MenKids';
-import { Ch03Heritage } from './chapters/Ch03Heritage';
 import { Ch09Bespoke } from './chapters/Ch09Bespoke';
 import { Arrive } from '@/components/motion/Arrive';
+import { lazyChapter } from '@/components/motion/LazyChapter';
+
+/**
+ * The chapters that do not pin are server-rendered in full and hydrated on approach, so the
+ * loading ritual is not spent running five chapters' effects for a visitor who is reading the
+ * hero. A pinned chapter inserts its spacer on mount, so those hydrate with the page.
+ */
+const Ch03Gold = lazyChapter('gold', () => import('./chapters/Ch03Gold').then((m) => m.Ch03Gold));
+const Ch04Diamond = lazyChapter('diamond', () => import('./chapters/Ch04Diamond').then((m) => m.Ch04Diamond));
+const Ch05Bridal = lazyChapter('bridal', () => import('./chapters/Ch05Bridal').then((m) => m.Ch05Bridal));
+const Ch07MenKids = lazyChapter('menkids', () => import('./chapters/Ch07MenKids').then((m) => m.Ch07MenKids));
+const Ch03Heritage = lazyChapter('heritage', () => import('./chapters/Ch03Heritage').then((m) => m.Ch03Heritage));
 
 import type { Department } from '@/data/types';
 import type { PieceRow, Showcase } from '@/lib/facets';
@@ -56,7 +63,7 @@ export function Home({ showcase, departments, doors }: { showcase: Showcase; dep
   return (
     <main id="home">
       <Arrive />
-      <Ch01Hero credit={doors['royal-wedding-polki-raani-haar']} departments={departments} />
+      <Ch01Hero departments={departments} />
       <Ch02Kinds kinds={showcase.categories} />
       <Ch02Craft />
       <Ch02Bangle piece={doors['gold-bangles-k13798']} />

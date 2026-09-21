@@ -30,6 +30,10 @@ export interface VoiceAdapter {
    */
   bind?(runtime: VoiceSessionRuntime): void;
   isLive?(): boolean;
+  /** The session hears the room: the microphone is attached and open. */
+  isHearing?(): boolean;
+  /** Open the call before any tap, so the tap is instant; resolves whether it is live. Never asks a permission. */
+  warm?(): Promise<boolean>;
   sendText?(text: string): boolean;
   /** Cut the reply that is being spoken; the conversation stays. */
   interrupt?(): void;

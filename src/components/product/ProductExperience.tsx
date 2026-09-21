@@ -6,10 +6,12 @@ import { InfoColumn } from './InfoColumn';
 import { WornTogetherRail } from './WornTogetherRail';
 import { pdpMode } from './pdpMode';
 import { CloseLook } from './CloseLook';
+import { TransitionLink } from '@/components/motion/TransitionLink';
 import { semanticFor } from '@/data/semantic';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useSiteStore } from '@/state/siteStore';
 import { nameOf } from '@/data/labels';
+import { DEPARTMENT_LABEL } from '@/data';
 import type { Product } from '@/data/types';
 import type { PieceRow } from '@/lib/facets';
 
@@ -50,10 +52,24 @@ export function ProductExperience({ product, suite, matching, similar }: Product
 
   const mode = pdpMode(product);
   const closely = semanticFor(product.slug);
+  /**
+   * On a phone the way back sits above the photograph, where the header's clearance already
+   * is, so that beneath the gallery the piece's name follows at once. On a wide screen the
+   * column carries its own.
+   */
+  const department = product.departments[0];
+  const crumb = (
+    <div className="px-gutter pb-5 md:hidden">
+      <TransitionLink href={department ? `/${department}` : '/'} className="micro inline-flex min-h-8 items-center gap-3 text-fg-muted transition-colors hover:text-fg">
+        <span aria-hidden>←</span>
+        {department ? DEPARTMENT_LABEL[department] : 'Waseem Jewellers'}
+      </TransitionLink>
+    </div>
+  );
 
   return (
     <main className="bg-bg text-fg">
-      <section ref={ref} data-theme="dark" className="pt-[calc(var(--nav-h)+1rem)] md:pt-[calc(var(--nav-h)+2rem)]" aria-label={nameOf(product)}>
+      <section ref={ref} data-theme="dark" className="pt-(--chapter-top) md:pt-[calc(var(--nav-h)+2rem)]" aria-label={nameOf(product)}>
         {mode === 'single' ? (
           /**
            * One frame, centred, and the words beneath it. There is no second column to
@@ -61,18 +77,22 @@ export function ProductExperience({ product, suite, matching, similar }: Product
            * the composition, and at this width the photograph is larger than it would be
            * in the 62/38 split.
            */
-          <div data-rail-inset className="mx-auto flex max-w-[64rem] flex-col gap-14 px-gutter md:gap-20 md:pb-section">
-            <Gallery product={product} mode={mode} />
-            <div className="mx-auto w-full max-w-[42rem] pb-32 md:pb-0">
+          <div data-rail-inset className="mx-auto flex max-w-[64rem] flex-col gap-7 md:gap-20 md:px-gutter md:pb-section">
+            <div>
+              {crumb}
+              <Gallery product={product} mode={mode} />
+            </div>
+            <div className="mx-auto w-full max-w-[42rem] px-gutter pb-28 md:px-0 md:pb-0">
               <InfoColumn product={product} />
             </div>
           </div>
         ) : (
-          <div data-rail-inset className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,55fr)_minmax(340px,45fr)] md:gap-gutter md:px-gutter xl:grid-cols-[minmax(0,62fr)_minmax(360px,38fr)]">
+          <div data-rail-inset className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,55fr)_minmax(340px,45fr)] md:gap-gutter md:px-gutter xl:grid-cols-[minmax(0,62fr)_minmax(360px,38fr)]">
             <div className="md:pb-section">
+              {crumb}
               <Gallery product={product} mode={mode} />
             </div>
-            <div className="px-gutter pb-32 md:px-0 md:pb-section">
+            <div className="px-gutter pb-28 md:px-0 md:pb-section">
               <div className="md:sticky md:top-[calc(var(--nav-h)+2rem)]">
                 <InfoColumn product={product} />
               </div>

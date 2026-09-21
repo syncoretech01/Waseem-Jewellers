@@ -5,9 +5,13 @@ import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
 import { getRow, loadIndex, priceLabelOf, specLineOf } from '@/data/clientIndex';
+import { canonicalCategory } from '@/data/vocabulary';
+import { CATEGORY_PLURAL } from '@/data/labels';
+import type { Category } from '@/data/types';
+import { countInWords, capitalise } from '@/lib/format';
 import { recognitionLang } from './voice/languages';
 import { chooseVoiceEngine, hearingAvailable, type VoiceTier } from './voice/engine';
-import { realtimeTrace, registerRealtimeEngine } from './voice/realtime';
+import { realtimeMark, realtimeTrace, registerRealtimeEngine, type TraceEntry } from './voice/realtime';
 import { topicLine } from './memory';
 import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
@@ -62,8 +66,12 @@ export class ConciergeController {
   private pendingDraft: string | null = null;
   /** The visitor rested the microphone of a live session; it does not reopen by itself. */
   private micPaused = false;
+  /** The visitor has spoken to the live session, so a typed sentence continues that conversation. */
+  private voiceUsed = false;
   /** The rung the ladder settled on for this session, so a reply's resume does not climb back and wait again. */
   private rung: VoiceTier = 'auto';
+  /** The controller's own marks on the voice timeline: the tap, the stage's states. Read by scripts/dev/voice-latency.mjs. */
+  private marks: TraceEntry[] = [];
 
   constructor() {
     this.provider = createProvider();
@@ -78,6 +86,22 @@ export class ConciergeController {
     registerRealtimeEngine();
     this.refreshVoiceSupport();
     if (typeof window !== 'undefined') window.__wjVoiceTrace = realtimeTrace;
+    useConciergeStore.subscribe((s, prev) => {
+      if (s.state !== prev.state) this.mark(`state:${s.state}`, s.reason);
+    });
+  }
+
+  /** One entry on the voice timeline, from this side of the seam. */
+  private mark(type: string, detail?: string) {
+    const entry = { t: Date.now(), type, detail };
+    this.marks.push(entry);
+    if (this.marks.length > 400) this.marks.splice(0, this.marks.length - 400);
+    realtimeMark(type, detail);
+  }
+
+  /** The timeline the latency harness reads: the controller's marks; the adapter's trace is `window.__wjVoiceTrace()`. */
+  timeline(): TraceEntry[] {
+    return this.marks;
   }
 
   /**
@@ -100,7 +124,6 @@ export class ConciergeController {
       route: site.pathname || '/',
       pieceInView: row ? { slug: row.s, name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null,
       recent: c.recentResults.slice(0, 6).map((p, i) => ({ ordinal: i + 1, slug: p.slug, name: p.name, facts: factsOf(p.slug, p.priceLabel) })),
-      wishlistCount: site.wishlist.length,
       standing: topicLine(c.memory.standingSlots),
       frames: gallery?.count,
       // the form's state, never the visitor's details: those travel only when a tool is asked for them
@@ -175,12 +198,17 @@ export class ConciergeController {
      * than on a visitor's first sentence. A visitor who never asks never pays for it.
      */
     void loadIndex();
-    // what this deployment is allowed to be: model or keyless, and which engine hears
-    void probeCapabilities().then(() => this.refreshVoiceSupport());
     // a voice stage with nothing to hear with is an apology; the composer is the honest opening
     const wanted = opts.mode ?? s.mode;
     const mode = wanted === 'voice' && !hearingAvailable() ? 'chat' : wanted;
     s.setMode(mode);
+    // what this deployment is allowed to be: model or keyless, and which engine hears — and once
+    // that is known, the stage that is about to show has its call opened, so the tap only
+    // attaches the microphone
+    void probeCapabilities().then(() => {
+      this.refreshVoiceSupport();
+      if (this.store.mode === 'voice' && OPEN_STATES.includes(this.store.state)) this.warmVoice();
+    });
     if (s.state === 'IDLE' || s.state === 'HOVER') {
       s.transition('OPENING', 'open');
       s.setPanel('full');
@@ -218,7 +246,9 @@ export class ConciergeController {
   close() {
     const s = this.store;
     this.cancelTurn();
-    this.adapter?.abort();
+    // a live session rests its microphone and keeps the call for a while; every other adapter ends
+    if (this.adapter?.kind === 'realtime' && this.adapter.isLive?.()) this.adapter.stop();
+    else this.adapter?.abort();
     cancelSpeech();
     this.disarmBargeIn();
     this.afterSpeech = null;
@@ -228,6 +258,7 @@ export class ConciergeController {
     s.setTranscript({ interim: '', final: '', active: false });
     s.setVoice({ sessionLive: false, preparing: false, fallback: null });
     this.micPaused = false;
+    this.voiceUsed = false;
     this.rung = 'auto';
     s.transition('IDLE', 'close');
     // back to the orb, or the ENQUIRE button, or wherever it was — not to <body>
@@ -259,6 +290,63 @@ export class ConciergeController {
     s.setMode(mode);
     const cur = this.store.state;
     if (cur === 'CHAT' || cur === 'VOICE_READY' || cur === 'RESULT' || cur === 'ERROR') s.transition(mode === 'voice' ? 'VOICE_READY' : 'CHAT', 'mode');
+    if (mode === 'voice') void probeCapabilities().then(() => this.warmVoice());
+  }
+
+  /**
+   * The call before the tap. Chosen by the same ladder a tap would use; only the native
+   * engine has anything to warm, and it asks no permission — the microphone is attached in
+   * the tap itself. A failure here is silent: the tap reports it, and steps down a rung.
+   */
+  warmVoice() {
+    if (this.store.voice.denied) return;
+    if (this.adapter?.kind === 'realtime' && this.adapter.isLive?.()) return;
+    const adapter = this.chooseAdapter('auto');
+    if (adapter.kind !== 'realtime' || !adapter.warm) return;
+    this.adapter = adapter;
+    this.mark('warm');
+    void adapter.warm().then((live) => this.mark(live ? 'warm.live' : 'warm.failed'));
+  }
+
+  /**
+   * "Show nearby pieces": the same request with its conditions set aside — the kind alone,
+   * or the material alone — dispatched directly, exactly as a tap on a card is. The answer
+   * to an empty tray is another tray, never a shrug.
+   */
+  nearby() {
+    const slots = this.store.memory.standingSlots;
+    const category = canonicalCategory(slots.category);
+    const material = category ? undefined : slots.material;
+    const args: Record<string, unknown> = { limit: 6 };
+    if (category) args.category = category;
+    else if (material) args.material = material;
+    const what = category ? (CATEGORY_PLURAL[category as Category] ?? category).toLowerCase() : material ? `${material} pieces` : 'pieces';
+    this.store.forgetTopic();
+    this.cancelTurn();
+    cancelSpeech();
+    const turnId = uid('t');
+    const callId = uid('c');
+    this.activeTurn = turnId;
+    this.pendingResult = false;
+    this.store.setError(null);
+    this.store.setLastVisitorText(`Nearby ${what}`);
+    this.onEvent({ type: 'turn.start', turnId });
+    this.onEvent({ type: 'tool.call', turnId, callId, name: 'searchProducts', args });
+    void executeTool('searchProducts', args)
+      .then((outcome) => {
+        this.onEvent({ type: 'tool.result', turnId, callId, outcome });
+        const found = outcome.ui?.kind === 'pieces' ? outcome.ui.pieces.length : 0;
+        this.onEvent({ type: 'text.done', turnId, text: found ? CONCIERGE.nearby(`${capitalise(countInWords(found))} ${what}`) : CONCIERGE.nearbyNothing });
+        this.onEvent({ type: 'turn.done', turnId });
+      })
+      .catch(() => {
+        this.onEvent({ type: 'turn.error', turnId, message: CONCIERGE.error, recoverable: false });
+      });
+  }
+
+  /** "The bridal pieces": the standing offer behind every empty answer. */
+  bridalPieces() {
+    this.submitText('Show me bridal pieces', 'card');
   }
 
   expand() {
@@ -275,9 +363,12 @@ export class ConciergeController {
     this.adapter?.abort();
     this.saidNoVoice = false;
     this.micPaused = false;
+    this.voiceUsed = false;
     this.rung = 'auto';
     this.store.setVoice({ sessionLive: false, fallback: null, denied: false });
     this.store.forget();
+    // a fresh conversation, and the call for it opened now rather than on the next tap
+    if (this.store.mode === 'voice') void probeCapabilities().then(() => this.warmVoice());
   }
 
   // ── turns ─────────────────────────────────────────────────────────────────
@@ -285,7 +376,13 @@ export class ConciergeController {
     const trimmed = text.trim();
     if (!trimmed) return;
     const s = this.store;
-    const session = this.adapter?.kind === 'realtime' && this.adapter.isLive?.() ? this.adapter : null;
+    /**
+     * A live session takes a typed sentence only when it is the visitor's conversation: the
+     * stage is up, or they rested its microphone to write ("Write instead"). A call that was
+     * merely opened early — a pointer over the microphone, say — is not yet a conversation,
+     * and a typed sentence goes to the text engine, which does not speak unasked.
+     */
+    const session = this.adapter?.kind === 'realtime' && this.adapter.isLive?.() && (s.mode === 'voice' || this.voiceUsed) ? this.adapter : null;
     if ((s.state === 'LISTENING' || s.voice.preparing) && !session) {
       this.adapter?.abort();
       // a spoken turn keeps the session live so the microphone reopens after the reply; a
@@ -413,7 +510,7 @@ export class ConciergeController {
    * path a model's call takes rather than a shortcut beside it.
    *
    * It is not gated to development, deliberately. Everything it can do the visitor's own
-   * hands can do — navigate, open the ledger, fill the form they are looking at — and every
+   * hands can do — navigate, open a piece, fill the form they are looking at — and every
    * call still passes `validateToolCall`, so a slug that does not exist or a path off the
    * site is refused here as anywhere. It is the same surface `tapCard` already exposes;
    * the security boundary is what a *model* may do, and that boundary is unchanged.
@@ -488,9 +585,7 @@ export class ConciergeController {
            * *stage* — opening a piece, navigating, the consultation — collapses the rail, and
            * each of those says so with `compact` on its own outcome.
            */
-          if (o.ui.kind === 'pieces' || o.ui.kind === 'wishlist' || o.ui.kind === 'collections' || o.ui.kind === 'compare') {
-            s.setTrayOpen(o.ui.kind !== 'wishlist' || o.ui.pieces.length > 0);
-          }
+          if (o.ui.kind === 'pieces' || o.ui.kind === 'collections' || o.ui.kind === 'compare') s.setTrayOpen(true);
         }
         if (o.compact) s.setPanel('compact');
         break;
@@ -586,10 +681,15 @@ export class ConciergeController {
       case 'voice.session':
         s.setVoice({ sessionLive: e.status === 'live' });
         if (e.status === 'ended') {
-          // a session that ended mid-sentence leaves the stage at rest, not listening
+          // a session that ended mid-sentence leaves the stage at rest, not listening — and says
+          // so when it was not the visitor's doing, with the next thing to press
+          const wasListening = this.store.state === 'LISTENING';
           s.setVoice({ preparing: false, transcribing: false });
           s.setTranscript({ active: false });
-          if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'session.ended');
+          if (wasListening) {
+            s.transition('VOICE_READY', 'session.ended');
+            if (e.message && e.message !== 'abort' && e.message !== 'idle') s.setError({ code: 'NETWORK', message: CONCIERGE.voice.sessionEnded });
+          }
         }
         break;
       case 'voice.utterance':
@@ -642,7 +742,7 @@ export class ConciergeController {
     if (s.mode !== 'voice' || !s.voice.sessionLive) return;
     if (s.voice.adapter === 'realtime') {
       // the microphone never closed; the stage simply says so again — unless the visitor rested it
-      if (!this.micPaused && this.adapter?.isLive?.() && this.store.state === 'VOICE_READY') this.store.transition('LISTENING', 'native');
+      if (!this.micPaused && this.adapter?.isHearing?.() && this.store.state === 'VOICE_READY') this.store.transition('LISTENING', 'native');
       return;
     }
     // the rung this session settled on, not the top of the ladder again
@@ -754,6 +854,7 @@ export class ConciergeController {
 
   startListening(tier: VoiceTier = 'auto') {
     const s = this.store;
+    this.mark('tap');
     this.micPaused = false;
     // a tap on the ring returns to the rung the session settled on; only a fresh session climbs again
     if (tier === 'auto' && this.rung !== 'auto') tier = this.rung;
@@ -802,6 +903,7 @@ export class ConciergeController {
     void adapter.start({
       lang,
       onStart: () => {
+        if (adapter.kind === 'realtime') this.voiceUsed = true;
         this.store.setVoice({ preparing: false, denied: false });
         this.store.setTranscript({ active: true });
         if (this.store.state !== 'LISTENING') this.store.transition('LISTENING', 'mic');
@@ -888,20 +990,7 @@ export class ConciergeController {
     this.startListening('scripted');
   }
 
-  /**
-   * "Not quite?" — what was heard, put into the composer to be corrected. The conversation
-   * stays live, so the corrected sentence goes to the same session that misheard it.
-   */
-  editHeard() {
-    const text = this.store.transcript.final || this.store.lastVisitorText;
-    if (!text) return;
-    this.cancelTurn();
-    cancelSpeech();
-    this.setMode('chat');
-    this.draft(text);
-  }
-
-  /** Once more: the last words are cleared and the microphone is open again. */
+  /** "Try again": the last words are cleared and the microphone is open again. */
   retryHearing() {
     const s = this.store;
     this.cancelTurn();
@@ -935,7 +1024,7 @@ export class ConciergeController {
       panel: state === 'IDLE' || state === 'HOVER' ? 'closed' : 'full',
       mode: voice ? 'voice' : s.mode,
       error: state === 'ERROR' ? { code: 'PROVIDER', message: 'Forgive me — shall we try that once more?' } : null,
-      transcript: state === 'LISTENING' ? { interim: 'Show me bridal necklaces', final: '', active: true, interrupted: false } : s.transcript,
+      transcript: state === 'LISTENING' ? { interim: '', final: '', active: true, interrupted: false } : s.transcript,
     });
   }
 }

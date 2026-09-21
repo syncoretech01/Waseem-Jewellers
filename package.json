@@ -43,6 +43,8 @@
     "assets:variants": "node scripts/assets/variants.mjs",
     "ring:check": "node scripts/dev/ring-check.mjs",
     "bespoke:check": "node scripts/dev/bespoke-check.mjs",
+    "qa:sweep": "node scripts/dev/qa-sweep.mjs",
+    "voice:latency": "node scripts/dev/voice-latency.mjs",
     "flip:check": "node scripts/dev/flip-check.mjs"
   },
   "dependencies": {

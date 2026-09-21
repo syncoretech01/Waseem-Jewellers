@@ -301,8 +301,10 @@ function predictFrame(key: FlipKey, source: Side, frames: number | null): { box:
   // a cut-out is mounted on a 5:4 plate at real margin; a scene fills a 4:5 frame
   const mounted = source.fit === 'contain';
   if (mobile) {
-    const w = vw * 0.88;
-    const box = { x: gutter, y: navH + 16, w, h: w * 1.25 };
+    // the single hero spans the gutters; a track's first slide leaves the next one peeking;
+    // both sit beneath the back link, which stands in the header clearance
+    const w = frames !== null && frames > 1 ? vw - gutter - 40 : vw - gutter * 2;
+    const box = { x: gutter, y: navH + 68, w, h: w * 1.25 };
     return { box, imgBox: box, fit: mounted ? 'contain' : 'cover' };
   }
   /**

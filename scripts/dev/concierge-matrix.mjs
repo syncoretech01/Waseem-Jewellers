@@ -85,14 +85,14 @@ for (const sc of SCENARIOS) {
     console.log(`> ${cmd}`);
     console.log(`  reply : ${s.reply}`);
     console.log(`  tools : ${s.tools.join(' | ') || '—'}   result=${s.result}   state=${s.state}/${s.panel}   tray=${s.tray}   err=${s.err}`);
-    console.log(`  where : ${s.href}  y=${s.y}${s.site ? `  ledger=${s.site.ledgerOpen} consult=${s.site.consultationOpen} wishlist=[${s.site.wishlist.join(',')}] focused=${s.site.focusedProduct}` : ''}`);
+    console.log(`  where : ${s.href}  y=${s.y}${s.site ? `  consult=${s.site.consultationOpen} focused=${s.site.focusedProduct}` : ''}`);
     if (!s.reply) console.log('  turn  : ' + (await page.evaluate(() => JSON.stringify(window.__wjConcierge.store.turns.slice(-2).map((t) => ({ id: t.id, role: t.role, text: t.text, streaming: t.streaming, tools: (t.tools || []).length }))))));
     if (s.panel !== 'full') {
       await page.evaluate(() => window.__wjConcierge.expand());
       await page.waitForTimeout(400);
     }
     const site = await page.evaluate(() => (window.__wj ? window.__wj.site() : null));
-    if (site?.consultationOpen || site?.ledgerOpen) {
+    if (site?.consultationOpen) {
       await page.evaluate(() => window.__wj.closeOverlays());
       await page.waitForTimeout(300);
     }

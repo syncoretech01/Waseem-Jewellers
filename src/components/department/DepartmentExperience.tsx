@@ -7,6 +7,7 @@ import { PieceGrid } from './PieceGrid';
 import { RefineBar } from './RefineBar';
 import { Button } from '@/components/ui/Button';
 import { Eyebrow } from '@/components/ui/primitives';
+import { Rail } from '@/components/ui/Rail';
 import { useChapter } from '@/motion/hooks/useChapter';
 import { useRise, useSplitReveal } from '@/motion/hooks/useReveals';
 import { useSiteStore } from '@/state/siteStore';
@@ -165,17 +166,17 @@ function Masthead({ info, fixedCategory, total }: { info: DepartmentInfo; fixedC
   const { ref } = useChapter({ id: 'department', theme: 'ivory' });
   const scope = useRef<HTMLDivElement>(null);
   useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.08 });
-  useRise(scope);
   const name = fixedCategory ? CATEGORY_PLURAL[fixedCategory] : info.name;
   return (
-    <section ref={ref} data-theme="ivory" className="bg-bg pt-[calc(var(--spacing-section)*0.9)] pb-16 text-fg">
-      <div ref={scope} className="flex flex-col gap-8 px-gutter">
-        <Eyebrow data-rise>{fixedCategory ? `${info.name.toUpperCase()} · LAHORE` : info.eyebrow}</Eyebrow>
-        <h1 className="display max-w-[8em] text-display-l leading-[0.9]">{name}</h1>
-        <p data-split className="max-w-[24em] font-display text-lead italic opacity-0" style={{ fontVariationSettings: '"opsz" 24' }}>
+    /* the first line clears the header on every screen: the chapter's own space, never less than the nav's clearance */
+    <section ref={ref} data-theme="ivory" className="bg-bg px-gutter pt-[var(--chapter-pt)] pb-10 text-fg md:pb-14">
+      <div ref={scope} className="wj-content flex flex-col gap-5 md:gap-8">
+        <Eyebrow>{fixedCategory ? `${info.name.toUpperCase()} · LAHORE` : info.eyebrow}</Eyebrow>
+        <h1 className="display max-w-[8em] text-[clamp(2.75rem,1.25rem+6.5vw,8.5rem)] leading-[0.9]">{name}</h1>
+        <p data-split className="max-w-[24em] font-display text-lead italic opacity-0 [text-wrap:pretty]" style={{ fontVariationSettings: '"opsz" 24' }}>
           {info.tagline}
         </p>
-        <p className="micro text-fg-2" data-rise>
+        <p className="micro text-fg-2">
           {total} {total === 1 ? 'piece' : 'pieces'}
         </p>
       </div>
@@ -183,59 +184,47 @@ function Masthead({ info, fixedCategory, total }: { info: DepartmentInfo; fixedC
   );
 }
 
+/**
+ * The intro: the department's two paragraphs in the left half, the kinds and the concierge's
+ * offer in the right. On a phone the jewellery is two screens away as it stands, so the kinds
+ * become a rail that scrolls edge to edge beneath the first paragraph, the second paragraph
+ * waits until md, and the offer closes the block in one line.
+ */
 function Intro({ info, categories, current }: { info: DepartmentInfo; categories: { category: Category; count: number }[]; current?: Category }) {
   const { ref } = useChapter({ id: 'collection-intro', theme: 'ivory' });
-  const scope = useRef<HTMLDivElement>(null);
-  useSplitReveal(scope, { selector: '[data-split]', type: 'lines', stagger: 0.06 });
-  useRise(scope);
+  const door = (href: string, label: string, on: boolean, count?: number) => (
+    <TransitionLink href={href} className={cn('group/cat flex items-baseline gap-3 py-3 transition-colors md:justify-between md:gap-6 md:py-0', on ? 'text-fg' : 'text-fg-muted hover:text-fg')} aria-current={on ? 'page' : undefined}>
+      <span className="eyebrow relative whitespace-nowrap pb-1">
+        {label}
+        <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)]', on ? 'scale-x-100' : 'scale-x-0 group-hover/cat:scale-x-100')} />
+      </span>
+      {count !== undefined && <span className="micro tabular-nums text-fg-muted">{count}</span>}
+    </TransitionLink>
+  );
   return (
-    <section ref={ref} data-theme="ivory" className="bg-bg pb-section text-fg">
-      <div ref={scope} className="grid grid-cols-1 gap-12 px-gutter md:grid-cols-[1fr_1fr]">
-        <div className="flex flex-col gap-6">
+    <section ref={ref} data-theme="ivory" className="bg-bg px-gutter pb-12 text-fg md:pb-[var(--chapter-y)]">
+      <div className="wj-grid wj-content gap-y-8 md:gap-y-[var(--gap-y)]">
+        <div className="flex flex-col gap-5 md:col-span-6 md:gap-6">
           {info.intro.map((p, i) => (
-            <p key={i} data-split className="max-w-[34em] font-display text-lead opacity-0" style={{ fontVariationSettings: '"opsz" 20' }}>
+            <p key={i} className={cn('max-w-[34em] font-display text-lead [text-wrap:pretty]', i > 0 && 'hidden md:block')} style={{ fontVariationSettings: '"opsz" 20' }}>
               {p}
             </p>
           ))}
         </div>
-        <div className="flex flex-col gap-10 md:pl-[6vw]">
+        <div className="flex flex-col gap-8 md:col-span-5 md:col-start-8 md:gap-10">
           {categories.length > 0 && (
-            <nav aria-label="Kinds" className="flex flex-col gap-3" data-rise>
-              <TransitionLink href={`/${info.slug}`} className={cn('group/cat flex items-baseline justify-between gap-6', !current ? 'text-fg' : 'text-fg-muted hover:text-fg')}>
-                <span className="eyebrow relative pb-1">
-                  Everything
-                  <span aria-hidden className={cn('hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)]', current ? 'scale-x-0 group-hover/cat:scale-x-100' : 'scale-x-100')} />
-                </span>
-              </TransitionLink>
-              {categories.map(({ category, count }) => (
-                <TransitionLink
-                  key={category}
-                  href={`/${info.slug}/${category}`}
-                  className={cn('group/cat flex items-baseline justify-between gap-6 transition-colors', current === category ? 'text-fg' : 'text-fg-muted hover:text-fg')}
-                >
-                  <span className="eyebrow relative pb-1">
-                    {CATEGORY_PLURAL[category]}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)]',
-                        current === category ? 'scale-x-100' : 'scale-x-0 group-hover/cat:scale-x-100',
-                      )}
-                    />
-                  </span>
-                  <span className="micro tabular-nums text-fg-muted">{count}</span>
-                </TransitionLink>
-              ))}
+            <nav aria-label="Kinds" className="flex flex-col">
+              <Rail active={current ?? 'all'} listClassName="gap-7 md:gap-3">
+                <li>{door(`/${info.slug}`, 'Everything', !current)}</li>
+                {categories.map(({ category, count }) => (
+                  <li key={category}>{door(`/${info.slug}/${category}`, CATEGORY_PLURAL[category], current === category, count)}</li>
+                ))}
+              </Rail>
             </nav>
           )}
-          <button
-            type="button"
-            data-rise
-            onClick={() => requestConcierge({ mode: 'chat' })}
-            className="group/ask flex items-start gap-5 text-left"
-          >
-            <span aria-hidden className="mt-1 inline-block h-px w-8 bg-line-strong transition-all duration-500 group-hover/ask:w-12" />
-            <span className="max-w-[22em] font-display italic text-[1.0625rem] text-fg-muted transition-colors group-hover/ask:text-fg" style={{ fontVariationSettings: '"opsz" 16' }}>
+          <button type="button" onClick={() => requestConcierge({ mode: 'chat' })} className="group/ask flex items-start gap-5 text-left">
+            <span aria-hidden className="mt-3 inline-block h-px w-8 shrink-0 bg-line-strong transition-all duration-500 group-hover/ask:w-12" />
+            <span className="max-w-[22em] font-display italic text-[1.0625rem] text-fg-muted transition-colors group-hover/ask:text-fg [text-wrap:pretty]" style={{ fontVariationSettings: '"opsz" 16' }}>
               Tell the concierge a weight, a budget or an occasion, and it will narrow this for you.
             </span>
           </button>
@@ -260,10 +249,10 @@ function Index({
 }) {
   const { ref } = useChapter({ id: 'pieces', theme: 'ivory' });
   return (
-    <section ref={ref} data-theme="ivory" className="bg-bg py-section text-fg" aria-label="Pieces">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, ease: EASE.out }} className="px-gutter">
+    <section ref={ref} data-theme="ivory" className="bg-bg px-gutter py-[var(--block-y)] text-fg md:py-[var(--chapter-y)]" aria-label="Pieces">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, ease: EASE.out }} className="wj-content">
         {rows.length === 0 ? (
-          <p className="max-w-[26em] font-display text-lead" style={{ fontVariationSettings: '"opsz" 20' }}>
+          <p className="max-w-[26em] font-display text-lead [text-wrap:pretty]" style={{ fontVariationSettings: '"opsz" 20' }}>
             Nothing here answers all of that at once. Take one thing away, or ask the concierge — a piece like it may be in the showroom without being on this page.
           </p>
         ) : (
@@ -271,7 +260,7 @@ function Index({
         )}
 
         {remaining > 0 && (
-          <div className="mt-24 flex flex-col items-center gap-4">
+          <div className="mt-[var(--chapter-y)] flex flex-col items-center gap-4">
             <p className="micro text-fg-muted">
               Showing {rows.length} of {total}
             </p>
@@ -283,7 +272,7 @@ function Index({
                 e.preventDefault();
                 onReveal();
               }}
-              className="group/more eyebrow relative pb-1 text-fg"
+              className="group/more wj-hit eyebrow relative pb-1 text-fg"
             >
               Show {Math.min(remaining, 24)} more
               <span aria-hidden className="hairline absolute inset-x-0 bottom-0 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/more:scale-x-0" />
@@ -291,7 +280,7 @@ function Index({
           </div>
         )}
         {remaining === 0 && rows.length > 0 && (
-          <p className="mt-24 text-center micro text-fg-muted">
+          <p className="mt-[var(--chapter-y)] text-center micro text-fg-muted">
             All {total} {total === 1 ? 'piece' : 'pieces'}
           </p>
         )}
@@ -305,10 +294,10 @@ function Closing({ info, onConsult }: { info: DepartmentInfo; onConsult: () => v
   const scope = useRef<HTMLDivElement>(null);
   useRise(scope);
   return (
-    <section ref={ref} data-theme="ivory" className="bg-bg py-section text-fg">
-      <div ref={scope} className="flex flex-col items-start gap-8 px-gutter" data-rise>
+    <section ref={ref} data-theme="ivory" className="bg-bg px-gutter py-[var(--chapter-y)] text-fg">
+      <div ref={scope} className="wj-content flex flex-col items-start gap-6 md:gap-8" data-rise>
         <Eyebrow>VISIT US IN LAHORE</Eyebrow>
-        <h2 className="display max-w-[12em] text-display-m">{info.closing}</h2>
+        <h2 className="display max-w-[12em] text-[clamp(2rem,1.25rem+3.25vw,4.75rem)] [text-wrap:balance]">{info.closing}</h2>
         <Button variant="bracket" onClick={onConsult}>
           Book a viewing
         </Button>

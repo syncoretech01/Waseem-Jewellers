@@ -8,10 +8,9 @@ export const COPY = {
     eyebrow: 'Lahore · Since 1952',
     /** The name is the headline: a jeweller's shop says whose it is before it says anything else. */
     name: ['Waseem', 'Jewellers'],
-    line: 'Gold, diamond and bridal jewellery, shown by appointment in Lahore.',
-    cta: 'Discover the collection',
-    /** The film's credit: the collection it was shot for, and the listed piece from it. */
-    credit: 'In the film',
+    /** One proposition, no appointment wording: what is made, and where. */
+    line: 'Gold, diamond and bridal jewellery, made in Lahore.',
+    /** The door word beneath a piece — the worlds and the bridal room read it. */
     view: 'View the piece',
   },
   window: {
@@ -61,13 +60,6 @@ export const COPY = {
     title: 'The anatomy of a piece',
     /** What the object is, said plainly beside the eyebrow: a study, not a piece for sale. */
     note: 'A craft object, not a listed piece: an emerald cut and set in gold to show how a ring is made.',
-    coda: {
-      eyebrow: 'The same anatomy, in one piece',
-      title: 'Drawn, made, and turned in the hand.',
-      line: 'The same anatomy on a ring you can see in Lahore: a drawing traced from its own photograph, the photograph it becomes, and a second angle as Waseem shot it — the halo from above, the claws that hold the stone.',
-      beats: ['Drawn first', 'Then made', 'Seen from above'],
-      view: 'View the piece',
-    },
     labels: [
       { key: 'stone', numeral: '01', name: 'Stone', note: 'Chosen for colour first, then cut to keep it.' },
       { key: 'setting', numeral: '02', name: 'Setting', note: 'A closed bezel and four claws hold the stone above the light.' },
@@ -109,6 +101,7 @@ export const COPY = {
     heading: 'Gold and diamond — choose a world.',
     hint: 'Move across the frame. Choose a side to enter.',
     inFrame: 'In frame',
+    handle: 'Move the split between gold and diamond',
     gold: {
       word: 'GOLD',
       line: 'Jewellery in 21K gold, shaped for everyday and occasion — weighed and marked as Waseem publishes it.',
@@ -127,7 +120,6 @@ export const COPY = {
     title: 'Since 1952. Three showrooms.',
     line: 'Waseem Jewellers has sold gold in Lahore since 1952 — founded by Chaudhry Muhammad Afzal, expanded by Chaudhry Waseem Afzal, three showrooms today.',
     showrooms: 'Showrooms',
-    closing: 'CRAFTED ACROSS GENERATIONS.',
     cta: 'Book an appointment',
   },
   collections: {
@@ -153,7 +145,7 @@ export const COPY = {
   },
   product: {
     specsNote: 'Waseem publishes only what has been verified for this piece. Weight, purity and stone grading are confirmed when you see it in Lahore.',
-    priceNote: 'Priced on request · Viewings in Lahore by appointment',
+    priceNote: 'Viewings in Lahore by appointment',
   },
   bespoke: {
     eyebrow: 'Bespoke',
@@ -169,7 +161,7 @@ export const COPY = {
   },
   /**
    * The custom cursor's vocabulary. One word per state, and a state per kind of act: view a
-   * piece, explore a collection or world, open a panel, ask the concierge, listen, save,
+   * piece, explore a collection or world, open a panel, ask the concierge, listen,
    * close, drag, inspect, compare. "Discover" used to cover six of these and said nothing.
    */
   cursor: {
@@ -178,8 +170,6 @@ export const COPY = {
     open: 'Open',
     ask: 'Ask',
     listen: 'Listen',
-    save: 'Save',
-    saved: 'Kept',
     close: 'Close',
     drag: 'Drag',
     inspect: 'Inspect',
@@ -228,13 +218,5 @@ export const COPY = {
     },
     consent: (contact: string) => `By sending, you agree to our privacy statement. Questions about your data: ${contact}.`,
     consentLink: 'privacy statement',
-  },
-  ledger: {
-    title: 'Your Selection',
-    empty: ['Nothing kept yet.', 'Pieces you save will wait for you here.'],
-    viewing: 'Book a viewing of these pieces',
-    concierge: 'Ask the concierge about these',
-    remove: 'Remove',
-    discover: 'Discover Bridal',
   },
 } as const;

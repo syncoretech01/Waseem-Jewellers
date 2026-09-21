@@ -10,10 +10,9 @@ import { Img } from '@/components/media/Img';
 import { TransitionLink } from '@/components/motion/TransitionLink';
 import { DEPARTMENT_LABEL } from '@/data/labels';
 import type { Department } from '@/data/types';
-import type { PieceRow } from '@/lib/facets';
-import { ConciergeInvitation } from '@/concierge/ui/ConciergeInvitation';
 import { markHeroReady } from '@/components/loader/readiness';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
+import { gatedTicker } from '@/lib/perf/onScreen';
 import { COPY } from '@/data/copy';
 
 /**
@@ -23,11 +22,10 @@ import { COPY } from '@/data/copy';
  * doors on the page — then the piece worn in the film, and the concierge's line. Pinned for
  * one viewport with no spacing so the window rises over its end state.
  */
-export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; departments?: { department: Department; count: number }[] }) {
+export function Ch01Hero({ departments = [] }: { departments?: { department: Department; count: number }[] }) {
   const { ref, ready } = useChapter({ id: 'hero', theme: 'dark', pinned: true });
   const video = useRef<VideoHandle>(null);
   const loaderDone = useSiteStore((s) => s.loaderDone);
-  const setInvitation = useSiteStore((s) => s.setHeroInvitationVisible);
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
   const coarse = useQualityStore((s) => s.coarse);
   const introPlayed = useRef(false);
@@ -52,15 +50,8 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
         const sub = root.querySelector<HTMLElement>('.hero-sub');
         const tail = root.querySelectorAll<HTMLElement>('.hero-tail');
         if (!media || !title || !sub) return;
-        let invitationShown = true;
-        const setShown = (v: boolean) => {
-          if (invitationShown === v) return;
-          invitationShown = v;
-          setInvitation(v && introPlayed.current);
-        };
 
         if (still) {
-          setShown(true);
           ready();
           return;
         }
@@ -75,7 +66,6 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
               start: 'top top',
               end: 'bottom top',
               scrub: true,
-              onUpdate: (st) => setShown(st.progress < 0.3),
             },
           });
           ready();
@@ -93,7 +83,6 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
             anticipatePin: 1,
             invalidateOnRefresh: true,
             onUpdate: (st) => {
-              setShown(st.progress < 0.22);
               // written on the header, not the root: a custom property on <html> recalculates
               // the style of the whole document every scrolled frame of the hero
               (document.querySelector<HTMLElement>('header[aria-label="Primary"]') ?? document.documentElement).style.setProperty('--header-veil', String(0.1 + st.progress * 0.2));
@@ -105,7 +94,8 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
         tl.to(media, { scale: 0.84, y: '-4svh', ease: 'none' }, 0)
           .to(bars, { scaleY: 0.7, ease: 'none' }, 0)
           .to(vignette, { opacity: 1, ease: 'none' }, 0)
-          .to(title, { y: '-22svh', letterSpacing: '0.08em', ease: 'none' }, 0)
+          // transform only: letter-spacing would re-lay the title out on every scrolled frame
+          .to(title, { y: '-22svh', ease: 'none' }, 0)
           .fromTo(title, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.5, immediateRender: false }, 0)
           .to(sub, { y: '6svh', ease: 'none' }, 0)
           .fromTo(tail, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.25, immediateRender: false }, 0);
@@ -128,10 +118,9 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
       const hairline = root.querySelector('.intro-hairline');
       if (reduced) {
         gsap.set([eyebrow, title, line, tail, hairline], { autoAlpha: 1 });
-        setInvitation(true);
         return;
       }
-      const tl = gsap.timeline({ delay: 0.2, onComplete: () => setInvitation(true) });
+      const tl = gsap.timeline({ delay: 0.2 });
       tl.fromTo(eyebrow, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.9 }, 0)
         .fromTo(hairline, { scaleX: 0 }, { scaleX: 1, duration: 1.1 }, 0.1)
         .fromTo(line, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 1 }, 0.55)
@@ -169,9 +158,10 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
       px(-pointer.nx * 1.2);
       py(-pointer.ny * 1.2);
     };
-    gsap.ticker.add(tick);
+    // the drift ticks only while the hero is near the screen, not on every frame of the page
+    const stop = gatedTicker(root, tick, { margin: '50%' });
     return () => {
-      gsap.ticker.remove(tick);
+      stop();
       // a quickTo is a paused tween on the global timeline; unkilled, it holds the hero — and
       // the hero holds the video with 31 seconds of film buffered — on every visit after this
       for (const q of [tx, ty, px, py]) q.tween.kill();
@@ -180,10 +170,9 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
 
   useEffect(
     () => () => {
-      setInvitation(false);
       (document.querySelector<HTMLElement>('header[aria-label="Primary"]') ?? document.documentElement).style.removeProperty('--header-veil');
     },
-    [setInvitation],
+    [],
   );
 
   return (
@@ -201,7 +190,7 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
       </div>
 
       <div className="hero-type absolute inset-0 flex flex-col justify-end px-gutter pb-[8svh] md:pb-[9svh]">
-        {/* the name, the line, the doors, the credit and the concierge all start on the content box's left edge — the column every chapter's title starts on */}
+        {/* the name, the line and the doors start on the content box's left edge — the column every chapter's title starts on */}
         <div className="wj-content">
           <div className="hero-sub flex flex-col gap-3">
             <p className="intro-eyebrow micro text-champagne opacity-0">{COPY.hero.eyebrow}</p>
@@ -226,11 +215,11 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
           {/* the departments: what is sold — the first doors on the page */}
           {departments.length > 0 && (
             <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
-              <ul className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-1 opacity-0 md:gap-x-10">
+              <ul className="intro-tail flex flex-wrap items-baseline gap-x-[clamp(0.75rem,3vw,2rem)] gap-y-1 opacity-0 md:gap-x-10">
                 {departments.map(({ department }) => (
                   <li key={department}>
                     <TransitionLink href={`/${department}`} className="group/dept flex items-baseline py-2" data-cursor="explore">
-                      <span className="relative font-display text-[clamp(1.25rem,1.6vw,1.625rem)] leading-none text-ivory" style={{ fontVariationSettings: '"opsz" 20' }}>
+                      <span className="relative font-display text-[clamp(1.0625rem,4.6vw,1.25rem)] leading-none text-ivory md:text-[clamp(1.25rem,1.6vw,1.625rem)]" style={{ fontVariationSettings: '"opsz" 20' }}>
                         {DEPARTMENT_LABEL[department]}
                         <span
                           aria-hidden
@@ -243,25 +232,6 @@ export function Ch01Hero({ credit, departments = [] }: { credit?: PieceRow; depa
               </ul>
             </nav>
           )}
-          <div className="hero-tail mt-6 md:mt-7">
-            <div className="intro-tail flex flex-wrap items-baseline gap-x-8 gap-y-3 opacity-0">
-              {/* the film's credit: the listed piece worn in it, and the door to it */}
-              {credit && (
-                <TransitionLink href={`/jewellery/${credit.s}`} className="group/credit flex flex-wrap items-baseline gap-x-4 gap-y-1" data-cursor="view">
-                  <span className="micro text-champagne">{COPY.hero.credit}</span>
-                  <span className="font-display italic text-[1.0625rem] text-ivory/90 transition-colors group-hover/credit:text-ivory" style={{ fontVariationSettings: '"opsz" 16' }}>
-                    {credit.t}
-                  </span>
-                  <span className="micro text-ivory/55 transition-colors group-hover/credit:text-ivory">{COPY.hero.view}</span>
-                </TransitionLink>
-              )}
-            </div>
-          </div>
-          <div className="hero-tail mt-8 md:mt-10">
-            <div className="intro-tail opacity-0">
-              <ConciergeInvitation />
-            </div>
-          </div>
         </div>
       </div>
     </section>

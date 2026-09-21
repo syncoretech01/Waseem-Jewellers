@@ -1,6 +1,6 @@
 'use client';
 
-import { runtime } from '@/state/runtime';
+import { runtime, scrollTo } from '@/state/runtime';
 import { expoOut } from './easings';
 
 let locked = false;
@@ -25,8 +25,9 @@ export function snapWithLenis(target: number, opts: { duration?: number; easing?
     opts.onComplete?.();
   };
   if (!lenis) {
-    window.scrollTo({ top: target, behavior: 'auto' });
-    release();
+    // the same settle, as the GSAP glide runtime.scrollTo owns when Lenis is not there
+    scrollTo(target, { duration, easing: opts.easing ?? expoOut, onComplete: release });
+    unlockTimer = window.setTimeout(release, duration * 1000 + 120);
     return;
   }
   lenis.scrollTo(target, {

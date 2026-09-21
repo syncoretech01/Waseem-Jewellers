@@ -3,25 +3,26 @@
 import { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { gsap } from '@/lib/motion/gsap';
+import { gatedTicker } from '@/lib/perf/onScreen';
 import { createStudioEnvironment, createGemEnvironment } from './studioEnvironment';
 
 /**
  * Demand rendering driven from outside React: a ticker asks for a frame whenever
  * `needsFrame()` says something changed (scroll progress, pointer, state targets still
- * settling). Nothing renders while the scene is still.
+ * settling). Nothing renders while the scene is still — and nothing is even asked while the
+ * canvas is more than half a viewport off screen: the ticker itself is only on `gsap.ticker`
+ * while the canvas is near, so a pointer moving over the bespoke chapter does not have the
+ * craft object, four screens up, easing its rotation to follow it.
  */
 export function useDemandInvalidate(needsFrame: () => boolean) {
   const invalidate = useThree((s) => s.invalidate);
+  const gl = useThree((s) => s.gl);
   useEffect(() => {
     const tick = () => {
       if (needsFrame()) invalidate();
     };
-    gsap.ticker.add(tick);
-    return () => {
-      gsap.ticker.remove(tick);
-    };
-  }, [needsFrame, invalidate]);
+    return gatedTicker(gl.domElement, tick, { margin: '50%' });
+  }, [needsFrame, invalidate, gl]);
 }
 
 /** Mounts the procedural studio as `scene.environment`; returns the cube texture for refraction. */
