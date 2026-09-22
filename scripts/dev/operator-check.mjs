@@ -335,7 +335,7 @@ try {
   }
   await run(page, 'openAppointment', {});
   await settle(page, 600);
-  for (const text of ['Liberty.', 'MM Alam kar dein.', 'Actually MM Alam.', '0300 7122859']) {
+  for (const text of ['Liberty.', 'MM Alam kar dein.', 'Actually MM Alam.', 'ایم ایم عالم کر دیں.', 'م م عالم کر دیں.', '0300 7122859']) {
     const r = await route(text);
     ok(r.rung === 'direct' && r.plan === 'appointment_field', `direct · appointment_field "${text}" while the form is open (${r.rung} · ${r.plan})`);
   }

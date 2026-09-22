@@ -151,7 +151,7 @@ export function showroomIn(folded: string): string | undefined {
   if (m) return resolveShowroom(m[1] === 'defence' ? 'dha' : m[1]!);
   // the voice model writes Urdu speech in Nastaliq: the three showrooms as it spells them
   if (/لیبرٹی|لبرٹی/.test(folded)) return resolveShowroom('liberty');
-  if (/ایم ایم عالم|ایم ایم علام|عالم روڈ/.test(folded)) return resolveShowroom('mm alam');
+  if (/ایم ایم عالم|ایم ایم علام|م م عالم|م م علام|عالم روڈ/.test(folded)) return resolveShowroom('mm alam');
   if (/ڈی ایچ ا[ےی]|ڈیفنس/.test(folded)) return resolveShowroom('dha');
   return undefined;
 }
@@ -265,7 +265,13 @@ export const COMMANDS: Command[] = [
    */
   {
     id: 'appointment_field',
-    test: ({ ctx, folded, tokens }) => ctx.appointmentOpen && tokens.length <= 4 && (Boolean(showroomIn(folded)) || /^\+?[\d\s-]{7,}$/.test(folded) || /^(gift|bridal|bespoke|viewing|a viewing)$/.test(folded)),
+    // A recognizer may write spoken "MM" as two Urdu letters, making an otherwise plain
+    // showroom correction five tokens. Only a verified showroom gets that one-token grace.
+    test: ({ ctx, folded, tokens }) => {
+      const showroom = showroomIn(folded);
+      const shortField = tokens.length <= 4;
+      return ctx.appointmentOpen && ((Boolean(showroom) && tokens.length <= 5) || (shortField && (/^\+?[\d\s-]{7,}$/.test(folded) || /^(gift|bridal|bespoke|viewing|a viewing)$/.test(folded))));
+    },
     plan: ({ folded, language, R }) => {
       const showroom = showroomIn(folded);
       const phone = /^\+?[\d\s-]{7,}$/.test(folded) ? folded : undefined;

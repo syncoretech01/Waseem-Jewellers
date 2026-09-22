@@ -66,6 +66,21 @@ const worst = (xs) => {
 };
 const fmt = (n) => (typeof n === 'number' ? `${n} ms` : '—');
 
+/**
+ * Acceptance is about the language heard, not whether a recognizer chose Nastaliq or Latin
+ * characters for the same Urdu/Punjabi utterance. Other language labels remain exact.
+ */
+const languageMatches = (expected, actual) => {
+  if (!actual) return false;
+  const wanted = Array.isArray(expected) ? expected : [expected];
+  const family = (language) => {
+    if (language === 'ur' || language === 'ur-Latn') return 'urdu';
+    if (language === 'pa-Latn' || language === 'pa-Arab' || language === 'pa-Guru') return 'punjabi';
+    return language;
+  };
+  return wanted.some((language) => language === actual || family(language) === family(actual));
+};
+
 const RECOVERY_TIMEOUT_MS = 20_000;
 const RECOVERY_POLL_MS = 100;
 
@@ -453,7 +468,7 @@ for (let i = 0; i < TL.prompts.length; i++) {
     if (ex.tool) checks.push([`tool ${ex.tool}`, (row.tool ?? '').split(',').includes(ex.tool)]);
     if (ex.path) checks.push([`path ${ex.path}`, new RegExp(ex.path).test(hrefAfter ?? '')]);
     if (ex.section) checks.push([`section ${ex.section}`, row.sectionAfter === ex.section]);
-    if (ex.language) checks.push([`language ${ex.language}`, row.language === ex.language]);
+    if (ex.language) checks.push([`language ${Array.isArray(ex.language) ? ex.language.join('|') : ex.language}`, languageMatches(ex.language, row.language)]);
     if (ex.spoke) checks.push(['a spoken reply', row.replyStarted]);
     row.pass = checks.every(([, v]) => v);
     row.checks = checks.map(([k, v]) => `${v ? 'ok' : 'FAIL'} ${k}`).join(', ');
