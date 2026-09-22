@@ -79,10 +79,10 @@ export function routeSentence(text: string, ctx: SiteContext): Route {
   const n = tokens.length;
   const decide = (): { rung: Rung; why: string } => {
     // A deictic-led fragment is commonly the beginning of a natural thought: "Yeh bohat
-    // heavy…". It must not refine or open a piece if Live delegates before the transcript has
-    // settled. Only an actual open verb earns the direct rung; ordinals remain direct.
+    // heavy…". It must not open a piece if Live delegates before the transcript has settled.
+    // A finished refinement remains direct; only an actual open verb earns a direct open.
     const hasOpenVerb = frame.intent === 'open' && frame.confidence >= 0.9;
-    if (frame.slots.deictic && frame.slots.ordinal === undefined && !hasOpenVerb) {
+    if (plan.id === 'core_open' && frame.slots.deictic && frame.slots.ordinal === undefined && !hasOpenVerb) {
       return { rung: 'astra', why: 'deictic-led natural sentence' };
     }
     if (ACTIONS.has(plan.id)) return { rung: 'direct', why: 'action' };

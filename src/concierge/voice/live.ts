@@ -191,6 +191,8 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private lastLevel = 0;
   /** A page request is being transcribed or worked; no Live acknowledgement may escape before its fact. */
   private resultGuard = false;
+  /** The first blocked output gets one stop instruction and one trace entry, never a visible reply. */
+  private blockedOutputSeen = false;
   private epoch = 0;
   readonly trace: TraceEntry[] = [];
   readonly audit: VoiceAudit = {
@@ -372,6 +374,9 @@ export class LiveVoiceAdapter implements VoiceAdapter {
       const remote = document.createElement('audio');
       remote.autoplay = true;
       remote.setAttribute('playsinline', '');
+      // Muting still consumes the WebRTC track, rather than buffering a premature
+      // acknowledgement for release after the grounded result.
+      remote.muted = this.resultGuard;
       this.remote = remote;
       pc.ontrack = (e) => {
         const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -567,7 +572,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     this.output = { text: '', lastAt: 0 };
     this.lastContext = '';
     this.languageTold = null;
-    this.resultGuard = false;
+    this.setResultGuard(false);
     if (this.speaking) {
       this.speaking = false;
       this.runtime?.emit({ type: 'voice.speaking', active: false });
@@ -627,13 +632,32 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   }
 
   /**
+   * Prompt instructions can arrive after Live has begun a courtesy acknowledgement. Keep the
+   * existing remote WebRTC element consuming that audio, but never play it: only the grounded
+   * fact may be heard. This is a playback gate, not another voice layer.
+   */
+  private setResultGuard(on: boolean) {
+    if (this.resultGuard === on) {
+      if (this.remote) this.remote.muted = on;
+      return;
+    }
+    this.resultGuard = on;
+    this.blockedOutputSeen = false;
+    if (this.remote) this.remote.muted = on;
+    if (on && this.speaking) this.setSpeaking(false);
+    this.note(on ? 'audio.gated' : 'audio.ungated');
+  }
+
+  /**
    * Live can begin an acknowledgement before it emits the client delegation. Put a silence
    * guard on likely page requests as soon as their first transcript words arrive, rather than
    * waiting for the delegation event (which was too late in production traces).
    */
   private guardResultSpeech(route: Route) {
-    if (this.resultGuard || CONVERSATIONAL_PLANS.has(route.plan.id)) return;
-    this.resultGuard = true;
+    // An unread sentence is deliberately left to Live unless it delegates. Do not suppress a
+    // genuine model-only clarification merely because its parser reading is unknown.
+    if (this.resultGuard || CONVERSATIONAL_PLANS.has(route.plan.id) || (route.rung === 'astra' && route.plan.id === 'unknown')) return;
+    this.setResultGuard(true);
     this.append(
       'session.instructions.append',
       null,
@@ -679,7 +703,11 @@ export class LiveVoiceAdapter implements VoiceAdapter {
         const level = Math.sqrt(sum / buf.length);
         this.lastLevel = level;
         const now = Date.now();
-        if (level > SPEECH_LEVEL) {
+        // Gated audio is intentionally discarded. It must not light the stage, alter the
+        // turn's `spoke` state, or become the harness's first audible response.
+        if (this.resultGuard || this.remote?.muted) {
+          if (this.speaking) this.setSpeaking(false);
+        } else if (level > SPEECH_LEVEL) {
           this.loudAt = now;
           if (!this.speaking) this.setSpeaking(true);
         } else if (this.speaking && now - this.loudAt > SPEECH_QUIET_MS) {
@@ -792,14 +820,21 @@ export class LiveVoiceAdapter implements VoiceAdapter {
       case 'session.output_transcript.delta': {
         const delta = String(e.delta ?? '');
         this.armIdle();
-        if (!this.output.text) {
-          this.note('output.started', `${String(e.start_ms ?? '')}`);
-          if (this.resultGuard && !this.turn?.factSent) {
-            // This is a protocol breach rather than the result. Ask Live to cut it before a
-            // second phrase starts; the pending turn and its fact remain intact.
+        // A delegation may race its own acknowledgement. The remote track is muted while the
+        // fact is pending; discard the matching transcript too so it cannot become a hidden
+        // first reply in the turn history or a second reply after the result.
+        if (this.resultGuard && !this.turn?.factSent) {
+          if (!this.blockedOutputSeen) {
+            this.blockedOutputSeen = true;
+            this.note('output.started', `${String(e.start_ms ?? '')}`);
             this.append('session.instructions.append', null, 'Stop speaking now. No page result has been returned yet. Remain silent until the application returns that result.', 'guard-stop');
             this.note('premature.output');
           }
+          this.output = { text: '[suppressed]', lastAt: Date.now() };
+          break;
+        }
+        if (!this.output.text) {
+          this.note('output.started', `${String(e.start_ms ?? '')}`);
         }
         this.output.text += delta;
         this.output.lastAt = Date.now();
@@ -1074,8 +1109,11 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     if (!turn.fact || !this.live || turn.factSent || turn.awaitingDelegation) return;
     if (turn.delegationTimer) window.clearTimeout(turn.delegationTimer);
     turn.delegationTimer = null;
-    this.resultGuard = false;
     turn.factSent = true;
+    // Drop the marker for any muted acknowledgement before the one grounded result is allowed
+    // into the remote speaker and session transcript.
+    this.output = { text: '', lastAt: 0 };
+    this.setResultGuard(false);
     this.note('fact', `${turn.rung} → ${turn.delegationId ?? 'null'} · ${turn.fact.slice(0, 80)}`);
     // the page has changed: the voice model reads what is in view before it is handed the result,
     // so the result is the only thing it has to say
@@ -1110,7 +1148,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     // A model-only line can be the very acknowledgement the guard is trying to suppress.
     // Do not let its lifecycle release the pending page request; only its fact, supersession
     // or teardown may do that.
-    if (turn.rung !== 'live' || !this.resultGuard) this.resultGuard = false;
+    if (turn.rung !== 'live' || !this.resultGuard) this.setResultGuard(false);
     const text = tidy(turn.reply);
     if (text) this.history.push({ role: 'concierge', text });
     this.output = { text: '', lastAt: 0 };
@@ -1124,7 +1162,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private supersede(reason: string) {
     this.epoch += 1;
     this.held = null;
-    this.resultGuard = false;
+    this.setResultGuard(false);
     if (this.waitTimer) window.clearTimeout(this.waitTimer);
     this.waitTimer = null;
     if (this.speaking) this.setSpeaking(false);
