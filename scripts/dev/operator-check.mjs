@@ -14,6 +14,8 @@
  *   submitAppointment        refused without confirmation; with it, 'prepared' with a WJ- reference,
  *                            and no request ever reaches /api/enquiry
  *   setGalleryFrame          on a piece's page, the asked-for photograph comes into view
+ *   the voice router         which rung each sentence of the demo takes — direct (the parser, no
+ *                            model) or the delegation model — read through window.__wjVoiceRoute
  *
  *   node scripts/dev/operator-check.mjs [http://localhost:3300]
  */
@@ -26,7 +28,8 @@ const ok = (cond, what) => {
   if (!cond) failures.push(what);
 };
 
-const CAPABILITIES = { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'browser', enquiry: 'local', privacy: null, booking: 'none' };
+/** The voice is advertised so the router hook is installed; no session is ever opened here (the route answers 503). */
+const CAPABILITIES = { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'native', enquiry: 'local', privacy: null, booking: 'none' };
 
 /** Pieces the homepage opens with; the first with two or more photographs carries the gallery test. */
 const DOORS = ['royal-wedding-polki-raani-haar', 'diamond-bridal-sapphire-suite', 'rang-e-jamal-emerald-suite', 'gold-bridal-set-2', 'naqsh-e-gul-pearl-blossom-choker', 'emerald-tassel-earrings-t06768', 'lavender-halo-ring-r11912'];
@@ -114,7 +117,8 @@ try {
   page.on('pageerror', (e) => errors.push(String(e)));
 
   console.log('\noperating the site');
-  await page.goto(`${BASE}/`, { waitUntil: 'load', timeout: 120000 });
+  await ctx.route('**/api/concierge/live-session', (route) => route.fulfill({ status: 503, json: { error: { code: 'CONCIERGE_VOICE_OFFLINE', message: 'not in this harness' } } }));
+  await page.goto(`${BASE}/?qa=1`, { waitUntil: 'load', timeout: 120000 });
   await settle(page, 3500);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'chat' } })));
   await page.waitForFunction(() => typeof window.__wjConcierge?.runTool === 'function', null, { timeout: 15000 });
@@ -301,6 +305,44 @@ try {
   ok(!/I may have missed that|show you pieces, open a collection/.test(r.reply), 'the capability paragraph is gone');
   await page.evaluate(() => window.__wjConcierge.forget());
   await settle(page, 400);
+
+  /**
+   * The voice router, read without a session: which rung each sentence of the demo takes.
+   * A plain command is direct — the parser, no model, the site acts at once; a natural
+   * sentence with qualifiers the lexicon does not carry goes to the delegation model. The
+   * hook reads the page as it is, so the pieces are brought first and the form opened for
+   * the sentences that answer it.
+   */
+  console.log('\nthe voice router: which rung each sentence takes');
+  await page.evaluate(() => window.__wjConcierge.forget());
+  await page.evaluate(() => window.__wjConcierge.runTool('searchProducts', { category: 'ring', material: 'gold', limit: 4 }));
+  await settle(page, 1200);
+  const route = (text) => page.evaluate((t) => window.__wjVoiceRoute(t), text);
+  const DIRECT = [
+    ['Gold.', 'core_department'], ['Show rings.', 'core_search'], ['Second one.', 'core_open'], ['Back.', 'back'], ['Diamond.', 'core_department'], ['Open it.', 'core_open'], ['Book an appointment.', 'consultation'],
+    ['Doosra wala kholo.', 'core_open'], ['Nahi, pehla.', 'core_open'], ['Wapas jao.', 'back'], ['Liberty mein appointment karwani hai.', 'consultation'],
+    ['Show me gold rings.', 'core_search'], ['Something lighter.', 'core_lighter'], ['Open the second one.', 'core_open'], ['Go back.', 'back'], ['Take me to Bridal.', 'core_department'], ['Is se thora halka.', 'core_lighter'], ['Iska price kya hai.', 'price'],
+    ['Menu diamond de rings dikhao.', 'core_search'], ['Compare the first two', 'compare'], ['close', 'close'],
+  ];
+  const ASTRA = ['Show me something elegant for walima.', 'Mujhe baraat ke liye kuch heavy gold mein dikhao.', 'Mujhe bridal mein kuch elegant dikhao.', 'Gold mein koi simple ring dikhao.', 'Walima ke liye something classy.', 'Walima ke liye kuch elegant dikhao.', 'what would work with this necklace', 'around four lakh for a nikah', 'something similar but lighter and less traditional', 'Walima ke liye elegant diamond piece chahiye, not too heavy', 'Kal shaam ka time dekhna.'];
+  for (const [text, plan] of DIRECT) {
+    const r = await route(text);
+    ok(r.rung === 'direct' && r.plan === plan, `direct · ${plan.padEnd(16)} "${text}" (${r.rung} · ${r.plan} · ${r.language} · ${r.why})`);
+  }
+  for (const text of ASTRA) {
+    const r = await route(text);
+    ok(r.rung === 'astra', `astra  · ${r.plan.padEnd(16)} "${text}" (${r.why})`);
+  }
+  await run(page, 'openAppointment', {});
+  await settle(page, 600);
+  for (const text of ['Liberty.', 'MM Alam kar dein.', 'Actually MM Alam.', '0300 7122859']) {
+    const r = await route(text);
+    ok(r.rung === 'direct' && r.plan === 'appointment_field', `direct · appointment_field "${text}" while the form is open (${r.rung} · ${r.plan})`);
+  }
+  ok(await closeDialog(page, FORM), 'the form is closed again by hand');
+  await settle(page, 400);
+  await page.evaluate(() => window.__wjConcierge.forget());
+  await settle(page, 300);
 
   console.log('\nclosing');
   const bye = await run(page, 'closeConcierge');

@@ -230,8 +230,8 @@ export async function POST(request: Request) {
 
         /**
          * Every call is validated here, before the browser is ever asked to run it. It is
-         * validated again inside `executeTool`, because the browser and the realtime data
-         * channel do not pass through this route at all.
+         * validated again inside `executeTool`, because the voice's direct rung does not pass
+         * through this route at all.
          */
         const accepted: { callId: string; name: ToolName; args: Record<string, unknown> }[] = [];
         const rejected: { callId: string; result: unknown }[] = [];

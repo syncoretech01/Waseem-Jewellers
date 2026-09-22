@@ -247,74 +247,112 @@ The custom cursor (`CursorLayer`) is the one consumer with its own listener, bec
 
 **The fixed-pin ancestor rule.** A pinned ScrollTrigger positions the pinned element `fixed`. Any ancestor carrying `transform`, `filter`, `perspective`, `will-change`, `contain`, `backdrop-filter` or `container-type` becomes its containing block, and the pin silently detaches. So none of those properties appear on `body`, `#page-root`, a chapter `<section>`, or anything between them. When the menu overlay recedes the page it does not scale `#page-root`; it selects the at most two in-view `#page-root .recede` leaves and scales those.
 
-Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=100%` for the hero (no spacing), `+=155%` for the craft stage (140% on a phone), `+=70%` for the worlds, and `min(110, 50 + 20 × holds)` % for bespoke (110% for its three). Only four chapters pin; the window, the departments, bridal, men and kids, heritage and the concierge invitation are read at the pace of a page. The craft chapter pins an inner stage rather than its section, so the coda beneath it scrolls in when the pin releases. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
+Chapter pins are created eagerly on mount with `invalidateOnRefresh: true` and `end` values expressed as viewport percentages — `+=100%` for the hero (no spacing), `+=155%` for the craft stage (on a desktop; on a phone the craft does not pin at all — see below), `+=70%` for the worlds, and `min(110, 50 + 20 × holds)` % for bespoke (110% for its three). Only four chapters pin; the window, the departments, bridal, men and kids, heritage and the concierge invitation are read at the pace of a page. The craft chapter pins an inner stage rather than its section, so the chapter beneath it scrolls in when the pin releases. The document height is therefore correct from the first frame. The one piece of content deferred past mount is the WebGL object: `Ch02Craft` mounts `CraftScene` only once its own `IntersectionObserver` (`rootMargin: '100% 0px'`) says the chapter is within a viewport of the visitor. Pinned chapters are measured in `svh`, and every media box carries an explicit `aspect-ratio` so images never change layout on load and never force a refresh.
 
 Every chapter's scroll animation lives inside its own `useGSAP` scope — and, where it branches by viewport, its own `gsap.matchMedia` context — and reverts itself. The one ticker that lives outside a GSAP context (the hero's pointer drift) is removed in its effect cleanup. Nothing kills triggers globally.
 
-## The craft object — live, sequence, still
+## The craft object — live, layers, still
 
-The craft chapter (`Ch02Craft`, 21 Sep 2026) puts the same object on its stage in one of three
-forms, and only ever one at a time; `npm run ring:check` samples the pin and fails on a stage
-with none of them, or with anything else over them.
+The craft chapter (`Ch02Craft`, 22 Sep 2026) puts the same object on its stage in one of three
+forms, and only ever one; `npm run ring:check` samples the chapter and fails on a stage with
+none of them, or with anything else over them (`phone` as an argument samples the phone form).
 
-**Live** — the R3F `CraftScene`, on HIGH and MEDIUM (a desktop with a GPU), mounted in the
-first still moment after the loader (`warm`) or on approach at the latest (`near`, one
-viewport out). Phones do not take it: `LIVE_ON_PREMIUM_PHONES` in `Ch02Craft` is off. It
-would give a phone the detector calls `premium` (quality.ts: a recent Apple, Adreno or Mali
-GPU, or eight gigabytes reported) the object with the MEDIUM stone at DPR ≤ 1.5 — the flat
-LOW stone is never shown on a phone by any path — mounted only in a still moment, with the
-sequence beneath it until it has linked. Measured on the 390×844 emulation on an Intel HD 530
-(21 Sep 2026): once compiled, 57–58 fps through the chapter under touch flings, worst frame
-50–117 ms; but a compile that fell under a scrolling thumb was a one-frame second, which the
-frame-rate monitor answered by withdrawing WebGL (`demoteToStill`, demoted@1) — the visitor
-felt the stall and then never saw the object. The sequence is the same object at the highest
-tier with no compile and no stall, so it carries every phone until the compile has been
-measured on real ones. An object whose programs are still compiling is never unmounted under
-them (`renderScene` holds it until it links): three polls the programs from a timer, and a
-renderer disposed mid-compile throws from it.
+**Live** — the R3F `CraftScene`, on HIGH and MEDIUM (a desktop with a GPU), under the chapter's
+pinned, scrubbed timeline, mounted in the first still moment after the loader (`warm`) or on
+approach at the latest (`near`, one viewport out). Phones do not take it: `LIVE_ON_PREMIUM_PHONES`
+in `Ch02Craft` is off. It would give a phone the detector calls `premium` (quality.ts: a recent
+Apple, Adreno or Mali GPU, or eight gigabytes reported) the object with the MEDIUM stone at
+DPR ≤ 1.5 — the flat LOW stone is never shown on a phone by any path — mounted only in a still
+moment, with the layers beneath it until it has linked. Measured on the 390×844 emulation on an
+Intel HD 530 (21 Sep 2026): once compiled, 57–58 fps through the chapter under touch flings,
+worst frame 50–117 ms; but a compile that fell under a scrolling thumb was a one-frame second,
+which the frame-rate monitor answered by withdrawing WebGL (`demoteToStill`, demoted@1) — the
+visitor felt the stall and then never saw the object. An object whose programs are still
+compiling is never unmounted under them (`renderScene` holds it until it links): three polls the
+programs from a timer, and a renderer disposed mid-compile throws from it.
 
-**The sequence** — `public/assets/waseem/images/craft/ring-f{0…22}-{640,1080,1600}w.webp`:
-twenty-three frames of the same object rendered once from the same scene at the HIGH tier by
-`scripts/assets/craft-frames.mjs` (SwiftShader against the dev server, `?tier=HIGH`, a 2600 px
-square canvas so the 1600w set carries real pixels), one crop box for all of them (the union
-of the object's extent across the beats, so the object never jumps between frames), on truly
-transparent ground (every page ground goes transparent for the capture; an ink rectangle
-behind the object read as a faintly lighter box on the stage), ~47 KB each at 1080w — the
-1080w set is 1.08 MB. `CRAFT_FRAMES`
-(craftProgress.ts) is the one list of beats; the script reads it. Six frames at the centre of
-each beat were tried first: a dissolve across a whole beat shows two stones, or two bands, at
-once for most of the scroll, because the object also turns through the chapter — so the beats
-are sampled every 4–8° of turn and every ~25 px of a part's travel at phone scale (the close,
-where everything moves at once, every 0.02 of progress), and a crossfade between neighbours
-reads as the part moving. The frames are in the DOM from the
-first render (the timeline binds them once; no rebuild of the pin), given their `src` only
-where the sequence stands — the assembled frame at once, the rest when the chapter is within
-150 % of the viewport (`approach`), then `decode()`d — so a fast scroller never meets a blank
-stage. The chapter's own scrubbed timeline is their one driver: frame *i* fades in and frame
-*i−1* out (`autoAlpha`, so at most two are painted) across the span the live object would
-spend moving between those two poses — `craftFrameFades()`: from `max(p[i−1],
-window(p[i]).from)` to `p[i]` — so the stone lifts while "Stone" is lit, the band falls while
-"Metal" is, and the object holds still through the assembled hold exactly as the live one
-does. `mix-blend-mode: plus-lighter` inside an isolated box makes the crossfade a true
-linear dissolve (the object never dims halfway). The frames box is sized in `vw` on a phone
-because the live camera's portrait framing (`far` in CraftScene) makes the object's height a
-fixed fraction of the viewport width; the pull back of the close is in the frames themselves,
-so the still's pull-back tween is not theirs. Where it stands: every phone, any tier without
-WebGL, a context lost twice, a desktop detected LOW. Regenerate with `node scripts/assets/craft-frames.mjs http://localhost:3300`
-after any change to the scene; the script prints the crop size for `CRAFT_FRAME_SIZE` and
-`--craft-frame-aspect` (src/styles/craft.css).
+**The layers** — `public/assets/waseem/images/craft/ring-{band,setting,stone,polished}-{640,1080,1600}w.webp`:
+four stills of the same object rendered once from the same scene at the HIGH tier by
+`scripts/assets/craft-frames.mjs` — the band (with the gallery and the shoulders), the setting
+(the bezel and its claws) and the stone, each alone at rest, and the whole ring hand finished —
+from one camera at one angle, on one crop box, on transparent ground, 128 KB the 1080w set of
+four. The script mounts the live object on the dev server (`?tier=HIGH`, SwiftShader) and poses
+it through the development handle `window.__wjCraft.pose` (`craftProgress.pose`, read by
+`CraftScene`'s frame loop in place of the scroll's choreography; `null` on every visitor's
+page): the parts that are not the layer's stand six units out of the frame. `CRAFT_LAYERS`
+(craftProgress.ts) is the one list; the script reads it and prints the crop for `CRAFT_FRAME_SIZE`
+and `--craft-frame-aspect` / `--craft-frame-anchor` (src/styles/craft.css). The three parts
+stack in `.craft-layers` (normal compositing inside, the band beneath the setting beneath the
+stone) and the polished whole lies over the group; the box `.craft-states` isolates them and the
+group and the whole are added (`plus-lighter`), so through the finish a pixel that is the same
+in both keeps its brightness. A beat is one attribute, `data-stage` on `.craft-stage-wrap`,
+written by `applyStage` — the one writer, which also lights the label and the note — and the
+sheet turns it into motion: the stone lifts (`--craft-lift`), the setting drops, the band falls
+away (`translateY` transitions of 720 ms, `--ease-luxe`), the finish brings the parts home and
+then, 420 ms later, fades the group into the polished whole; the way back fades the polish
+first and moves the parts after it. The close is not a fifth image: it is the polished whole
+pulled back by a transform of the box (the live camera's own move). The distances are the live
+object's own — lift .62, the bezel .42 and the band .95 of a unit, less the portrait camera's
+stand-back — matched by silhouette against posed renders (.cache/s22/craft2/calibrate.mjs).
+The three parts are asked for as soon as the layers are the object's form (at detection: three
+small fetches during the hero), the polished whole on approach (one viewport out); the still
+stands until the three have decoded (`restReady`), and a beat whose layers have not arrived — a
+slow connection, a reload inside the chapter — waits for them, so the word and the object change
+together or not at all. Where the layers stand: every phone, any tier without WebGL, a context
+lost twice, a desktop detected LOW (where the desktop's scrub switches the same beats through
+`applyStage(stageAt(progress))`). Regenerate with `node scripts/assets/craft-frames.mjs http://localhost:3300`
+after any change to the scene.
+
+**The phone form** (22 Sep 2026). On a phone (`max-width: 767px`) the chapter is mobile-native
+and nothing pins: the section is a runway of 480svh (`#ch02-craft` in craft.css), the stage
+(`.craft-stage-wrap`, 100svh) sticks to its top by `position: sticky` alone, and the beat is the
+band of the runway (`.craft-beat`, six contiguous absolute boxes: the assembled hold 80svh, then
+70svh a beat) that the viewport's centre line is in, read by one `IntersectionObserver` whose
+root is a slab one per cent of the viewport tall at the centre (`rootMargin: '-49.5% 0px
+-49.5% 0px'`). Its callback reads the six bands' boxes — after layout, a few times per beat,
+never in a frame of the scroll — and gives the beat to the band holding the deeper cut of the
+slab, an even cut to the later band. The halo, the eyebrow, the index and the closing line
+follow `data-stage` by CSS transition under the phone query alone (on a desktop they are the
+GSAP timeline's). The observer is built in the `mobile` branch of the chapter's `matchMedia` and
+torn down when the query flips; the `still` branch (reduced motion) builds nothing, and the
+sheet collapses the runway to one viewport under `prefers-reduced-motion`. Measured on the
+390×844 and 430×932 emulations (headed, Intel HD 530, DPR 3; .cache/s22/craft2/test.mjs): the
+beat lands two frames after the centre line crosses a band in either direction, the label in the
+same write; zero layout shift through the chapter; touch flings at 56–58 fps with the worst
+frame 67–83 ms (GPU raster flushes at a layer's promotion, traced; no long task); headless
+58.9 fps, worst 17 ms.
+
+**Why it was rebuilt.** The chapter that shipped on 22 Sep 2026 (ae84093) pinned the stage on a
+phone with ScrollTrigger and crossfaded twenty-three frames of the desktop choreography on the
+chapter's scrub. Reproduced on the live build at 390×844 and 430×932 with a screencast under
+touch flings (.cache/s22/craft2/repro): the pin's flip to `fixed` (anticipatePin, 25 px early)
+and back (29 px late) jumped the stage by 15–25 px at each end of a fling and scored a layout
+shift of 1.0 twice; the labels lit from the raw scroll while the frames followed a scrub 0.6 s
+behind it, so "Stone" was lit over the assembled ring and the ring kept dissolving for most of
+a second after every thumb; every crossfade dissolved two whole rings at different angles —
+the object turns some sixty degrees across the chapter — so at every midpoint the visitor saw
+two bands, two stones and two bezels at full brightness (the additive blend), and under a slow
+drag the band's edge strobed; all twenty-three 1080w frames (1.16 MB; 1.7 MB of 1600w on a
+430×932 phone at DPR 3) were fetched at page load, since a 150% approach margin already reached
+the chapter from the top of the page, and decoded at once — 141 MB of RGBA at 1080w, 310 MB at
+1600w. Five whole-ring stills from a fixed camera were tried first: the parts that stayed put
+summed cleanly, but the part that moved was still two parts for the length of the dissolve. So
+the parts are layers, and a beat moves them.
 
 **The still** — the assembled poster (`ring-{640,1080,1600}w.webp`, `scripts/assets/craft-poster.mjs`,
-captured on the same transparent ground since 21 Sep), beneath the live object while it
-compiles on a desktop, before detection, and under reduced motion, where the chapter builds no
-pin and stands as a composed still: the object lit, every label named, one closing note.
+captured on the same transparent ground since 21 Sep, at the layers' own angle), beneath the
+live object while it compiles on a desktop, before detection, until the layers have decoded, and
+under reduced motion, where the chapter builds no pin and stands as a composed still: the object
+lit, every label named, one closing note.
 
-**One writer each.** The GSAP timeline alone writes a frame's opacity and visibility; React
-writes the container's opacity class (a different element) when the live object takes over;
-`src/styles/craft.css` sets the box and each frame's resting state. **`useGSAP` with
-dependencies does not revert on change** unless `revertOnUpdate: true` is passed — without it
-the callback runs again over the live context and a second pin lands on the same stage (the
-spacer padded twice, the stage a pin below the visitor). `Ch02Craft` passes it.
+**One writer each.** `applyStage` alone writes `data-stage`, the labels' and the notes' `data-lit`
+and `craftProgress.stage`; the sheet alone moves the layers, the box, and on a phone the halo,
+the eyebrow, the index and the closing line; the GSAP timeline alone tweens those four on a
+desktop; React writes the container's opacity class (a different element) when the live object
+or the still takes over. **`useGSAP` with dependencies does not revert on change** unless
+`revertOnUpdate: true` is passed — without it the callback runs again over the live context and
+a second pin lands on the same stage (the spacer padded twice, the stage a pin below the
+visitor). `Ch02Craft` passes it.
 
 ## Reduced motion
 
@@ -330,7 +368,7 @@ const still = reduce || reduced;
 
 The media query is the source of truth — GSAP reverts the other branch when it flips — and the store covers the case where the tier was reduced for another reason. The `still` branch builds no pin, no scrub and no timeline. It sets the composed end state (`Ch02Craft`: the object lit, every label named, one closing note; `Ch04Worlds`: the columns in place, the paper gone) and calls `ready()`. The unpinned chapters have no such branch: the reveal hooks set their targets to the finished state, and the heritage facade's monochrome-to-colour scrub is simply not built.
 
-Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`CraftScene` gives way to the still of the same object, rendered once by `scripts/assets/craft-poster.mjs`; the scroll-driven sequence is not built either, since there is no scrub to drive it), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
+Beneath that: `MotionConfig reducedMotion="user"` covers every Motion component, `scrollTo()` collapses to an immediate jump, `CursorLayer` does not render, WebGL does not mount (`CraftScene` gives way to the still of the same object, rendered once by `scripts/assets/craft-poster.mjs`; the layers are not moved either, since there is no beat to move them: the phone's runway collapses to one viewport), and route transitions use the plain veil. `QualityDetector` follows the media query live, so toggling the OS setting re-tiers the running page.
 
 ## Traps we hit
 

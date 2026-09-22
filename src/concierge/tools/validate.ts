@@ -6,8 +6,8 @@ import type { JsonSchema, JsonSchemaProperty, ToolDef, ToolName } from '../types
  *
  * This is the security boundary of the whole concierge, and it is deliberately isomorphic:
  * the server runs it before emitting `tool.call`, and `executeTool` runs it again at the top
- * of every execution. That duplication is not redundancy — the browser path and the realtime
- * data channel do not pass through the server at all, so a validator that lived only there
+ * of every execution. That duplication is not redundancy — the keyless engine and the voice's
+ * direct rung do not pass through the server at all, so a validator that lived only there
  * would guard nothing on two of the three paths.
  *
  * What it refuses, and why each matters:

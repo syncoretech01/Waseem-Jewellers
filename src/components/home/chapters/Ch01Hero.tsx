@@ -7,9 +7,8 @@ import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { Video, type VideoHandle } from '@/components/media/Video';
 import { Img } from '@/components/media/Img';
-import { TransitionLink } from '@/components/motion/TransitionLink';
-import { DEPARTMENT_LABEL } from '@/data/labels';
-import type { Department } from '@/data/types';
+import { scrollTo } from '@/state/runtime';
+import { sectionElement } from '@/state/sections';
 import { markHeroReady } from '@/components/loader/readiness';
 import { bindPointer, pointer } from '@/lib/motion/pointer';
 import { gatedTicker } from '@/lib/perf/onScreen';
@@ -17,12 +16,12 @@ import { COPY } from '@/data/copy';
 
 /**
  * CH01 — the cinematic hero. Royal Wedding, candlelit, and the shop's own name across it:
- * a jeweller says whose window this is before it says anything else. Beneath the name, what
- * is sold and how much of it — the five departments with their real counts are the first
- * doors on the page — then the piece worn in the film, and the concierge's line. Pinned for
- * one viewport with no spacing so the window rises over its end state.
+ * a jeweller says whose window this is before it says anything else. Beneath the name, one
+ * proposition and one quiet door to the window by kind — the departments are in the header
+ * and the menu, and were a second navigation row here. Pinned for one viewport with no
+ * spacing so the window rises over its end state.
  */
-export function Ch01Hero({ departments = [] }: { departments?: { department: Department; count: number }[] }) {
+export function Ch01Hero() {
   const { ref, ready } = useChapter({ id: 'hero', theme: 'dark', pinned: true });
   const video = useRef<VideoHandle>(null);
   const loaderDone = useSiteStore((s) => s.loaderDone);
@@ -212,26 +211,21 @@ export function Ch01Hero({ departments = [] }: { departments?: { department: Dep
               {COPY.hero.line}
             </p>
           </div>
-          {/* the departments: what is sold — the first doors on the page */}
-          {departments.length > 0 && (
-            <nav className="hero-tail mt-7 md:mt-8" aria-label="Departments">
-              <ul className="intro-tail flex flex-wrap items-baseline gap-x-[clamp(0.75rem,3vw,2rem)] gap-y-1 opacity-0 md:gap-x-10">
-                {departments.map(({ department }) => (
-                  <li key={department}>
-                    <TransitionLink href={`/${department}`} className="group/dept flex items-baseline py-2" data-cursor="explore">
-                      <span className="relative font-display text-[clamp(1.0625rem,4.6vw,1.25rem)] leading-none text-ivory md:text-[clamp(1.25rem,1.6vw,1.625rem)]" style={{ fontVariationSettings: '"opsz" 20' }}>
-                        {DEPARTMENT_LABEL[department]}
-                        <span
-                          aria-hidden
-                          className="hairline absolute inset-x-0 -bottom-1.5 origin-left scale-x-0 transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/dept:scale-x-100 group-focus-visible/dept:scale-x-100"
-                        />
-                      </span>
-                    </TransitionLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
+          {/* one quiet door: the window by kind is the next chapter, and the departments live in the header and the menu */}
+          <div className="hero-tail mt-7 md:mt-8">
+            <button
+              type="button"
+              onClick={() => {
+                const el = sectionElement('vitrine');
+                if (el) scrollTo(el, { duration: 1.4 });
+              }}
+              className="intro-tail group/door micro flex min-h-11 items-center gap-3 text-ivory/80 opacity-0 transition-colors hover:text-ivory"
+              data-cursor="explore"
+            >
+              {COPY.hero.cta}
+              <span aria-hidden className="hairline block h-px w-8 origin-left transition-transform duration-700 ease-[var(--ease-out-expo)] group-hover/door:scale-x-150" />
+            </button>
+          </div>
         </div>
       </div>
     </section>

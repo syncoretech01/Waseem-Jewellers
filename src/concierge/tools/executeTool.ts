@@ -149,10 +149,10 @@ function describeQuery(args: Record<string, unknown>) {
  * error object so a model (or the mock) can recover.
  *
  * The validator runs here as well as on the server, and the duplication is the whole point.
- * The realtime voice engine holds its own data channel to the model and never passes
- * through our route at all, so on that path this is not defence in depth — it is the only
- * gate there is. Running it here also means the keyless engine is held to the same rule as
- * the model: neither can act on a slug the catalogue does not carry.
+ * The voice's direct rung dispatches the deterministic planner's calls straight to this
+ * function and never passes through a route at all, so on that path this is not defence in
+ * depth — it is the only gate there is. Running it here also means the keyless engine is held
+ * to the same rule as the model: neither can act on a slug the catalogue does not carry.
  */
 export async function executeTool(name: ToolName, rawArgs: Record<string, unknown>): Promise<ToolOutcome> {
   const verdict = validateToolCall(name, rawArgs, { isKnownSlug });

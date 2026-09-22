@@ -17,16 +17,14 @@ import type { TurnSource } from '@/state/conciergeStore';
  * signed continuation the server issued.
  *
  * Every tool call is validated again here even though the server validated it already. The
- * duplication is the point: this same path will carry the realtime data channel, which does
- * not pass through the server at all, and a validator that guarded only one of two doors is
- * not a boundary.
+ * duplication is the point: the voice's direct rung does not pass through the server at all,
+ * and a validator that guarded only one of two doors is not a boundary.
  */
 export class ServerConciergeProvider implements ConciergeProvider {
   readonly id = 'server-model' as const;
   /**
-   * A text model reached over HTTP. It streams, it reasons, and it does not speak — the
-   * browser's own speech APIs do that, driven by the controller. The realtime voice provider
-   * is a different engine and carries a different name.
+   * A text model reached over HTTP. It streams, it reasons, and it does not speak: the typed
+   * concierge writes. The Live voice is a different engine and carries a different name.
    */
   readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'browser', contextPush: false, intelligence: 'model' };
 

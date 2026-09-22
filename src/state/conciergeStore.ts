@@ -124,19 +124,14 @@ export interface ConciergeError {
 }
 
 export interface VoiceFlags {
-  adapter: 'webspeech' | 'scripted' | 'server' | 'realtime' | null;
+  adapter: 'scripted' | 'realtime' | null;
   recognition: boolean;
   synthesis: boolean;
-  spokenReplies: boolean;
   sessionLive: boolean;
   /** The microphone has been asked for and has not opened yet — the browser may be asking the visitor. */
   preparing: boolean;
   /** The microphone was refused, or is blocked for this site; latched for the session. */
   denied: boolean;
-  /** The microphone has closed and the words are still on their way (the server tier). */
-  transcribing: boolean;
-  /** A rung down from the tier the deployment offers, for this visitor: said on the stage, never in the engine's words. */
-  fallback: 'server' | 'browser' | null;
 }
 
 interface ConciergeStoreState {
@@ -203,7 +198,7 @@ export const useConciergeStore = create<ConciergeStoreState>()((set, get) => ({
   recentCollections: [],
   lastVisitorText: null,
   providerId: 'keyless',
-  voice: { adapter: null, recognition: false, synthesis: false, spokenReplies: true, sessionLive: false, preparing: false, denied: false, transcribing: false, fallback: null },
+  voice: { adapter: null, recognition: false, synthesis: false, sessionLive: false, preparing: false, denied: false },
   error: null,
   greeted: false,
   trayOpen: false,

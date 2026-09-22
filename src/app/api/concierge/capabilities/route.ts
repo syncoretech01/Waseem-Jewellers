@@ -1,4 +1,5 @@
-import { modelIsConfigured, realtimeIsConfigured, voiceIsConfigured } from '@/server/env';
+import { modelIsConfigured } from '@/server/env';
+import { liveIsConfigured } from '@/server/concierge/liveEnv';
 import { enquiryReadiness } from '@/server/enquiry/sink';
 import { bookingProvider } from '@/server/booking/provider';
 
@@ -24,12 +25,11 @@ export function GET() {
       /** The languages the keyless engine owns outright; the model widens the phrasing, not the list. */
       languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
       /**
-       * 'server' — hearing and speaking through a model, with the browser's own speech as
-       * the fallback for any single utterance that fails. 'browser' is the shipped state.
-       * 'native' is the realtime tier — one model that hears, reasons and speaks — and
-       * implies the server tier beneath it, since the same credential powers both.
+       * 'native' — the Live voice session, offered when the credential is set and
+       * `CONCIERGE_LIVE` is not off. 'none' is the shipped state: no voice, no stage, the
+       * composer is the door. There is no tier beneath the session.
        */
-      voice: realtimeIsConfigured() ? 'native' : voiceIsConfigured() ? 'server' : 'browser',
+      voice: liveIsConfigured() ? 'native' : 'none',
       /**
        * 'local' means a consultation request never leaves the visitor's device: the form
        * hands them a reference and their own WhatsApp message, which is all it has ever

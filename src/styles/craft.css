@@ -1,65 +1,285 @@
 /* ──────────────────────────────────────────────────────────────────────────
-   WASEEM JEWELLERS — the craft chapter's sequence
-   The pre-rendered frames of the craft object (scripts/assets/craft-frames.mjs,
-   one crop box for all of them), stacked in one box over the stage wherever the
-   live object is not mounted: every phone, a browser without WebGL, a context
-   lost twice. Imported from Ch02Craft.tsx.
-   Writers: this sheet sets the box and every frame's resting state; the
-   chapter's GSAP timeline alone writes a frame's opacity and visibility
-   (autoAlpha, driven by the scrub); React writes the container's opacity
-   class when the live object takes over. No property has two writers.
+   WASEEM JEWELLERS — the craft chapter's states, and its phone form
+   The pre-rendered layers of the craft object (scripts/assets/craft-frames.mjs:
+   the stone, the setting and the band each alone at rest, and the whole ring
+   polished — one crop box, one camera, one angle for all of them), stacked in
+   one box over the stage wherever the live object is not mounted: every phone,
+   a browser without WebGL, a context lost twice. Imported from Ch02Craft.tsx.
+
+   On a phone the chapter is mobile-native: the section is a runway of a few
+   viewports, the stage sticks to the top of it by CSS alone (no pin, nothing
+   fixed, nothing measured under the thumb), and the beat is switched by an
+   IntersectionObserver on the runway's bands. A beat is one attribute on the
+   stage, `data-stage`; everything below follows it by CSS transition — a part
+   moves, the parts dissolve into the polished whole, the box eases closer and
+   then pulls back, the halo and the eyebrow, the index and the closing line
+   come and go — all of it on the compositor.
+
+   Writers: this sheet sets the box, every layer's resting state and every
+   transition; the chapter alone writes `data-stage` (from the observer on a
+   phone, from its scrub on a desktop without the live object). React writes
+   the container's opacity class when the live object takes over. On a desktop
+   the halo, the eyebrow, the index and the closing line are the GSAP
+   timeline's, so their rules here stand only under the phone query. No
+   property has two writers.
    ────────────────────────────────────────────────────────────────────────── */
 
-.craft-frames {
-  /* the frames' own proportion (CRAFT_FRAME_SIZE): the crop is taller than wide because the
-     parts separate vertically and the close pulls the object up */
-  --craft-frame-aspect: 0.7598;
-  /* where the assembled object's centre sits in the crop: below the middle, because the crop
-     also holds the lifted stone and the pulled-back close above it. The box is anchored by
-     this point, so the assembled object stands where the live one does */
-  --craft-frame-anchor: 60.5%;
+.craft-states {
+  /* the layers' own proportion (CRAFT_FRAME_SIZE): the ring at rest, with a margin */
+  --craft-frame-aspect: 0.7757;
+  /* where the assembled object's centre sits in the crop. The box is anchored by this point, so
+     the assembled object stands where the live one does */
+  --craft-frame-anchor: 50%;
+  /* the parts' travel, as shares of the box's height: the live object's own distances (lift .62,
+     the bezel .42 and the band .95 of a unit, less the portrait camera's stand-back), matched
+     against the posed renders by silhouette (.cache/s22/craft2/calibrate.mjs: 277, 148 and 300
+     px of a 1632 px crop) */
+  --craft-lift: -17%;
+  --craft-drop-setting: 9%;
+  --craft-drop-band: 18.4%;
   position: absolute;
   left: 50%;
-  /* a desktop stage without the live object (LOW, no WebGL): the object as tall as the live
-     one draws it, its centre a little below the middle, as the live camera frames it */
-  top: 57%;
-  height: min(80svh, 95vw);
+  /* a desktop stage without the live object (LOW, no WebGL): the object near the height the
+     live one draws it, with room beneath for the band to fall and above for the stone to lift */
+  top: 50%;
+  height: min(66svh, 95vw);
   aspect-ratio: var(--craft-frame-aspect);
   translate: -50% calc(-1 * var(--craft-frame-anchor));
   pointer-events: none;
-  /* the crossfade adds the two neighbours rather than stacking them, so the object never dims
-     halfway between two frames; isolated, so the sum never reaches the stage beneath */
+  /* the finish adds the parts and the polished whole rather than stacking them, so a pixel that
+     is the same in both keeps its brightness all through the dissolve; isolated, so the sum
+     never reaches the stage */
   isolation: isolate;
+  /* the camera's own move: a breath closer through the beats, and the pull back of the close */
+  transform-origin: 50% var(--craft-frame-anchor);
+  transition: transform 1100ms var(--ease-silk);
 }
 
 @media (max-width: 767px) {
-  .craft-frames {
+  .craft-states {
     /* the live camera stands further back on a portrait stage (CraftScene `far`), which makes
-       the object's height a fixed share of the viewport's width — 0.78 of it — with its centre
-       9vw above the stage's centre, clear of the index. The box follows that, so on a premium
-       phone the sequence and the live object stand in the same place when one gives way to
-       the other. */
-    top: calc(50% - 9vw);
+       the object's height a fixed share of the viewport's width; the box follows that, its
+       centre above the stage's centre so the assembled ring sits between the eyebrow and the
+       index, the lifted stone clears the eyebrow, and the dropped band of the metal state
+       clears the index's first row (measured at 390×844 and 430×932, 22 Sep 2026). */
+    top: calc(50% - 19vw);
     height: auto;
-    width: 75vw;
+    width: 64vw;
+  }
+  /* the still stands where the layers' ring stands, so the hand-over between them (a slow
+     connection, the layers arriving after the visitor) is a dissolve of the same ring in the
+     same place: measured at 390×844, the poster's ring is 84% of its box and centred in it */
+  .craft-stage-wrap .craft-poster {
+    top: calc(50% - 19vw);
+    width: 88vw;
+    height: 88vw;
   }
 }
 
-.craft-frame {
+[data-stage='stone'] .craft-states {
+  transform: scale(1.02);
+}
+[data-stage='setting'] .craft-states {
+  transform: scale(1.03);
+}
+[data-stage='metal'] .craft-states {
+  transform: scale(1);
+}
+[data-stage='finish'] .craft-states {
+  transform: scale(1.05);
+}
+[data-stage='craft'] .craft-states {
+  transform: translateY(-6svh) scale(0.86);
+}
+
+/* the runway exists on a phone alone */
+.craft-runway {
+  display: none;
+}
+
+/* the three parts at rest, stacked as the ring — the band beneath the setting beneath the stone —
+   composited normally inside their own group; the group is added to the polished whole above it
+   through the finish, so a pixel that is the same in both never dims or doubles */
+.craft-layers {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  mix-blend-mode: plus-lighter;
+  transition: opacity 600ms var(--ease-silk) 420ms;
+}
+
+.craft-state {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
-  opacity: 0;
-  visibility: hidden;
-  mix-blend-mode: plus-lighter;
   user-select: none;
   -webkit-user-drag: none;
 }
 
-/* the assembled object stands before the timeline has written anything */
-.craft-frame[data-frame='0'] {
+/* a part moves as a real thing moves: one transform, eased like the live object's damping */
+.craft-layers .craft-state {
+  transition: transform 720ms var(--ease-luxe);
+}
+
+/* the whole ring, hand finished: comes up over the parts once they are home */
+.craft-state[data-layer='polished'] {
+  opacity: 0;
+  mix-blend-mode: plus-lighter;
+  transition: opacity 600ms var(--ease-silk) 420ms;
+}
+
+/* the beats. The distances are the live object's own — lift .62, the bezel .42 and the band
+   .95 of a unit, less the portrait camera's stand-back — read off the rendered layers
+   (scripts/assets/craft-frames.mjs prints them) as shares of the box's height */
+[data-stage='stone'] .craft-state[data-layer='stone'],
+[data-stage='setting'] .craft-state[data-layer='stone'],
+[data-stage='metal'] .craft-state[data-layer='stone'] {
+  transform: translateY(var(--craft-lift));
+}
+[data-stage='setting'] .craft-state[data-layer='setting'],
+[data-stage='metal'] .craft-state[data-layer='setting'] {
+  transform: translateY(var(--craft-drop-setting));
+}
+[data-stage='metal'] .craft-state[data-layer='band'] {
+  transform: translateY(var(--craft-drop-band));
+}
+
+/* the finish: the parts come home first, then the polish comes up over them */
+[data-stage='finish'] .craft-layers,
+[data-stage='craft'] .craft-layers {
+  opacity: 0;
+}
+[data-stage='finish'] .craft-state[data-layer='polished'],
+[data-stage='craft'] .craft-state[data-layer='polished'] {
   opacity: 1;
-  visibility: inherit;
+}
+/* and on the way back, the polish goes first and the parts leave after it */
+[data-stage='metal'] .craft-layers,
+[data-stage='metal'] .craft-state[data-layer='polished'] {
+  transition: opacity 360ms var(--ease-silk);
+}
+[data-stage='metal'] .craft-layers .craft-state {
+  transition: transform 720ms var(--ease-luxe) 240ms;
+}
+
+/* ── the phone form: a runway, a sticky stage, and the beat's chrome by CSS ── */
+@media (max-width: 767px) {
+  #ch02-craft {
+    /* the stage, and then a viewport of runway for the first beat's approach and each beat after */
+    height: calc(100svh + var(--craft-runway));
+    --craft-runway: 380svh;
+  }
+  #ch02-craft .craft-stage-wrap {
+    position: sticky;
+    top: 0;
+  }
+  /* the runway's bands, one per beat: the beat is the band the viewport's centre line is in.
+     The observer watches a thin slab at the centre (rootMargin), so the bands are placed half
+     a viewport below the scroll offset at which their beat begins */
+  .craft-runway {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .craft-beat {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+  .craft-beat[data-beat='assembled'] {
+    top: 0;
+    height: 80svh;
+  }
+  .craft-beat[data-beat='stone'] {
+    top: 80svh;
+    height: 70svh;
+  }
+  .craft-beat[data-beat='setting'] {
+    top: 150svh;
+    height: 70svh;
+  }
+  .craft-beat[data-beat='metal'] {
+    top: 220svh;
+    height: 70svh;
+  }
+  .craft-beat[data-beat='finish'] {
+    top: 290svh;
+    height: 70svh;
+  }
+  .craft-beat[data-beat='craft'] {
+    top: 360svh;
+    bottom: 0;
+  }
+
+  /* the light rises as the chapter begins, brightens for the finishing, and dims for the close */
+  .craft-stage-wrap .craft-halo {
+    transition:
+      opacity 900ms var(--ease-silk),
+      transform 1100ms var(--ease-silk);
+  }
+  [data-stage='stone'] .craft-halo,
+  [data-stage='setting'] .craft-halo,
+  [data-stage='metal'] .craft-halo {
+    opacity: 0.55;
+    transform: scale(1.1);
+  }
+  [data-stage='finish'] .craft-halo {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
+  [data-stage='craft'] .craft-halo {
+    opacity: 0.35;
+    transform: translateY(-6svh) scale(0.95);
+  }
+  /* the eyebrow names the chapter once the first beat has begun */
+  .craft-stage-wrap .craft-eyebrow {
+    transition: opacity 600ms var(--ease-silk);
+  }
+  .craft-stage-wrap[data-stage]:not([data-stage='assembled']) .craft-eyebrow {
+    opacity: 1;
+  }
+  /* the closing line takes the index's place rather than printing over it */
+  .craft-stage-wrap .craft-index {
+    transition: opacity 500ms var(--ease-silk);
+  }
+  .craft-stage-wrap .craft-closing {
+    transform: translateY(24px);
+    transition:
+      opacity 700ms var(--ease-silk) 200ms,
+      transform 700ms var(--ease-silk) 200ms;
+  }
+  .craft-stage-wrap[data-stage='craft'] .craft-index {
+    opacity: 0;
+  }
+  .craft-stage-wrap[data-stage='craft'] .craft-closing {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* reduced motion: no runway, no dissolve — the composed still, the chapter one viewport tall */
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  #ch02-craft {
+    height: auto;
+  }
+  #ch02-craft .craft-stage-wrap {
+    position: relative;
+  }
+  .craft-runway {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .craft-states,
+  .craft-state,
+  .craft-layers,
+  .craft-stage-wrap .craft-halo,
+  .craft-stage-wrap .craft-eyebrow,
+  .craft-stage-wrap .craft-index,
+  .craft-stage-wrap .craft-closing {
+    transition: none;
+  }
 }

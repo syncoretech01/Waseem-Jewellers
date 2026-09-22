@@ -36,7 +36,11 @@ const ISO_DATE = { type: 'string' as const, pattern: '^\\d{4}-\\d{2}-\\d{2}$', d
  */
 const CATEGORIES = ['bridal-set', 'set', 'necklace', 'choker', 'earrings', 'ring', 'bangle', 'bracelet', 'pendant', 'chain', 'nose-pin', 'cufflink'];
 
-/** One registry, JSON-schema parameters. The same array feeds the mock and, later, the Realtime session. */
+/**
+ * One registry, JSON-schema parameters. The same array feeds the keyless planner, the text
+ * model (the turn route) and the delegation model behind the voice (the delegate route,
+ * through `server/concierge/responses.ts`). The voice model itself holds no tools.
+ */
 export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'searchProducts',
@@ -284,8 +288,3 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     runtime: 'browser',
   },
 ];
-
-/** The flat shape the OpenAI Realtime session expects for `session.tools`. */
-export function realtimeTools() {
-  return TOOL_DEFS.map((t) => ({ type: 'function' as const, name: t.name, description: t.description, parameters: t.parameters }));
-}

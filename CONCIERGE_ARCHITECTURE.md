@@ -31,7 +31,7 @@ There are two today and a seam for a third. `createProvider()` returns one thing
 |---|---|---|---|
 | Keyless | `keyless` | browser | The shipped default and the regression layer. Deterministic multilingual NLU over twelve core actions. Answers when there is no key, when the model fails, and in CI. |
 | Server model | `server-model` | our server → the model | Open-ended understanding. Grounded on retrieval, validated on every tool call, filtered on every sentence. Ships dark: it is live the moment `CONCIERGE_API_KEY` is set and the same build is redeployed. |
-| Realtime voice | `realtime-voice` | browser WebRTC → the model | The client-demo voice (`voice/realtime.ts`): one session that hears, understands and speaks; the call is opened before the tap; every function call passes `executeTool`. Falls to the transcription tier, then the browser's own hearing, each step recorded. |
+| Live voice | `live-voice` | browser WebRTC → GPT-Live → this application | The premium voice (`voice/live.ts`): GPT-Live hears and speaks, full duplex, and holds no tools; every request it delegates comes to the browser, where one router (`voice/router.ts`) sends a plain command to the deterministic parser and a natural sentence to the delegation model (`/api/concierge/delegate`, GPT-6 Astra on the text path's grounding); the outcome goes back as a terse English fact and the voice says it in the visitor's language. No rung beneath it: a session that cannot open is said so once, in writing, and the written concierge answers. |
 
 **`FallbackProvider`** tries the model and, on any *recoverable* failure before the first word
 has been shown — no key, rate limit, timeout, an upstream error — runs the same sentence through
@@ -70,15 +70,16 @@ src/concierge/
   tools/
     toolDefs.ts            one registry, JSON-schema parameters, runtime: browser | server
     validate.ts            the gate — schema, slug existence by declared role, path allowlist, budget
-    executeTool.ts         every browser tool; validates at the top, because the realtime path has no other gate
+    executeTool.ts         every browser tool; validates at the top, because the voice's direct rung has no other gate
     appointment.ts         the draft read the way the form reads it: required fields, showroom by name, date, the read-back
   voice/
-    engine.ts              chooseVoiceEngine — which engine listens; registerVoiceEngine for the native one
-    languages.ts           recognition language by conversation, speech runs by script, voice by language
-    adapters.ts            WebSpeechAdapter (three alternatives, scored), ScriptedExampleAdapter
-    realtime.ts            RealtimeVoiceAdapter — the call opened before the tap, the microphone attached in it
-    realtimePrompt.ts      VOICE_INSTRUCTIONS, TURN_DETECTION, the realtime tool list, the site-context block
-    speech.ts              planSpeech — never a wrong-language voice; silence and a written reply instead
+    engine.ts              chooseVoiceEngine — the Live session when the deployment offers it, the scripted example on request, nothing else
+    adapters.ts            VoiceAdapter, VoiceSessionRuntime, ScriptedExampleAdapter ("Let me show you")
+    live.ts                LiveVoiceAdapter — one WebRTC session per concierge open; transcript turns; delegations answered; SPEAKING from playback; the audit
+    livePrompt.ts          LIVE_INSTRUCTIONS, LIVE_MODEL, LIVE_VOICE (the one-line voice constant), the audition list, the site-context block
+    router.ts              routeSentence — direct (the parser, no model) or astra; runDirect — the plan's tools, then the fact
+    astra.ts               runAstra — the delegation route's loop from the browser: frames, tools executed here, the fact
+    facts.ts               factForOutcome / factForPlan — the terse English fact the voice model is told
     meter.ts, scripts.ts
   ui/
     ConciergeMount.tsx     eager: the orb, and the lazy salon behind it
@@ -90,6 +91,8 @@ src/concierge/
 src/server/concierge/     server-only, never importable from the browser (ESLint + secret-scan)
   retrieve.ts             ground(): parse → filter → rank → ≤12 candidates; the catalogue block
   prompt.ts               persona, rules, the sanitised context
+  liveEnv.ts              liveEnv(): the credential, CONCIERGE_LIVE, the delegation model and its effort
+  responses.ts            the Responses API request for the delegation model: the registry in its tool shape, priority tier with a fallback, the output read
   continuation.ts         the HMAC-signed continuation between rounds; pending calls bound by id + name + args hash
   untrusted.ts            sanitiseMemory, sanitiseToolResult, sanitiseContext — nothing from the browser is trusted for its shape
   serverTools.ts          compareProducts, explainSpecification, deepSearch, checkAvailability — executed where the catalogue is
@@ -100,9 +103,10 @@ src/server/booking/
 
 src/app/api/concierge/
   capabilities/route.ts   what this deployment is (intelligence, voice, enquiry, privacy, booking)
-  turn/route.ts           the stateless agent loop
+  turn/route.ts           the stateless agent loop of the typed concierge (chat completions, gpt-5.6-terra)
+  delegate/route.ts       the same loop for the delegation model behind the voice (Responses API, gpt-6-astra, low effort, priority tier)
+  live-session/route.ts   one Live session for a browser: the offer in, the answer out; the key never leaves
   tool/route.ts           reserved
-  realtime-token/route.ts reserved for the realtime engine
 ```
 
 ## A turn, on the model path
@@ -147,9 +151,9 @@ sign-off, not a number.
 Language mirroring is a hard rule on every engine: English is answered in English, Urdu in
 Urdu, Roman Urdu in Roman Urdu, Punjabi in Punjabi, Roman Punjabi in Roman Punjabi, a mix in
 the same mix — and never the other way. For the model it is a prompt rule (`server/concierge/
-prompt.ts`, `voice/realtimePrompt.ts`), restated with the fact it needs: the language of the
-visitor's last full sentence travels in `<visitor-language>` and in the realtime
-`<site-context>`. For the keyless engine it is a table: **`replies.ts`** holds every
+prompt.ts`, `voice/livePrompt.ts`), restated with the fact it needs: the language of the
+visitor's last full sentence travels in `<visitor-language>`, in the Live `<site-context>`,
+and — the moment the router hears it change — in a `session.instructions.append`. For the keyless engine it is a table: **`replies.ts`** holds every
 deterministic sentence in six columns — `en`, `ur-Latn`, `pa-Latn`, `ur`, `pa-Arab`,
 `pa-Guru` — and `commands.ts`, `corePlan.ts`, the controller and the two UI surfaces read
 their language's column. The English column reads `copy.ts`, so there is still one English
@@ -200,8 +204,13 @@ lighter": published weight, else form, never an estimated gram), filters into th
 filters, price guidance (which carries a budget into the appointment form rather than
 inventing a range), compare, navigate, and the operator tools below. `showGold`/`showDiamond`/
 `showBridal` are deprecated aliases of `showDepartment`/`showCollection`; `openAppointment` is
-`openPrivateConsultation` under the name a visitor uses (the voice session knows it as
-`bookAppointment` too, and is offered that one door only).
+`openPrivateConsultation` under the name a visitor uses.
+
+`toolDefs.ts` is the one registry. The keyless planner reads it, the turn route sends it to
+the text model in the chat-completions shape, the delegate route sends it to the delegation
+model in the Responses shape (`server/concierge/responses.ts`), and the voice's direct rung
+executes its plans through `executeTool`. The voice model itself holds no tools; there is no
+voice-only list to drift.
 
 **Saving is not offered on this build.** `saveToWishlist`, `removeFromWishlist`, `openWishlist`
 and `openSaved` are gone with the public Selection ledger; the keyless engine's `save`,
@@ -287,7 +296,7 @@ curtain, `back`, a homepage chapter from a department page resting within 200 px
 refused as a tool that no longer exists, the form filled with the values visible in its inputs
 (and the visitor's own typing kept), `submitAppointment` refused without confirmation and
 `prepared` with it — with `/api/enquiry` never called — the gallery frame moving into view, and
-the panel closing after a goodbye (39 assertions).
+the panel closing after a goodbye (86 assertions, with the voice router table below).
 
 Not registered, deliberately: `showSetMembers` — `setId` is empty on every piece, so it could
 only ever return nothing; and a campaign filter — 64 of 69 campaign pieces are withheld pending
@@ -304,103 +313,165 @@ concierge believes it is being asked about is visible and undoable.
 ## The fallback record
 
 Nothing falls to a lower rung silently. Each engine emits `turn.trace` — the rung that
-answered (`model`, `keyless`, `realtime`, `browser-voice`), why a rung below the one tried
-answered instead (the failure's code and message, verbatim), the language read, the intent,
-the plan and the tool. `FallbackProvider` announces every fallback and every paused turn; the
-realtime adapter announces a token or handshake that failed and a response the provider
-refused; the controller announces each step down the voice ladder. `qa.ts` keeps the last
-forty (`recordTrace`, `useQaTrace`, `controller.qaTrace()` for the harnesses) and the voice
-stage and the exchange print the latest line in QA mode only — `?qa=1` or
-`window.__wjConciergeQA = true`; the URL flag is lost on a product navigation, the window
-flag is not. Never a customer-facing string.
+answered (`model` or `keyless` on the typed path; `direct`, `astra` or `live` on the voice
+path), why a rung below the one tried answered instead (the failure's code and message,
+verbatim), the language read, the intent, the plan, the tool, and for the voice the
+delegation id and the reason for the rung. `FallbackProvider` announces every fallback and
+every paused turn; the Live adapter announces a session that would not open (the provider's
+own code and message — a quota refusal is on the record verbatim), a line that dropped, and a
+delegation model that failed. `qa.ts` keeps the last forty (`recordTrace`, `useQaTrace`,
+`controller.qaTrace()` for the harnesses) and the voice stage and the exchange print the
+latest line in QA mode only — `?qa=1` or `window.__wjConciergeQA = true`; the URL flag is
+lost on a product navigation, the window flag is not. Never a customer-facing string.
 
 ## Voice
 
-Three tiers, chosen in one place (`voice/engine.ts`, `chooseVoiceEngine`) by the same
-capabilities probe that picks the text model. Top down:
+One path, and nothing beside it: microphone → WebRTC → GPT-Live (`gpt-live-1`) → client
+delegation → this application's router → the one tool registry → a terse English fact back →
+one to five spoken words in the visitor's language. There is no browser-speech rung, no
+transcription rung, no server-speech rung, and no deterministic engine standing in front of
+the voice; those were removed with S2K rather than left as a ladder.
 
-| Tier | Advertised as | What it is |
-|---|---|---|
-| **Native** — the client-demo voice | `voice: 'native'` when `OPENAI_API_KEY` is set and `CONCIERGE_REALTIME` is not `off` | One model that hears, understands and speaks: `gpt-realtime-2.1` over WebRTC (`voice/realtime.ts`). The server mints a two-minute client secret (`POST /api/concierge/realtime-token`) with the whole session decided there — model, voice (`OPENAI_REALTIME_VOICE`, default `marin`), server voice-activity detection (`TURN_DETECTION`: 450 ms of silence, threshold 0.5, 300 ms prefix, interruption on), near-field noise reduction, the input transcription model (`CONCIERGE_REALTIME_STT`, default `gpt-4o-transcribe` with a Roman-script vocabulary prompt), the browser tools, and the spoken persona (`voice/realtimePrompt.ts`). The browser opens the call **before the tap** — the moment the voice stage is shown, or a pointer reaches the microphone — with an audio transceiver and no microphone, so nothing is heard and no permission is asked; the tap attaches the microphone track (`replaceTrack`, ~100 ms) and the stage says "Listening". It keeps one conversation across turns and routes, refreshes a small `<site-context>` block through `session.update` as the page changes (piece in view with its published facts, the pieces just shown with ordinals and slugs, the standing request, the appointment form's state), and answers every function call through `executeTool` — the validator is the only gate on this path, and it is enough. |
-| **Server** — the fallback | `voice: 'server'`, and implied by `native` | `ServerTranscriptionAdapter` records an utterance with `MediaRecorder`, ends it on the meter's silence and posts it to `POST /api/concierge/transcribe` (`CONCIERGE_STT_MODEL`, default `gpt-4o-transcribe` with the vocabulary prompt; the newer `gpt-transcribe` family takes keywords and `languages: en, ur` — Punjabi is not an accepted code and is heard through Urdu). The words enter the same grounded, validated, register-filtered text turn a typed sentence does; the reply is spoken by `POST /api/concierge/speak` (`gpt-4o-mini-tts`, the associate's register as instructions). |
-| **Browser** — what ships with no credential | `voice: 'browser'` | `WebSpeechAdapter` and `speechSynthesis`. No browser offers `pa-PK`; Punjabi in Arabic script is heard as `ur-PK`, Roman Urdu as `en-IN`; three alternatives are scored; a run with no voice in its own language is written rather than spoken in another. |
+**Why GPT-Live, and what it changes.** The Live model hears and speaks full duplex — it
+listens while it talks, decides when to speak, and stops when the visitor interrupts; there is
+no turn detection to tune and no `response.cancel` to send. It holds no tools: when the visitor
+asks for something the page must do it *delegates* — `session.delegation.created` with an id
+and no words — and the application answers with `session.commentary.append` (said aloud,
+paraphrased) or `session.thinking.append` (a fact, held). The visitor's words arrive
+separately, as `session.input_transcript.delta` fragments with `start_ms`/`end_ms` on the
+session's clock and no end-of-turn marker; the assistant's as
+`session.output_transcript.delta`. There is no end-of-response event, so SPEAKING is driven
+by playback. Instructions, voice, model and delegation mode are immutable after creation;
+`session.instructions.append` adds to them. The session is billed by the second
+(`session.usage.updated`), 15 s at creation credited against the run.
 
-**The ladder steps down one rung, never silently.** A realtime session that cannot open
-(the token refused, WebRTC failing) falls to the server tier for that visitor; a server
-transcription that fails falls to the browser's own hearing. The store records the rung
-(`voice.fallback`) and the stage says so in the visitor's words — "Listening — if I mishear,
-say it once more or write to me." — never "WebSpeech", "API" or "provider".
+**The session** (`/api/concierge/live-session`). The browser creates an `RTCPeerConnection`,
+adds an audio transceiver (the microphone comes on the tap, by `replaceTrack`), creates the
+`oai-events` data channel before the offer, gathers ICE for at most 2.5 s, and posts the
+offer to our route. The route holds the key and decides everything: `model: gpt-live-1`,
+`instructions: LIVE_INSTRUCTIONS`, `audio.output.voice: LIVE_VOICE`, `delegation: { type:
+'client' }`, `store: false`, and an `input` seed — a developer message with the sanitised
+site-context block (pieces named by slug are resolved against the repository, never trusted
+by name), and on a reconnection the recent transcript. It returns the session id and the SDP
+answer. No ephemeral secret exists and nothing is sent over the data channel to start the
+session. Rate-limited 6 a minute, 40 an hour per address; a refusal carries the provider's
+own code and message (`insufficient_quota` is recorded verbatim by the trace).
 
-**The native session, event by event.** `speech_started` over a reply cancels it on both ends
-(`response.cancel` + `output_audio_buffer.clear`, the stage says "Go on — I am listening.");
-`speech_stopped` writes a placeholder line into the store and moves the state to THINKING;
-the transcription lands on its own line by item id (two quick sentences keep their own words);
-`response.created` opens a concierge turn; the reply's transcript streams as deltas;
-`output_audio_buffer.started` / `stopped` drive SPEAKING, so the state follows the audio; a
-function call runs through `executeTool` **the moment its arguments are complete**
-(`response.function_call_arguments.done`), its output goes back as soon as the page has acted,
-and the model is asked to continue once its own response has closed; `response.done` with no
-call outstanding finishes the turn. No more than four actions answer one sentence. A typed
-sentence goes into the same session; "Write instead" and the panel closing rest the microphone
-— the track is stopped and the browser's indicator goes off — and keep the call for three
-minutes, so the next tap re-attaches rather than reconnects. Four minutes of silence end a
-used session. A transcript the model writes in Devanagari or Gurmukhi is romanised
-(`src/lib/romanise.ts`); Urdu script and English are left as they are.
+**One conversation.** One session per concierge open — opened the moment the voice stage is
+shown or a pointer reaches the microphone, kept across turns and routes, rested (microphone
+released, `session.input_audio.mute`) by "Write instead" or a tap while listening, closed
+gracefully (`session.close` → `session.closed`, then the transports) when the panel closes,
+by "Begin again", or after three minutes of silence. A dropped line (`session.closed` with
+`connection_lost`, a failed peer connection) is re-established once, at most twice in two
+minutes: the microphone stream is kept, the recent transcript is seeded as `input`, and the
+voice is told to say so in a few words. If it cannot be re-established the stage says "The
+line dropped — once more?" in the visitor's language with "Write instead" beneath the ring.
 
-**The visitor never reads their own words.** No interim text, no "Heard", no transcript, no
-edit-with-transcript: a wrong reading printed back is worse than one acted on and corrected in
-a breath. The stage shows five states and nothing else — LISTENING · THINKING · BRINGING IT TO
-YOU · SPEAKING · TRY AGAIN (a small label, one sentence in the display face, and "Try again"
-beneath it when something did not work; "Write instead" and "Let me show you" always wait
-below the ring). The words are still kept — in the store (`transcript`, the visitor turns with
-`source: 'voice'`), in the session, in the adapter's trace — for the tools, the tests and the
-QA view: `?qa=1` on the URL or `window.__wjConciergeQA = true` writes "heard — …" under the
-stage and shows the spoken lines in the exchange.
+**The router** (`voice/router.ts`). Every sentence — spoken and delegated, or typed into the
+same session — is read once, by `readSentence` (the language, remembered) and `planFor` (the
+keyless planner: `corePlan` first, the ordered table after). Two rungs:
 
-**Why server VAD, and what was measured (21 September 2026, the deployment's key, this
-machine's network).** With the short-command set — "Gold." "Show rings." "Second one." "Back."
-"Diamond." "Show me something elegant for walima." "Open it." "Mujhe baraat ke liye kuch heavy
-gold mein dikhao." "Book an appointment." "Liberty." — streamed over the WebSocket with exact
-end timestamps (`.cache/s22/concierge/vad-probe.mjs`), semantic VAD at `auto` ended a turn a
-median 1.0 s after the last word with a tail to 3.0 s ("Book an appointment." waited three
-seconds; in the browser five), `high` a median 1.1 s with a tail to 1.9 s, while server VAD at
-500 ms of silence ended every turn in 0.96 / 1.38 s (median / worst) and at 400 ms in
-0.85 / 0.86 s. 450 ms is the setting shipped: every command detected, no tail, and a breath of
-tolerance for a pause mid-sentence. In the browser (`scripts/dev/voice-latency.mjs`, the same
-prompts through a fake microphone, timings from the client's own timeline; "speech end" is the
-server's onset plus the prompt's length, ±150 ms): the deployed build before this pass detected
-the end of speech a median 0.55 s after the last word with a worst of 3.8 s and lost one
-command outright; the tuned build detected all ten at a median 0.51 s, worst 0.53 s. Turn
-detected → tool call fell from a median 1.43 s to 0.99 s; speech end → first voice from
-1.39 / 5.19 s to 1.14 / 1.35 s (median / worst). Tap → "Listening" was 6.0 s on the deployed
-build (the secret, 1.0–2.3 s, and the WebRTC handshake, 3.7–4.4 s, were both paid on the tap);
-with the call opened beforehand a standalone probe attached the microphone to the live call
-98 ms after the tap (`.cache/s22/concierge/warm-probe.mjs`) — the integrated warm path could not
-be re-timed the same day because the account's API credits ran out mid-pass
-(`insufficient_quota`), and is the first thing to measure once they are topped up. The prompts
-were synthesised speech, not a Lahore speaker — the blind native-speaker gate still stands.
+- *direct*: the plan is an action (a department, an ordinal, a named piece, back, compare,
+  close, a collection), a fact the site holds (the price is on request, the showrooms, a
+  greeting), an appointment detail or a plain appointment request of at most eight words, or
+  a plain search — no word the lexicon does not carry, at most six words. The plan's tools run
+  through `executeTool` at once, before any speech, and the fact comes from the outcome
+  (`voice/facts.ts`: "Gold department is open." / "Opened piece 2 of 4: …" / "The appointment
+  form is open; noted: showroom Liberty Market. Still needed: name, telephone. Ask for the
+  first one only.").
+- *astra*: everything else — a sentence with qualifiers the lexicon does not carry
+  ("elegant", "classy", "not too heavy"), a search of more than six words, a sentence the
+  parser cannot read at all — goes to `/api/concierge/delegate`: the turn route's loop
+  (`ground()`, `buildMessages()`, `untrusted.ts`, `validateToolCall`, server tools on the
+  server, browser tools sent down as frames and executed here, the signed continuation between
+  rounds) with a reasoning model over the Responses API — `gpt-6-astra`, `reasoning.effort:
+  low`, `service_tier: priority` with a fallback to the default tier on refusal, `store:
+  false`, the last eight spoken lines as history, and a voice preface telling the model its
+  text is not spoken: it returns one English line of facts and status.
 
-`npm run voice:check` drives every state through a headless browser with the speech APIs
-faked and the routes mocked: browser tier, server tier, the native tier refused and falling to
-the server tier with the words kept and not shown, the QA view showing them, and the browser
-rung asking again (31 assertions). `node scripts/dev/voice-latency.mjs` times the real thing
-against the deployment (`--base`), or a local build against the deployment's session
-(`--token-from <live> --tune`, the QA hook in `realtime.ts` pushing this build's turn
-detection and tools over the channel).
+The lexicon is frozen; the router grew no vocabulary. Two English function verbs, "take" and
+"go", joined the stop-word list in `replies.ts` so "Take me to Bridal" reads as the department
+it names rather than as a search with an unknown word.
 
-The spoken persona (`VOICE_INSTRUCTIONS`) follows OpenAI's realtime prompting guide —
-labelled sections, short bullets, sample phrases, capitals for the rules that must hold — and
-carries the same "Operating the site" and appointment sections as the written one, with the
-Roman Urdu the phrases are heard in. Its "Short commands" section makes one word an action:
-"Gold." opens the department, "Second one." opens that piece, "Open it." opens the piece in
-view or the first just shown, "Back." goes back, "Liberty." fills the showroom while the form
-is open. A turn is a preamble of at most three words ("Of course." / "Ji.") said as the tool is
-called, then one sentence of at most eight words; a single word or a name keeps the language
-of the visitor's last full sentence; an empty result or a refused call is answered with the
-next thing the visitor can do, never with the emptiness alone. The `<site-context>` block tells the session how many photographs the piece
-in view has and the state of the appointment form (open or closed, which fields are filled,
-which are still needed) — never the visitor's name or number, which the session reads back
-only through `reviewAppointment`.
+**When the words are read.** The transcript is accumulated per turn. At a delegation the
+fragments are given up to 400 ms to settle (the transcript lags the decision), then read; at
+a pause of 800 ms with no delegation they are read anyway, so a plain command acts the moment
+the parser can read it and the delegation that follows is attached to the same turn and
+answered with the same fact. A sentence the parser cannot read at all is held for 2.6 s for
+a delegation — GPT-Live decides whether small talk needs the page — and let go if none comes.
+A delegation with no transcript is answered "No words were transcribed; ask once more."
+
+**The fact back.** `RESULT_CHANNEL` in `live.ts` chooses the append: `commentary` (the
+default: the documentation says commentary is said aloud and paraphrased) or `thinking`. The
+content opens with "Backend result (English facts; say it in the visitor's language,
+briefly):" and the instructions carry the length rule (one to five words after an action, one
+short sentence after a search). After the fact the site-context block is pushed again as
+`session.thinking.append` with a null delegation id (also on every page change, debounced
+700 ms, only when it changed), so "the second one" resolves against what is in view.
+
+**Language.** The instructions carry the mirroring rule, the one-word-follow-up rule and the
+tool-result-never-changes-the-language rule; the router remembers the language once per
+sentence (`resolveReplyLanguage`) and, when it changes, sends one
+`session.instructions.append` naming it. English at the start is not announced.
+
+**Typed text in the voice session.** `sendText` routes the sentence exactly as a spoken one,
+tells the voice it was typed (`thinking.append`), and hands the outcome back as commentary
+with a null delegation id. "Write instead" rests the microphone and keeps the session.
+
+**States.** LISTENING — the session is live and the microphone attached (`onStart`);
+THINKING — a turn is being routed (`voice.thinking`); BRINGING IT TO YOU — a tool is running
+(`tool.call`); SPEAKING — the remote track carries voice, measured by an analyser on the
+stream (louder than 0.018 RMS; quiet for 650 ms ends it), with the output transcript as the
+signal only when no analyser could be made; TRY AGAIN — a failure, with "Write instead" and
+"Try again" beneath the ring. A turn closes when the voice falls silent after the fact, or
+four seconds after the fact if it never spoke. No transcript is shown; `?qa=1` prints "heard
+—" and the trace line: rung, intent, plan, tool, language, delegation id, the reason for the
+rung.
+
+**Failure.** The session cannot be opened (the route refused, the account, the handshake,
+the channel): the stage writes "Voice is unavailable just now. You can continue by writing."
+in the visitor's language, once, the written concierge is presented, and the tap does not ask
+the route again until "Try again". Nothing speaks in its place. A refused microphone is a
+different message, as before.
+
+**The audio pipeline.** Exactly one `getUserMedia` stream (echo cancellation, noise
+suppression, automatic gain), one peer connection, one session; tracks stopped and the stream
+released on rest and on close; the stream kept only across a reconnection. `SpeechRecognition`
+and `speechSynthesis` are not referenced anywhere in `src/concierge`. `window.__wjVoiceAudit()`
+(development, or the QA flag) reports streams asked for, live tracks, peer connections open,
+sessions; `npm run voice:check` counts them across open → talk → close five times.
+
+**Measured.** `npm run voice:check` (56 assertions) drives the whole path in a headless
+browser with the transport faked — a scripted data channel, a tone on the remote track — and
+the routes mocked: the session refused (said once, the written concierge, the reason on the
+trace), a direct command acting before any speech, a natural sentence through the delegation
+route with its tool executed here, the language instruction sent once, a typed sentence into
+the session, SPEAKING from the track, the words kept and never shown, the QA view, five
+conversations with nothing left open, a dropped line re-established with the transcript
+seeded, and the browser's speech APIs never touched. `npm run operator:check` (86 assertions)
+adds the router's reading of every sentence of the demo — which rung, which plan — with the
+pieces brought and the form opened as the sentences need.
+
+What could not be measured before the deploy: the real session. The key exists only on the
+deployment, and the previous deployment (ae84093) has no session route. `node
+scripts/dev/voice-latency.mjs --base <deployed> --prompts <set>` (or `--base
+http://localhost:3300 --session-from <deployed>` for a local build) plays a prompt set into a
+fake microphone as one continuous session and reports, per prompt: what was heard, the rung,
+the intent, the tool, the language, the delegation id, the visible action, the reply, and
+speech end (the last transcript fragment's end on the session's clock, placed on this
+machine's clock from the session's creation, ±200 ms) → delegation → visible action → first
+voice audio → done. The prompt sets are made by `.cache/s22/concierge/s24/make-prompts.mjs`:
+`cmd` (the ten short commands), `natural` (the natural Pakistani set), `owner` (the
+owner-demo script with an interruption); each prompt carries expectations the run checks.
+`.cache/s22/concierge/s24/audition.mjs` records the same four sentences in each candidate
+voice for a human ear. None of this is human acceptance: the speaker is synthesised, and the
+final acceptance for the voice is a person speaking into a real microphone on the live
+deployment — HUMAN VOICE ACCEPTANCE NOT VERIFIED.
+
+**The voice.** `LIVE_VOICE` in `voice/livePrompt.ts` is one line and says `marin`,
+provisionally: no one has yet heard the candidates say Urdu or Punjabi. The audition list is
+the voices the documentation presents as feminine (quartz, willow, gleam, bossa, delta) and
+the four older female voices (marin, coral, shimmer, sage); the choice is a person's.
 
 ## The UI
 
@@ -457,9 +528,9 @@ nothing was sent, *delivered* only when the sink took it.
 | `CONCIERGE_SIGNING_SECRET` | `src/server/env.ts` | Signs continuations; falls back to the key. |
 | `ENQUIRY_WEBHOOK_URL`, `NEXT_PUBLIC_SITE_URL`, `ENQUIRY_PRIVACY_URL`, `ENQUIRY_PRIVACY_CONTACT` | `src/server/enquiry/readiness.ts` | All four, valid, before a consultation leaves the device. |
 | `NEXT_PUBLIC_QA_TIER_OVERRIDE=1` | `src/lib/quality.ts` | A QA build honours `?tier=` and exposes `__wjFps`. |
-| `OPENAI_API_KEY` | `src/server/env.ts` | One credential, everything on: the text model (when `CONCIERGE_API_KEY` is absent and the base is OpenAI's), the server voice tier and the realtime tier; the probe advertises `intelligence: 'model'`, `voice: 'native'`. |
-| `OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`, `CONCIERGE_REALTIME_STT`, `CONCIERGE_REALTIME` | `src/server/env.ts` (`realtimeEnv`) | Defaults `gpt-realtime-2.1`, `marin`, `gpt-4o-transcribe`; `CONCIERGE_REALTIME=off` keeps the server tier as the top of the ladder. |
-| `CONCIERGE_STT_MODEL`, `CONCIERGE_TTS_MODEL`, `CONCIERGE_TTS_VOICE`, `CONCIERGE_VOICE_BASE_URL` | `src/server/env.ts` | Defaults `gpt-4o-transcribe`, `gpt-4o-mini-tts`, `marin`, the OpenAI base. |
+| `OPENAI_API_KEY` | `src/server/env.ts`, `src/server/concierge/liveEnv.ts` | One credential, everything on: the text model (when `CONCIERGE_API_KEY` is absent and the base is OpenAI's), the Live session and the delegation model; the probe advertises `intelligence: 'model'`, `voice: 'native'`. |
+| `CONCIERGE_LIVE` | `src/server/concierge/liveEnv.ts` | `off` keeps the voice dark on a deployment that has the key: the probe advertises `voice: 'none'`, the stage is not offered, the typed concierge is unchanged. |
+| `CONCIERGE_DELEGATE_MODEL`, `CONCIERGE_DELEGATE_EFFORT` | `src/server/concierge/liveEnv.ts` | The model behind the voice and its reasoning effort; defaults `gpt-6-astra`, `low` (`medium` or `high` accepted). The voice itself is a constant, `LIVE_VOICE` in `src/concierge/voice/livePrompt.ts`, and the Live model is `LIVE_MODEL` beside it. |
 | `BOOKING_PROVIDER` | `src/server/booking/provider.ts` | Which booking seam is active. Only `none` exists; any other value is logged and treated as none. The probe advertises `booking: '<kind>'`. |
 
 Nothing `NEXT_PUBLIC_` selects a provider. That variable existed in Stage 1 and could not do the
@@ -473,7 +544,9 @@ module, an ESLint rule forbidding `@/server/*` from client directories, and
 ## Not built
 
 - `showSetMembers` and campaign filtering, for want of data (above).
-- The blind native-speaker gate: the voice has been tested with synthesised Pakistani speech on
-  the review build, not with people from Lahore speaking naturally.
+- The blind native-speaker gate: the voice has been exercised with a faked transport and, once
+  deployed, with synthesised Pakistani speech — not with people from Lahore speaking naturally
+  into a real microphone. HUMAN VOICE ACCEPTANCE NOT VERIFIED.
+- The voice choice: marin is provisional; the audition files are for a person to hear.
 - Server-side persistence of anything. Memory is session-scoped by design, and nothing the
   concierge holds persists across a reload.

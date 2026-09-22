@@ -38,7 +38,8 @@ export interface ContinuationPayload {
   turnId: string;
   round: number;
   callsSoFar: number;
-  messages: { role: string; content: string; tool_call_id?: string; tool_calls?: unknown }[];
+  /** The conversation so far in the shape the route's API takes: chat messages on the turn route, Responses input items on the delegate route. */
+  messages: Record<string, unknown>[];
   /** Exactly the calls the previous round emitted, and nothing else. */
   pending: PendingCall[];
   issuedAt: number;

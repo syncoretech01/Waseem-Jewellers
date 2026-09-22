@@ -10,6 +10,8 @@ export const COPY = {
     name: ['Waseem', 'Jewellers'],
     /** One proposition, no appointment wording: what is made, and where. */
     line: 'Gold, diamond and bridal jewellery, made in Lahore.',
+    /** The one quiet door beneath the proposition: it glides to the window by kind. */
+    cta: 'Explore the jewellery',
     /** The door word beneath a piece — the worlds and the bridal room read it. */
     view: 'View the piece',
   },

@@ -17,8 +17,8 @@ import type { Language } from './nlu/script';
 
 export interface ConciergeCapabilities {
   intelligence: 'model' | 'keyless';
-  /** `none` no voice at all · `browser` the fallback tier · `server` hearing and speaking through a model · `native` a realtime voice model. */
-  voice: 'none' | 'browser' | 'server' | 'native';
+  /** `native` — the Live voice session is offered by this deployment; `none` — no voice, the composer is the door. */
+  voice: 'none' | 'native';
   languages: Language[];
   /** `local` — the consultation form stays on the device, as it does today. */
   enquiry: 'local' | 'server';
@@ -38,20 +38,20 @@ export interface ConciergeCapabilities {
 /** What a deployment is until told otherwise. It is also exactly what ships with no key. */
 export const DEFAULT_CAPABILITIES: ConciergeCapabilities = {
   intelligence: 'keyless',
-  voice: 'browser',
+  voice: 'none',
   languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
   enquiry: 'local',
   privacy: null,
   booking: 'none',
 };
 
-const KEY = 'wj:concierge:capabilities:v1';
+const KEY = 'wj:concierge:capabilities:v2';
 const TTL_MS = 5 * 60 * 1000;
 
 let cache: ConciergeCapabilities | null = null;
 let inflight: Promise<ConciergeCapabilities> | null = null;
 
-const VOICES = new Set(['none', 'browser', 'server', 'native']);
+const VOICES = new Set(['none', 'native']);
 
 const isPrivacy = (v: unknown): v is { url: string; contact: string } =>
   !!v && typeof v === 'object' && typeof (v as { url?: unknown }).url === 'string' && typeof (v as { contact?: unknown }).contact === 'string';
@@ -62,7 +62,7 @@ function parse(raw: unknown): ConciergeCapabilities {
   const r = raw as Record<string, unknown>;
   return {
     intelligence: r.intelligence === 'model' ? 'model' : 'keyless',
-    voice: typeof r.voice === 'string' && VOICES.has(r.voice) ? (r.voice as ConciergeCapabilities['voice']) : 'browser',
+    voice: typeof r.voice === 'string' && VOICES.has(r.voice) ? (r.voice as ConciergeCapabilities['voice']) : 'none',
     languages: Array.isArray(r.languages) ? (r.languages.filter((l): l is Language => typeof l === 'string') as Language[]) : DEFAULT_CAPABILITIES.languages,
     // the disclosure is only honoured alongside the permission; one without the other is
     // treated as neither, because that is the case the server never produces

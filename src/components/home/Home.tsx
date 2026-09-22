@@ -37,7 +37,7 @@ import type { PieceRow, Showcase } from '@/lib/facets';
  * bespoke room, and the concierge. Dark and ivory alternate so the chapters read as rooms.
  * The loading ritual (CH00) lives in Providers and the footer sits fixed beneath the page root.
  */
-export function Home({ showcase, departments, doors }: { showcase: Showcase; departments: { department: Department; count: number }[]; doors: Record<string, PieceRow> }) {
+export function Home({ showcase, doors }: { showcase: Showcase; doors: Record<string, PieceRow> }) {
   const setPendingSection = useSiteStore((s) => s.setPendingSection);
 
   // arriving from the menu or the concierge with a chapter in mind
@@ -63,7 +63,7 @@ export function Home({ showcase, departments, doors }: { showcase: Showcase; dep
   return (
     <main id="home">
       <Arrive />
-      <Ch01Hero departments={departments} />
+      <Ch01Hero />
       <Ch02Kinds kinds={showcase.categories} />
       <Ch02Craft />
       <Ch02Bangle piece={doors['gold-bangles-k13798']} />

@@ -13,7 +13,6 @@ export const CONCIERGE = {
   composerPlaceholder: 'Ask about a piece or an appointment.',
   youMightAsk: 'You might ask',
   suggestions: ['Show me bridal necklaces', 'Something traditional', 'Book an appointment'],
-  spokenReplies: 'Spoken replies',
   beginAgain: 'Begin again',
   inView: 'In view',
   broughtFor: 'Brought for',
@@ -59,20 +58,18 @@ export const CONCIERGE = {
     start: 'Speak to the concierge',
     tapToInterrupt: 'Tap to interrupt',
     speakingInterruptible: 'Speaking — tap the ring, or simply speak, to interrupt.',
-    hearing: 'A moment — hearing you.',
-    hearingUnavailable: 'Hearing is not available just now.',
-    /** A rung down from the best hearing this deployment offers — said in the visitor's words, never the engine's. */
-    listeningFallback: 'Listening — if I mishear, say it once more or write to me.',
-    couldNotHear: 'I did not catch that clearly.',
-    /** What is kept of a spoken line the transcript could not write; never shown to a visitor. */
-    unheard: 'Not caught in writing.',
     interrupted: 'Go on — I am listening.',
     write: 'Write instead',
     preparingLabel: 'Opening the microphone',
     deniedLabel: 'The microphone is switched off for this site',
     unavailable: 'Speech is not offered in this browser.',
-    /** The session ended on its own — the network, or a long silence. */
-    sessionEnded: 'The line went quiet.',
+    /** The line dropped mid-conversation and could not be re-established: said once, with the next thing to do. */
+    lineDropped: 'The line dropped — once more?',
+    /**
+     * The session could not be opened — the route refused, the account, the connection. Said
+     * once, in writing, and the written concierge is presented; nothing else speaks in its place.
+     */
+    sessionUnavailable: 'Voice is unavailable just now. You can continue by writing.',
   },
   greeting: (hour: number) => `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}. I am the Waseem Concierge — ask about a piece, a collection or an appointment.`,
   greetingAgain: 'Still here. What would you like to see?',
@@ -91,14 +88,6 @@ export const CONCIERGE = {
   micDenied: 'Your microphone is switched off for this site.',
   micNoAnswer: 'The microphone did not open.',
   noSpeech: 'I did not catch that — once more, a little closer.',
-  /**
-   * Said once, and only once, and only when it is true.
-   *
-   * No browser on most platforms carries an Urdu or Punjabi voice. Reading the reply aloud in
-   * English anyway would be confident nonsense; saying nothing at all would look like a
-   * fault. Naming it plainly and continuing in writing is what a person would do.
-   */
-  noVoiceForLanguage: 'I have no voice for this language in your browser — I will write instead.',
   error: 'Forgive me — shall we try that once more?',
   errorLink: 'once more',
   house: 'Waseem Jewellers was founded in Lahore in 1952 by Chaudhry Muhammad Afzal, and receives visitors today at three showrooms across the city.',

@@ -93,7 +93,6 @@ export function ConciergePanel() {
   const panel = useConciergeStore((s) => s.panel);
   const turns = useConciergeStore((s) => s.turns);
   const trayOpen = useConciergeStore((s) => s.trayOpen);
-  const spoken = useConciergeStore((s) => s.voice.spokenReplies);
   const preparing = useConciergeStore((s) => s.voice.preparing);
   const menuOpen = useSiteStore((s) => s.menuOpen);
   const reduced = useQualityStore((s) => s.tier === 'REDUCED');
@@ -239,9 +238,6 @@ export function ConciergePanel() {
             {mode === 'chat' && <Composer autoFocus={!coarse} />}
             <div className={cn('flex items-center justify-between', mode === 'chat' ? 'mt-4' : '')}>
               <div className="micro flex gap-5 text-fg-muted">
-                <button type="button" onClick={() => controller?.toggleSpokenReplies()} className={cn('transition-colors hover:text-fg', spoken && 'text-fg-2')} aria-pressed={spoken}>
-                  {CONCIERGE.spokenReplies}
-                </button>
                 <button type="button" onClick={() => controller?.forget()} className="transition-colors hover:text-fg">
                   {CONCIERGE.beginAgain}
                 </button>

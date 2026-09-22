@@ -205,18 +205,35 @@ function CraftObject({ tier, premium, onReady, onLinked, onLost }: { tier: strin
     // the parts separate through the middle of the chapter and return for the close
     const together = 1 - win(p, 0.82, 0.96);
     const held = pointer.fine && pointer.active;
-    const target = {
-      lift: win(p, 0.12, 0.3) * 0.62 * together,
-      bezelDrop: (win(p, 0.3, 0.48) * 0.42 * together) / far,
-      bandDrop: (win(p, 0.48, 0.64) * 0.95 * together) / far,
-      claw: win(p, 0.64, 0.82) * together,
-      finish: win(p, 0.64, 0.82),
-      pull: win(p, 0.82, 1),
-      spin: p * ORBIT,
-      // the pointer turns the object a little; damped, and slower on the way back
-      px: held ? pointer.nx : 0,
-      py: held ? pointer.ny : 0,
-    };
+    // a pose set by the render script (scripts/assets/craft-frames.mjs, through the development
+    // handle on craftProgress) stands in for the scroll's choreography; `null` on every visitor's
+    // page, where nothing below this line is any different from before
+    const pose = craftProgress.pose;
+    const target = pose
+      ? {
+          lift: pose.lift,
+          bezelDrop: pose.bezelDrop / far,
+          bandDrop: pose.bandDrop / far,
+          claw: pose.claw,
+          finish: pose.finish,
+          pull: pose.pull,
+          // the pose names the object's whole turn, so the finish's own turn is taken out of it
+          spin: pose.spin - pose.finish * FINISH_TURN,
+          px: 0,
+          py: 0,
+        }
+      : {
+          lift: win(p, 0.12, 0.3) * 0.62 * together,
+          bezelDrop: (win(p, 0.3, 0.48) * 0.42 * together) / far,
+          bandDrop: (win(p, 0.48, 0.64) * 0.95 * together) / far,
+          claw: win(p, 0.64, 0.82) * together,
+          finish: win(p, 0.64, 0.82),
+          pull: win(p, 0.82, 1),
+          spin: p * ORBIT,
+          // the pointer turns the object a little; damped, and slower on the way back
+          px: held ? pointer.nx : 0,
+          py: held ? pointer.ny : 0,
+        };
     let moving = false;
     (Object.keys(target) as (keyof typeof target)[]).forEach((k) => {
       const rate = (k === 'px' || k === 'py') && !held ? 3.2 : l;
@@ -225,7 +242,8 @@ function CraftObject({ tier, premium, onReady, onLinked, onLost }: { tier: strin
       c[k] = next;
     });
     dirty.current = moving;
-    if (moving) drift.current += d;
+    // the rim light's drift is held still under a pose, so every state carries the same highlight
+    if (moving && !pose) drift.current += d;
 
     if (group.current) {
       group.current.rotation.y = REST_ANGLE + c.spin + c.finish * FINISH_TURN + c.px * POINTER_TURN;

@@ -3,21 +3,24 @@
 // backwards and back and forth, sampling the DOM every 80 ms for anything brand-like or drawn
 // that is visible over the stage, and for the object and its still both being off at once.
 // Exits non-zero on any such frame. A regression gate for the layer that once surfaced here.
-//   node scripts/dev/ring-check.mjs <base> [headed] [tier]
+//   node scripts/dev/ring-check.mjs <base> [headed] [tier] [phone]
+// `phone` samples the phone form (390×844, touch, DPR 2): the stage sticks by CSS there, so a
+// stage in view is one whose sticky box sits at the top of the viewport.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const BASE = (process.argv[2] || 'https://waseem-jewellers-two.vercel.app').replace(/\/$/, '');
 const HEADED = process.argv[3] === 'headed';
-const TIER = process.argv[4] || '';
+const TIER = process.argv[4] && process.argv[4] !== 'phone' ? process.argv[4] : '';
+const PHONE = process.argv.includes('phone');
 const OUT = path.resolve('.cache/ring-check');
 fs.mkdirSync(OUT, { recursive: true });
 process.env.TMP = process.env.TEMP = path.resolve('.cache/tmp');
 fs.mkdirSync(process.env.TMP, { recursive: true });
 
 const browser = await chromium.launch({ headless: !HEADED, args: ['--autoplay-policy=no-user-gesture-required'] });
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const ctx = await browser.newContext(PHONE ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
@@ -66,9 +69,9 @@ const sample = () =>
     const canvasWrap = scene?.querySelector('canvas')?.parentElement;
     const posterOn = posterEl ? vis(posterEl) : false;
     const canvasOn = canvasWrap ? vis(canvasWrap) : false;
-    // the sequence (the frames of the same object, on a phone or without WebGL) counts as the object
-    const framesEl = document.querySelector('.craft-frames');
-    const framesOn = framesEl ? vis(framesEl) && [...framesEl.querySelectorAll('.craft-frame')].some((f) => vis(f)) : false;
+    // the states (the same object, one still per beat, on a phone or without WebGL) count as the object
+    const framesEl = document.querySelector('.craft-states');
+    const framesOn = framesEl ? vis(framesEl) && [...framesEl.querySelectorAll('.craft-state')].some((f) => vis(f)) : false;
     return {
       y: Math.round(window.scrollY),
       webgl: scene?.dataset.webgl,
@@ -80,7 +83,9 @@ const sample = () =>
       frames: framesOn,
       objectOn: posterOn || canvasOn || framesOn,
       pinned: stage ? getComputedStyle(stage).position : null,
-      brand: brand.filter((b) => !/^canvas|^img\[An emerald-cut|^img\[craft-frame|^img\[Rose-gold/.test(b)),
+      stageTop: sr ? Math.round(sr.top) : null,
+      stage: stage?.dataset.stage ?? null,
+      brand: brand.filter((b) => !/^canvas|^img\[An emerald-cut|^img\[craft-state|^img\[Rose-gold/.test(b)),
     };
   });
 
@@ -91,7 +96,7 @@ const note = async (phase) => {
   const s = await sample();
   const key = `${s.webgl}|${s.stoneVisible}|${s.canvas}|${s.brand.join(';')}`;
   // a drawn stone over the stage, a stage with neither object nor still, or any mark that is not the fixed chrome
-  const inStage = s.pinned === 'fixed';
+  const inStage = s.pinned === 'fixed' || (s.pinned === 'sticky' && s.stageTop === 0);
   const anomaly = s.stoneVisible === true || (inStage && !s.objectOn) || s.brand.some((b) => /ritual|lockup|\[.*(?:crest|mark|Waseem)/i.test(b) && !/^header/.test(b));
   log.push({ phase, ...s, anomaly });
   if (anomaly && !seen.has(key) && shots < 12) {
@@ -123,13 +128,13 @@ for (let i = 0; i < 12; i++) { await scrollTo(mid + (i % 2 ? 500 : -500)); await
 // 5. wheel-driven scroll (Lenis path) forward and back
 await scrollTo(start);
 await page.waitForTimeout(500);
-await page.mouse.move(720, 450);
+await page.mouse.move(PHONE ? 195 : 720, PHONE ? 420 : 450);
 for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, 120); await page.waitForTimeout(50); await note('wheel-fwd'); }
 await page.waitForTimeout(1200); await note('wheel-rest');
 for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, -120); await page.waitForTimeout(50); await note('wheel-back'); }
 await page.waitForTimeout(2500); await note('wheel-back-rest');
 
-fs.writeFileSync(path.join(OUT, `log-${TIER || geo.tier}-${HEADED ? 'headed' : 'headless'}.json`), JSON.stringify({ geo, errors, log }, null, 1));
+fs.writeFileSync(path.join(OUT, `log-${TIER || geo.tier}-${HEADED ? 'headed' : 'headless'}${PHONE ? '-phone' : ''}.json`), JSON.stringify({ geo, errors, log }, null, 1));
 const anomalies = log.filter((l) => l.anomaly);
 console.log(`samples ${log.length}, anomalies ${anomalies.length}, webgl states ${[...new Set(log.map((l) => l.webgl))].join(',')}, stone visible ${log.filter((l) => l.stoneVisible).length}, demoted ${[...new Set(log.map((l) => l.demoted))].join(',')}`);
 console.log('brand seen over stage:', [...new Set(log.flatMap((l) => l.brand))].slice(0, 20));

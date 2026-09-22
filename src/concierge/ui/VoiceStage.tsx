@@ -18,7 +18,9 @@ import { cn } from '@/lib/cn';
  * What the stage says, in two lines: a small label naming which of the five things is
  * happening — LISTENING · THINKING · BRINGING IT TO YOU · SPEAKING · TRY AGAIN — and one
  * sentence beneath it in the display face. Never the visitor's own words: a transcript is
- * kept for the conversation and the tests, and shown only in the QA view.
+ * kept for the conversation and the tests, and shown only in the QA view — which also
+ * prints the last turn's trace: the rung (direct, the delegation model, the voice alone),
+ * the intent, the tool, the language, the delegation id.
  */
 interface Status {
   label: string;
@@ -29,24 +31,22 @@ interface Status {
   lit: boolean;
 }
 
-function statusOf(v: { state: string; preparing: boolean; transcribing: boolean; denied: boolean; recognition: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; fallback: string | null; writeOffered: boolean }): Status {
+function statusOf(v: { state: string; preparing: boolean; denied: boolean; recognition: boolean; error: string | null; toolLabel: string; adapter: string | null; interrupted: boolean; writeOffered: boolean }): Status {
   const S = CONCIERGE.voice.state;
   const atRest = v.state === 'VOICE_READY' || v.state === 'CHAT' || v.state === 'ERROR';
   if (v.preparing) return { label: S.preparing, line: CONCIERGE.voice.preparing, actions: [], busy: true, lit: true };
-  if (v.transcribing && (v.state === 'LISTENING' || v.state === 'THINKING' || v.state === 'VOICE_READY')) return { label: S.thinking, line: CONCIERGE.voice.hearing, actions: [], busy: true, lit: false };
   // the microphone is refused or absent: said as its own state, with writing and the example beneath the ring
   if (v.denied && atRest) return { label: S.micOff, line: CONCIERGE.micDenied, actions: [], busy: false, lit: false };
   // a fault at rest is the TRY AGAIN state: the line says what happened, the action says what to do —
-  // and after a second sentence in a row that was not understood, writing is offered as the action
+  // and after a second sentence in a row that was not understood, or a session that would not
+  // open, writing is offered as the action
   if (v.error && v.state !== 'LISTENING') return { label: S.tryAgain, line: v.error, actions: v.writeOffered ? (v.recognition ? ['write', 'tryAgain'] : ['write']) : v.recognition ? ['tryAgain'] : [], busy: false, lit: false };
-  // the sentence that was lost with a rung is asked for again on the microphone that just opened
-  if (v.error && v.state === 'LISTENING' && v.fallback) return { label: S.listening, line: v.error, actions: [], busy: false, lit: true };
   if (!v.recognition && atRest) return { label: S.micOff, line: CONCIERGE.voice.unavailable, actions: [], busy: false, lit: false };
   switch (v.state) {
     case 'LISTENING':
       return {
         label: S.listening,
-        line: v.interrupted ? CONCIERGE.voice.interrupted : v.adapter === 'scripted' ? CONCIERGE.youMightSay.replace(/ —$/, '') : v.fallback ? CONCIERGE.voice.listeningFallback : CONCIERGE.voice.listening,
+        line: v.interrupted ? CONCIERGE.voice.interrupted : v.adapter === 'scripted' ? CONCIERGE.youMightSay.replace(/ —$/, '') : CONCIERGE.voice.listening,
         actions: [],
         busy: false,
         lit: true,
@@ -58,7 +58,7 @@ function statusOf(v: { state: string; preparing: boolean; transcribing: boolean;
     case 'RESULT':
       return { label: S.bringing, line: CONCIERGE.voice.result, actions: [], busy: false, lit: false };
     case 'SPEAKING':
-      return { label: S.speaking, line: v.adapter === 'realtime' || v.adapter === 'server' ? CONCIERGE.voice.speakingInterruptible : `${CONCIERGE.voice.speaking} ${CONCIERGE.voice.tapToInterrupt}.`, actions: [], busy: false, lit: false };
+      return { label: S.speaking, line: CONCIERGE.voice.speakingInterruptible, actions: [], busy: false, lit: false };
     default:
       return { label: S.ready, line: CONCIERGE.voice.ready, actions: [], busy: false, lit: false };
   }
@@ -122,11 +122,9 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const recognition = useConciergeStore((s) => s.voice.recognition);
   const adapter = useConciergeStore((s) => s.voice.adapter);
   const preparing = useConciergeStore((s) => s.voice.preparing);
-  const transcribing = useConciergeStore((s) => s.voice.transcribing);
   const denied = useConciergeStore((s) => s.voice.denied);
   const toolLabel = useConciergeStore((s) => s.activeTool?.label ?? '');
   const error = useConciergeStore((s) => s.error);
-  const fallback = useConciergeStore((s) => s.voice.fallback);
   const language = useConciergeStore((s) => s.memory.language);
   const listening = state === 'LISTENING';
   const speaking = state === 'SPEAKING';
@@ -135,7 +133,7 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
   const trace = useQaTrace();
   const R = replies(language);
 
-  const status = statusOf({ state, preparing, transcribing, denied, recognition, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted, fallback, writeOffered: error?.message === R.writeInstead });
+  const status = statusOf({ state, preparing, denied, recognition, error: error?.message ?? null, toolLabel, adapter, interrupted: transcript.interrupted, writeOffered: error?.message === R.writeInstead || error?.message === R.voiceUnavailable });
   const micLabel = denied ? CONCIERGE.voice.deniedLabel : preparing ? CONCIERGE.voice.preparingLabel : listening ? CONCIERGE.voice.stop : speaking ? CONCIERGE.voice.tapToInterrupt : CONCIERGE.voice.start;
   const size = compact ? 104 : 128;
   const heard = transcript.final || transcript.interim;

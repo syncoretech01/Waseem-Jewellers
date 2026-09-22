@@ -237,11 +237,10 @@ export interface Replies {
   micFailed: string;
   micDenied: string;
   noSpeech: string;
-  noVoiceForLanguage: string;
-  hearingUnavailable: string;
-  couldNotHear: string;
-  listeningFallback: string;
-  sessionEnded: string;
+  /** The line dropped mid-conversation and could not be re-established: said once, with the next thing to do. */
+  lineDropped: string;
+  /** The session could not be opened: said once, in writing, and the written concierge is presented. */
+  voiceUnavailable: string;
 }
 
 const ROMAN_ORDER = (language: ReplyLanguage) => showroomNames(language);
@@ -299,11 +298,8 @@ const en: Replies = {
   micFailed: CONCIERGE.micNoAnswer,
   micDenied: CONCIERGE.micDenied,
   noSpeech: CONCIERGE.noSpeech,
-  noVoiceForLanguage: CONCIERGE.noVoiceForLanguage,
-  hearingUnavailable: CONCIERGE.voice.hearingUnavailable,
-  couldNotHear: CONCIERGE.voice.couldNotHear,
-  listeningFallback: CONCIERGE.voice.listeningFallback,
-  sessionEnded: CONCIERGE.voice.sessionEnded,
+  lineDropped: CONCIERGE.voice.lineDropped,
+  voiceUnavailable: CONCIERGE.voice.sessionUnavailable,
 };
 
 const urLatn: Replies = {
@@ -359,11 +355,8 @@ const urLatn: Replies = {
   micFailed: 'Microphone nahi khula.',
   micDenied: 'Is site ke liye microphone band hai.',
   noSpeech: 'Sun nahi saki — dobara, thora qareeb se.',
-  noVoiceForLanguage: 'Aap ke browser mein is zabaan ki awaaz nahi — main likh kar jawab doongi.',
-  hearingUnavailable: 'Sunna abhi mumkin nahi — likh kar bhej dijiye.',
-  couldNotHear: 'Saaf sun nahi saki — dobara kahenge?',
-  listeningFallback: 'Sun rahi hoon — ghalat sunoon to dobara kahiye ya likh dijiye.',
-  sessionEnded: 'Line khamosh ho gayi — dobara kahenge?',
+  lineDropped: 'Line kat gayi — dobara kahenge?',
+  voiceUnavailable: 'Awaaz abhi mumkin nahi — aap likh kar jaari rakh sakte hain.',
 };
 
 const paLatn: Replies = {
@@ -419,11 +412,8 @@ const paLatn: Replies = {
   micFailed: 'Microphone nahi khulya.',
   micDenied: 'Es site layi microphone band ae.',
   noSpeech: 'Sun nahi saki — fer, thoda nere ho ke.',
-  noVoiceForLanguage: 'Tuhade browser vich es zubaan di awaaz nahi — main likh ke jawab devangi.',
-  hearingUnavailable: 'Sunna hale mumkin nahi — likh ke bhej deo.',
-  couldNotHear: 'Saaf sun nahi saki — fer kaho?',
-  listeningFallback: 'Sun rahi aan — galat sunaan te fer kaho ya likh deo.',
-  sessionEnded: 'Line chup ho gayi — fer kaho?',
+  lineDropped: 'Line kat gayi — fer kaho?',
+  voiceUnavailable: 'Awaaz hale mumkin nahi — tusi likh ke jaari rakh sakde o.',
 };
 
 const ur: Replies = {
@@ -479,11 +469,8 @@ const ur: Replies = {
   micFailed: 'مائیکروفون نہیں کھلا۔',
   micDenied: 'اس سائٹ کے لیے مائیکروفون بند ہے۔',
   noSpeech: 'سن نہیں سکی — دوبارہ، تھوڑا قریب سے۔',
-  noVoiceForLanguage: 'آپ کے براؤزر میں اس زبان کی آواز نہیں — میں لکھ کر جواب دوں گی۔',
-  hearingUnavailable: 'سننا ابھی ممکن نہیں — لکھ کر بھیج دیجیے۔',
-  couldNotHear: 'صاف سن نہیں سکی — دوبارہ کہیں گے؟',
-  listeningFallback: 'سن رہی ہوں — غلط سنوں تو دوبارہ کہیے یا لکھ دیجیے۔',
-  sessionEnded: 'لائن خاموش ہو گئی — دوبارہ کہیں گے؟',
+  lineDropped: 'لائن کٹ گئی — دوبارہ کہیں گے؟',
+  voiceUnavailable: 'آواز ابھی ممکن نہیں — آپ لکھ کر جاری رکھ سکتے ہیں۔',
 };
 
 const paArab: Replies = {
@@ -539,11 +526,8 @@ const paArab: Replies = {
   micFailed: 'مائیکروفون نہیں کھلیا۔',
   micDenied: 'ایس سائٹ لئی مائیکروفون بند اے۔',
   noSpeech: 'سن نہیں سکی — فیر، تھوڑا نیڑے ہو کے۔',
-  noVoiceForLanguage: 'تہاڈے براؤزر وچ ایس زبان دی آواز نہیں — میں لکھ کے جواب دیواں گی۔',
-  hearingUnavailable: 'سننا ہالے ممکن نہیں — لکھ کے بھیج دیو۔',
-  couldNotHear: 'صاف سن نہیں سکی — فیر کہو؟',
-  listeningFallback: 'سن رہی آں — غلط سناں تے فیر کہو یا لکھ دیو۔',
-  sessionEnded: 'لائن چپ ہو گئی — فیر کہو؟',
+  lineDropped: 'لائن کٹ گئی — فیر کہو؟',
+  voiceUnavailable: 'آواز ہلے ممکن نہیں — تسی لکھ کے جاری رکھ سکدے او۔',
 };
 
 const paGuru: Replies = {
@@ -599,11 +583,8 @@ const paGuru: Replies = {
   micFailed: 'ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਨਹੀਂ ਖੁੱਲ੍ਹਿਆ।',
   micDenied: 'ਇਸ ਸਾਈਟ ਲਈ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਬੰਦ ਹੈ।',
   noSpeech: 'ਸੁਣ ਨਹੀਂ ਸਕੀ — ਫੇਰ, ਥੋੜ੍ਹਾ ਨੇੜੇ ਹੋ ਕੇ।',
-  noVoiceForLanguage: 'ਤੁਹਾਡੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਇਸ ਜ਼ਬਾਨ ਦੀ ਆਵਾਜ਼ ਨਹੀਂ — ਮੈਂ ਲਿਖ ਕੇ ਜਵਾਬ ਦਿਆਂਗੀ।',
-  hearingUnavailable: 'ਸੁਣਨਾ ਹਾਲੇ ਮੁਮਕਿਨ ਨਹੀਂ — ਲਿਖ ਕੇ ਭੇਜ ਦਿਓ।',
-  couldNotHear: 'ਸਾਫ਼ ਸੁਣ ਨਹੀਂ ਸਕੀ — ਫੇਰ ਕਹੋ?',
-  listeningFallback: 'ਸੁਣ ਰਹੀ ਹਾਂ — ਗ਼ਲਤ ਸੁਣਾਂ ਤਾਂ ਫੇਰ ਕਹੋ ਜਾਂ ਲਿਖ ਦਿਓ।',
-  sessionEnded: 'ਲਾਈਨ ਚੁੱਪ ਹੋ ਗਈ — ਫੇਰ ਕਹੋ?',
+  lineDropped: 'ਲਾਈਨ ਕੱਟ ਗਈ — ਫੇਰ ਕਹੋ?',
+  voiceUnavailable: 'ਆਵਾਜ਼ ਹਾਲੇ ਮੁਮਕਿਨ ਨਹੀਂ — ਤੁਸੀਂ ਲਿਖ ਕੇ ਜਾਰੀ ਰੱਖ ਸਕਦੇ ਹੋ।',
 };
 
 const TABLE: Record<ReplyLanguage, Replies> = { en, 'ur-Latn': urLatn, 'pa-Latn': paLatn, ur, 'pa-Arab': paArab, 'pa-Guru': paGuru };
@@ -617,7 +598,7 @@ export function replies(language: Language | ReplyLanguage | null | undefined): 
 export const asReplyLanguage = (language: Language | null | undefined): ReplyLanguage | null => (language && language !== 'mixed' ? language : null);
 
 /** English function words that carry no request of their own — filtered before deciding a sentence is not understood. */
-const STOP_EN = new Set(['the', 'a', 'an', 'me', 'my', 'please', 'some', 'something', 'any', 'anything', 'more', 'again', 'now', 'also', 'just', 'like', 'want', 'could', 'would', 'can', 'you', 'kindly', 'one', 'ones', 'them', 'this', 'that', 'these', 'those', 'for', 'in', 'of', 'to', 'with', 'and', 'or', 'it', 'is', 'are', 'be', 'let', 'lets', 'see', 'look', 'looking', 'show', 'give', 'bring', 'get', 'have', 'has', 'do', 'does', 'what', 'which', 'nice', 'good', 'else', 'other', 'another', 'few', 'bit', 'little', 'thing', 'things', 'here', 'there', 'okay', 'ok', 'yes', 'yeah', 'no', 'not', 'too', 'very', 'so', 'then', 'well', 'right', 'sure', 'um', 'uh', 'hmm', 'ji', 'sorry', 'hello', 'hi']);
+const STOP_EN = new Set(['the', 'a', 'an', 'me', 'my', 'please', 'some', 'something', 'any', 'anything', 'more', 'again', 'now', 'also', 'just', 'like', 'want', 'could', 'would', 'can', 'you', 'kindly', 'one', 'ones', 'them', 'this', 'that', 'these', 'those', 'for', 'in', 'of', 'to', 'with', 'and', 'or', 'it', 'is', 'are', 'be', 'let', 'lets', 'see', 'look', 'looking', 'show', 'give', 'bring', 'get', 'take', 'go', 'have', 'has', 'do', 'does', 'what', 'which', 'nice', 'good', 'else', 'other', 'another', 'few', 'bit', 'little', 'thing', 'things', 'here', 'there', 'okay', 'ok', 'yes', 'yeah', 'no', 'not', 'too', 'very', 'so', 'then', 'well', 'right', 'sure', 'um', 'uh', 'hmm', 'ji', 'sorry', 'hello', 'hi']);
 
 /**
  * Roman Urdu and Punjabi words that carry no request of their own — pronouns, particles,

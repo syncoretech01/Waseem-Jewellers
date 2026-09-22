@@ -148,7 +148,12 @@ const anyShown = (ctx: SiteContext) => ctx.recentResults.length > 0 || ctx.visib
 /** "A showroom, named in the sentence" — Liberty, MM Alam, DHA, Gulberg — or nothing. */
 export function showroomIn(folded: string): string | undefined {
   const m = folded.match(/\b(liberty|mm alam|m m alam|alam road|alam|dha|gulberg|defence)\b/);
-  return m ? resolveShowroom(m[1] === 'defence' ? 'dha' : m[1]!) : undefined;
+  if (m) return resolveShowroom(m[1] === 'defence' ? 'dha' : m[1]!);
+  // the voice model writes Urdu speech in Nastaliq: the three showrooms as it spells them
+  if (/لیبرٹی|لبرٹی/.test(folded)) return resolveShowroom('liberty');
+  if (/ایم ایم عالم|ایم ایم علام|عالم روڈ/.test(folded)) return resolveShowroom('mm alam');
+  if (/ڈی ایچ ا[ےی]|ڈیفنس/.test(folded)) return resolveShowroom('dha');
+  return undefined;
 }
 
 /**

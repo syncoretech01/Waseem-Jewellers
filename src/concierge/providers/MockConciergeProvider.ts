@@ -3,8 +3,6 @@ import type { TurnSource } from '@/state/conciergeStore';
 import { planFor, introFor, type Plan } from './mock/commands';
 import { replies } from '../replies';
 import { useQualityStore } from '@/state/qualityStore';
-import { useConciergeStore } from '@/state/conciergeStore';
-import { synthesisSupported } from '../voice/speech';
 
 function fnv1a(s: string) {
   let h = 0x811c9dc5;
@@ -147,9 +145,8 @@ export class MockConciergeProvider implements ConciergeProvider {
         emit({ type: 'text.delta', turnId, delta: (ack ? ' ' : '') + rest });
       } else {
         const words = rest.split(' ');
-        // spoken pace only when the reply is actually being voiced; otherwise the words arrive at reading pace
-        const voice = ctx.mode === 'voice' && useConciergeStore.getState().voice.spokenReplies && synthesisSupported();
-        const cadence = voice ? Math.max(32, ((words.length / 2.6) * 1000) / words.length) : 32;
+        // the words arrive at reading pace: nothing on this path speaks them
+        const cadence = 32;
         for (let i = 0; i < words.length; i++) {
           if (this.cancelled.has(turnId)) return;
           emit({ type: 'text.delta', turnId, delta: (i || ack ? ' ' : '') + words[i] });

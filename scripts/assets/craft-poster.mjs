@@ -27,7 +27,7 @@ await page.waitForSelector('[data-craft-scene][data-webgl="1"] canvas', { timeou
 // faintly lighter square around the ring (the canvas's tone mapping does not return the ink exactly)
 await page.addStyleTag({
   content:
-    '.craft-label, .craft-note, .craft-eyebrow, .craft-halo, .craft-closing, .craft-poster, .craft-frames, [data-orb], nextjs-portal, .wj-orb, [data-concierge-orb], header, footer, section:not(#ch02-craft), main > *:not(#ch02-craft):not(:has(#ch02-craft)) { visibility: hidden !important; opacity: 0 !important; } #ch02-craft .craft-stage-wrap > *:not(.craft-scene) { visibility: hidden !important; } html, body, #page-root, main, #ch02-craft, .pin-spacer, .craft-stage-wrap, .craft-scene, [data-chrome] { background: transparent !important; }',
+    '.craft-label, .craft-note, .craft-eyebrow, .craft-halo, .craft-closing, .craft-poster, .craft-states, [data-orb], nextjs-portal, .wj-orb, [data-concierge-orb], header, footer, section:not(#ch02-craft), main > *:not(#ch02-craft):not(:has(#ch02-craft)) { visibility: hidden !important; opacity: 0 !important; } #ch02-craft .craft-stage-wrap > *:not(.craft-scene) { visibility: hidden !important; } html, body, #page-root, main, #ch02-craft, .pin-spacer, .craft-stage-wrap, .craft-scene, [data-chrome] { background: transparent !important; }',
 });
 // the object settles over a second or so of demand frames
 await page.waitForTimeout(4000);

@@ -10,7 +10,7 @@ import { Home } from '@/components/home/Home';
  */
 export default async function HomePage() {
   const repo = getRepository();
-  const [showcase, departments, all] = await Promise.all([repo.showcase(), repo.departments(), repo.rows()]);
+  const [showcase, all] = await Promise.all([repo.showcase(), repo.rows()]);
   const bySlug = new Map(all.map((r) => [r.s, r]));
   /**
    * The pieces the chapters look at closely, as rows: each figure is a door, and a door needs
@@ -19,5 +19,5 @@ export default async function HomePage() {
    */
   const doorSlugs = [...new Set([...FIGURE_SLUGS, ...WORLDS.flatMap((w) => w.pieces), 'royal-wedding-polki-raani-haar', 'diamond-bridal-sapphire-suite', 'gold-bangles-k13798'])];
   const doors = Object.fromEntries(doorSlugs.flatMap((s) => (bySlug.has(s) ? [[s, bySlug.get(s)!]] : [])));
-  return <Home showcase={showcase} departments={departments} doors={doors} />;
+  return <Home showcase={showcase} doors={doors} />;
 }

@@ -156,9 +156,13 @@ export interface ToolOutcome {
  * the tool — and the controller keeps the last few for `?qa=1`.
  */
 export interface TurnTrace {
-  /** Which engine answered: the text model, the keyless engine, the realtime voice, or the browser's own voice tier. */
-  rung: 'model' | 'keyless' | 'realtime' | 'browser-voice';
-  /** Why a rung below the one tried answered instead — the code and message of the failure, verbatim. */
+  /**
+   * Which engine answered: the text model or the keyless engine on the typed path; on the
+   * voice path the direct rung (the parser, no model), the delegation model, or the voice
+   * model speaking alone.
+   */
+  rung: 'model' | 'keyless' | 'direct' | 'astra' | 'live';
+  /** Why a rung below the one tried answered instead — or why the voice did not open — the code and message of the failure, verbatim. */
   fallback?: string;
   language?: string;
   intent?: string;
@@ -200,11 +204,10 @@ export interface ProviderRuntime {
  *
  * These used to be two names for three things: the server-mediated *text* model called itself
  * `openai-realtime` while advertising `voice: 'none'`, which made the identity useless for
- * the one question anyone asks it — can this thing speak. The realtime voice provider is a
- * different engine with a different transport and different failure modes, and it needs its
- * own name before it lands rather than after.
+ * the one question anyone asks it — can this thing speak. The Live voice is a different
+ * engine with a different transport and different failure modes, and carries its own name.
  */
-export type ProviderId = 'keyless' | 'server-model' | 'realtime-voice';
+export type ProviderId = 'keyless' | 'server-model' | 'live-voice';
 
 export interface ProviderCapabilities {
   streaming: boolean;
