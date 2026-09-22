@@ -70,6 +70,8 @@ const IDLE_MS = 3 * 60_000;
  */
 const PAUSE_SHORT_MS = 700;
 const PAUSE_SENTENCE_MS = 1_500;
+/** A readable natural request normally receives a Live delegation; recover if that event is lost. */
+const ASTRA_DELEGATION_FALLBACK_MS = 2_600;
 const SHORT_COMMANDS = new Set(['core_department', 'back', 'ordinal_open', 'close', 'appointment_field', 'core_restart', 'gold_world', 'diamond_world', 'bridal_route']);
 const OPEN_COMMANDS = new Set(['core_open', 'deictic_open', 'named_open']);
 const CONVERSATIONAL_PLANS = new Set(['greeting', 'core_greet', 'thanks', 'core_thanks', 'help', 'watches', 'out_of_scope']);
@@ -79,6 +81,9 @@ function pauseForRoute(route: Route): number | null {
   // "open it", "yeh kholo", "is ko kholo": a verb with the deictic; "yeh" alone is the start of a sentence
   if (OPEN_COMMANDS.has(route.plan.id)) return n >= 2 && n <= 4 ? PAUSE_SHORT_MS : null;
   if (route.rung === 'direct' && route.plan.id !== 'unknown' && route.plan.id !== 'clarify' && n >= 2) return PAUSE_SENTENCE_MS;
+  // Known catalogue requests must not remain open forever if Live omits delegation.created.
+  // Unknown conversational speech remains entirely model-owned.
+  if (route.rung === 'astra' && route.plan.id !== 'unknown') return ASTRA_DELEGATION_FALLBACK_MS;
   return null;
 }
 /** After a delegation, the transcript is given this long to settle before the words are read. */
