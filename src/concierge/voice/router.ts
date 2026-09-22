@@ -1,6 +1,7 @@
 'use client';
 
 import { planFor, readSentence, type Plan } from '../providers/mock/commands';
+import { useConciergeStore } from '@/state/conciergeStore';
 import { unknownWords, type ReplyLanguage } from '../replies';
 import { factForOutcome, factForPlan } from './facts';
 import type { IntentFrame } from '../nlu/parse';
@@ -52,12 +53,38 @@ const SEARCHES = new Set(['core_search', 'search', 'traditional', 'similar', 'co
 const PLAIN_TOKENS = 6;
 const APPOINTMENT_TOKENS = 8;
 
+/**
+ * GPT-Live may render one spoken Urdu conversation as Roman Urdu on one turn and Urdu script
+ * on the next. Those are not a spoken language switch. Keep the established Urdu voice form
+ * so a short follow-up cannot be reset by transcription orthography or by an English result.
+ */
+function stableSpokenLanguage(detected: ReplyLanguage, prior: ReplyLanguage | null): ReplyLanguage {
+  const urduVoice = (language: ReplyLanguage | null) => language === 'ur' || language === 'ur-Latn';
+  if (urduVoice(detected) && (prior === 'ur' || prior === 'ur-Latn')) return prior;
+  return detected;
+}
+
 export function routeSentence(text: string, ctx: SiteContext): Route {
-  const { frame, language, tokens } = readSentence(text);
-  const plan = planFor(text, ctx);
+  const remembered = useConciergeStore.getState().memory.language;
+  const prior = remembered === 'ur' || remembered === 'ur-Latn' ? remembered : null;
+  const { frame, language: detectedLanguage, tokens } = readSentence(text);
+  const language = stableSpokenLanguage(detectedLanguage, prior);
+  const rawPlan = planFor(text, ctx);
+  // `readSentence` remembers the script it just received. Restore the voice conversation's
+  // established Urdu form after a transcript spelling change; the fact sent to Live remains
+  // English data and must not decide this state.
+  if (language !== useConciergeStore.getState().memory.language) useConciergeStore.getState().rememberLanguage(language);
+  const plan = language === rawPlan.language ? rawPlan : { ...rawPlan, language };
   const unknown = unknownWords(frame);
   const n = tokens.length;
   const decide = (): { rung: Rung; why: string } => {
+    // A deictic-led fragment is commonly the beginning of a natural thought: "Yeh bohat
+    // heavy…". It must not refine or open a piece if Live delegates before the transcript has
+    // settled. Only an actual open verb earns the direct rung; ordinals remain direct.
+    const hasOpenVerb = frame.intent === 'open' && frame.confidence >= 0.9;
+    if (frame.slots.deictic && frame.slots.ordinal === undefined && !hasOpenVerb) {
+      return { rung: 'astra', why: 'deictic-led natural sentence' };
+    }
     if (ACTIONS.has(plan.id)) return { rung: 'direct', why: 'action' };
     if (FACTS.has(plan.id)) return { rung: 'direct', why: 'fact' };
     if (APPOINTMENT.has(plan.id)) return n <= APPOINTMENT_TOKENS ? { rung: 'direct', why: 'appointment' } : { rung: 'astra', why: 'appointment sentence with detail' };

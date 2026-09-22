@@ -66,6 +66,9 @@ const worst = (xs) => {
 };
 const fmt = (n) => (typeof n === 'number' ? `${n} ms` : '—');
 
+const RECOVERY_TIMEOUT_MS = 20_000;
+const RECOVERY_POLL_MS = 100;
+
 const browser = await chromium.launch({
   headless: !HEADED,
   args: ['--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${WAV.replace(/\//g, '\\')}%noloop`, '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
@@ -75,6 +78,15 @@ await ctx.addInitScript(() => {
   try {
     sessionStorage.clear();
   } catch {}
+  // This is created once per real document. Client-side route transitions keep it; a full
+  // document replacement gets a new value, which lets the harness distinguish the two.
+  const key = '__wjVoiceLatencyDocumentId';
+  const id = `${performance.timeOrigin}-${Math.random().toString(36).slice(2)}`;
+  try {
+    Object.defineProperty(window, key, { value: id, configurable: true });
+  } catch {
+    window[key] = id;
+  }
 });
 if (SESSION_FROM) {
   // the local build asks its own origin; the answers come from the deployment that holds the key
@@ -92,11 +104,150 @@ if (SESSION_FROM) {
 const page = await ctx.newPage();
 const errors = [];
 const failed = [];
+const navigations = [];
+let samplingStartedAt = null;
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text().slice(0, 300));
 });
 page.on('requestfailed', (r) => failed.push(`${r.failure()?.errorText ?? 'failed'} ${r.url().slice(0, 120)}`));
+page.on('framenavigated', (frame) => {
+  if (frame !== page.mainFrame()) return;
+  navigations.push({ t: Date.now(), type: 'main-frame-navigation', url: frame.url(), phase: samplingStartedAt ? 'run' : 'setup' });
+});
+page.on('load', () => {
+  navigations.push({ t: Date.now(), type: 'load', url: page.url(), phase: samplingStartedAt ? 'run' : 'setup' });
+});
+
+/**
+ * A deliberately small read of the page-side seam. It also records enough identity to tell a
+ * client transition from a document reload, without making application state part of the test.
+ */
+const readSample = () =>
+  page.evaluate(() => {
+    const c = window.__wjConcierge;
+    const st = c?.store;
+    const controllerKey = '__wjVoiceLatencyControllerId';
+    let controllerId = null;
+    if (c) {
+      try {
+        if (!Object.prototype.hasOwnProperty.call(c, controllerKey)) {
+          Object.defineProperty(c, controllerKey, {
+            value: `${performance.timeOrigin}-${Math.random().toString(36).slice(2)}`,
+            configurable: true,
+          });
+        }
+        controllerId = c[controllerKey] ?? null;
+      } catch {}
+    }
+    const navigation = performance.getEntriesByType('navigation')[0];
+    const mid = window.innerHeight / 2;
+    const sectionAtMidpoint = [...document.querySelectorAll('[data-section]')].find((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.top <= mid && rect.bottom > mid;
+    })?.getAttribute('data-section') ?? null;
+    // Some QA builds mirror the active registered site section onto the concierge store. Prefer
+    // that semantic signal when it exists; production falls back to the section at viewport mid.
+    const section = typeof st?.section === 'string' ? st.section : sectionAtMidpoint;
+    const trace = typeof window.__wjVoiceTrace === 'function' ? window.__wjVoiceTrace() : [];
+    const sessions = trace.filter((e) => e.type === 'session.started');
+    const closed = trace.filter((e) => e.type === 'session.closed');
+    const sessionId = sessions.length ? sessions[sessions.length - 1]?.detail ?? null : null;
+    return {
+      t: Date.now(),
+      ready: Boolean(st),
+      state: st?.state ?? null,
+      href: location.pathname,
+      url: location.href,
+      section,
+      error: st?.error?.message ?? null,
+      adapter: st?.voice?.adapter ?? null,
+      live: Boolean(st?.voice?.sessionLive),
+      preparing: Boolean(st?.voice?.preparing),
+      mode: st?.mode ?? null,
+      activeTool: st?.activeTool?.name ?? null,
+      turns: st?.turns?.length ?? 0,
+      turnCount: st?.turnCount ?? 0,
+      controllerId,
+      documentId: window.__wjVoiceLatencyDocumentId ?? null,
+      timeOrigin: performance.timeOrigin,
+      navigationType: navigation?.type ?? null,
+      legacyNavigationType: performance.navigation?.type ?? null,
+      sessionId,
+      sessionStarted: sessions.length,
+      sessionClosed: closed.length,
+    };
+  });
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const errorText = (error) => String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 300);
+
+/** A missing context is recoverable only when the page, controller and existing Live session all recover. */
+const continuityFailure = (before, after) => {
+  if (!before) return null;
+  if (before.live && !after.live) return 'the Live session disconnected while the page context was unavailable';
+  if (before.adapter === 'realtime' && after.adapter !== 'realtime') return 'the Concierge voice adapter was lost during recovery';
+  if (before.mode === 'voice' && after.mode !== 'voice') return 'the Concierge voice mode was lost during recovery';
+  if (before.turns > after.turns || before.turnCount > after.turnCount) return 'the Concierge conversation state was lost during recovery';
+  if (before.sessionClosed < after.sessionClosed) return 'the Live session closed while the page context was unavailable';
+  if (before.sessionStarted && before.sessionStarted !== after.sessionStarted) return 'the Live session was re-established during recovery';
+  if (before.sessionId && before.sessionId !== after.sessionId) return 'the Live session identity changed during recovery';
+  return null;
+};
+
+const recoverSample = async (cause, before) => {
+  const startedAt = Date.now();
+  const recovery = {
+    at: startedAt,
+    cause: errorText(cause),
+    before: before ?? null,
+    navigation: [],
+    outcome: 'recovering',
+  };
+  let after = null;
+  let lastError = null;
+  while (Date.now() - startedAt < RECOVERY_TIMEOUT_MS) {
+    try {
+      const candidate = await readSample();
+      if (candidate.ready) {
+        after = candidate;
+        break;
+      }
+      lastError = 'window.__wjConcierge was not mounted yet';
+    } catch (error) {
+      lastError = errorText(error);
+    }
+    await sleep(RECOVERY_POLL_MS);
+  }
+  recovery.navigation = navigations.filter((event) => event.t >= (before?.t ?? startedAt) - 250);
+  if (!after) {
+    recovery.outcome = 'failed';
+    recovery.failure = `the requested route never recovered a ready Concierge within ${RECOVERY_TIMEOUT_MS} ms${lastError ? ` (${lastError})` : ''}`;
+    return { ok: false, recovery };
+  }
+
+  recovery.after = after;
+  const urlChanged = Boolean(before && before.url !== after.url);
+  const documentChanged = Boolean(before && ((before.documentId && before.documentId !== after.documentId) || before.timeOrigin !== after.timeOrigin));
+  const actionInFlight = Boolean(before && (before.state === 'EXECUTING_ACTION' || before.activeTool || after.state === 'EXECUTING_ACTION' || after.activeTool));
+  const intentionalRouteTransition = actionInFlight && (urlChanged || recovery.navigation.some((event) => event.type === 'main-frame-navigation'));
+  recovery.transition = { urlChanged, documentChanged, intentionalRouteTransition };
+
+  const continuity = continuityFailure(before, after);
+  if (continuity) {
+    recovery.outcome = 'failed';
+    recovery.failure = continuity;
+    return { ok: false, recovery };
+  }
+  if (documentChanged && !intentionalRouteTransition) {
+    recovery.outcome = 'failed';
+    recovery.failure = 'the document reloaded without an in-flight Concierge route action';
+    return { ok: false, recovery };
+  }
+
+  recovery.outcome = 'recovered';
+  return { ok: true, sample: after, recovery };
+};
 
 await page.goto(`${BASE}/${QA ? '?qa=1' : ''}`, { waitUntil: 'load', timeout: 120000 });
 await page.waitForFunction(() => Boolean(window.__wjConcierge), null, { timeout: 60000 });
@@ -113,28 +264,79 @@ const tapAt = await page.evaluate(() => {
 });
 
 const samples = [];
-let last = '';
+const recoveries = [];
+let lastState = null;
+let lastHref = null;
+let lastUrl = null;
+let lastSection = null;
+let lastSnapshot = null;
+let monitorFailure = null;
+let establishedSession = null;
+samplingStartedAt = tapAt;
 const endAt = tapAt + (TL.total + 12) * 1000;
-let reloaded = false;
 while (Date.now() < endAt) {
   let s;
+  let assessedRecovery = false;
   try {
-    s = await page.evaluate(() => {
-      const st = window.__wjConcierge.store;
-      return { t: Date.now(), state: st.state, href: location.pathname, error: st.error?.message ?? null, adapter: st.voice.adapter, live: st.voice.sessionLive };
-    });
-  } catch {
-    reloaded = true;
-    break;
+    s = await readSample();
+    if (!s.ready) throw new Error('window.__wjConcierge was not mounted');
+  } catch (error) {
+    const recovered = await recoverSample(error, lastSnapshot);
+    recoveries.push(recovered.recovery);
+    if (!recovered.ok) {
+      monitorFailure = recovered.recovery;
+      break;
+    }
+    s = recovered.sample;
+    assessedRecovery = true;
   }
-  if (s.state !== last) {
+
+  // A quick full reload can land between samples and never throw from page.evaluate. Identity
+  // and the controller marker catch that case too, then apply the same continuity checks.
+  const documentChanged = Boolean(lastSnapshot && ((lastSnapshot.documentId && lastSnapshot.documentId !== s.documentId) || lastSnapshot.timeOrigin !== s.timeOrigin));
+  const controllerRemounted = Boolean(lastSnapshot?.controllerId && s.controllerId && lastSnapshot.controllerId !== s.controllerId);
+  if (!assessedRecovery && (documentChanged || controllerRemounted)) {
+    const recovered = await recoverSample(documentChanged ? 'document identity changed' : 'window.__wjConcierge remounted', lastSnapshot);
+    recoveries.push(recovered.recovery);
+    if (!recovered.ok) {
+      monitorFailure = recovered.recovery;
+      break;
+    }
+    s = recovered.sample;
+  }
+
+  if (s.sessionStarted) {
+    if (!establishedSession) establishedSession = { started: s.sessionStarted, id: s.sessionId };
+    else if (s.sessionClosed || s.sessionStarted !== establishedSession.started || (establishedSession.id && s.sessionId !== establishedSession.id)) {
+      monitorFailure = {
+        at: Date.now(),
+        cause: 'Live session continuity monitor',
+        before: lastSnapshot,
+        after: s,
+        outcome: 'failed',
+        failure: 'the Live session disconnected or was replaced during the run',
+      };
+      break;
+    }
+  }
+
+  if (s.state !== lastState || s.href !== lastHref || s.url !== lastUrl || s.section !== lastSection) {
     samples.push(s);
-    last = s.state;
+    lastState = s.state;
+    lastHref = s.href;
+    lastUrl = s.url;
+    lastSection = s.section;
   }
+  lastSnapshot = s;
   await page.waitForTimeout(40);
 }
-if (reloaded) {
-  console.log('the page reloaded mid-run (a dev server hot reload, most often); run it again');
+if (monitorFailure) {
+  fs.writeFileSync(
+    path.join(OUT, 'navigation-failure.json'),
+    JSON.stringify({ base: BASE, prompts: path.basename(PROMPTS_DIR), failure: monitorFailure, samples, navigations, recoveries, errors, failed }, null, 1),
+  );
+  console.log(`voice-latency aborted: ${monitorFailure.failure}`);
+  console.log(`  navigation diagnostics saved ${path.relative(ROOT, path.join(OUT, 'navigation-failure.json'))}`);
   await browser.close();
   process.exit(2);
 }
@@ -210,8 +412,12 @@ for (let i = 0; i < TL.prompts.length; i++) {
   const turn = final.turns.filter((t) => t.role === 'concierge' && t.text).map((t) => t.text);
   const reply = done?.detail ?? null;
   const replyText = reply || (turn.length ? null : null);
-  const state = samples.filter((s) => s.t >= windowStart && s.t < windowEnd).map((s) => s.state);
-  const hrefAfter = samples.filter((s) => s.t >= windowStart && s.t < windowEnd).map((s) => s.href).pop() ?? null;
+  const promptSamples = samples.filter((s) => s.t >= windowStart && s.t < windowEnd);
+  const state = promptSamples.map((s) => s.state);
+  const hrefAfter = promptSamples.map((s) => s.href).pop() ?? null;
+  // The homepage department tools intentionally glide to their chapter; they do not navigate
+  // to /gold or /diamond. The rendered section marker is the public, production-safe proof.
+  const sectionAfter = promptSamples.map((s) => s.section).filter(Boolean).pop() ?? null;
   const rung = route ? route.detail.split(' · ')[0] : qa?.rung ?? null;
   const language = route ? route.detail.split(' · ')[2] : qa?.language ?? null;
   const row = {
@@ -238,6 +444,7 @@ for (let i = 0; i < TL.prompts.length; i++) {
     transcriptToAction: lastDelta && visible ? visible.t - lastDelta.t : null,
     states: [...new Set(state)].join(' → '),
     hrefAfter,
+    sectionAfter,
   };
   if (spec.expect) {
     const ex = spec.expect;
@@ -245,6 +452,7 @@ for (let i = 0; i < TL.prompts.length; i++) {
     if (ex.rung) checks.push([`rung ${ex.rung}`, row.rung === ex.rung]);
     if (ex.tool) checks.push([`tool ${ex.tool}`, (row.tool ?? '').split(',').includes(ex.tool)]);
     if (ex.path) checks.push([`path ${ex.path}`, new RegExp(ex.path).test(hrefAfter ?? '')]);
+    if (ex.section) checks.push([`section ${ex.section}`, row.sectionAfter === ex.section]);
     if (ex.language) checks.push([`language ${ex.language}`, row.language === ex.language]);
     if (ex.spoke) checks.push(['a spoken reply', row.replyStarted]);
     row.pass = checks.every(([, v]) => v);
@@ -276,12 +484,17 @@ const summary = {
   total: rows.length,
   audit: final.audit,
   auditAfterClose,
+  navigation: {
+    mainFrameEvents: navigations.filter((event) => event.type === 'main-frame-navigation' && event.phase === 'run').length,
+    recoveries: recoveries.length,
+    recovered: recoveries.filter((recovery) => recovery.outcome === 'recovered').length,
+  },
   errors: errors.length,
   failedRequests: failed.length,
   endedAt: final.href,
   language: final.language,
 };
-fs.writeFileSync(path.join(OUT, 'session.json'), JSON.stringify({ summary, rows, samples, trace, qa: final.qa, turns: final.turns, errors, failed }, null, 1));
+fs.writeFileSync(path.join(OUT, 'session.json'), JSON.stringify({ summary, rows, samples, trace, qa: final.qa, turns: final.turns, navigations, recoveries, errors, failed }, null, 1));
 
 console.log(`\nvoice-latency (ENGINEERING RUN, synthetic audio) · ${BASE}${SESSION_FROM ? ` (session from ${SESSION_FROM})` : ''} · ${summary.prompts} · adapter=${final.voice.adapter}`);
 console.log(`  tap → microphone active            ${fmt(tapToMic)} (session created in ${createdMs} ms${created && created.t < tapAt ? ', before the tap' : ''})`);
@@ -300,6 +513,9 @@ for (const r of rows) {
   if ('pass' in r) console.log(`    ${r.pass ? 'PASS' : 'FAIL'} — ${r.checks}`);
 }
 if (summary.expected) console.log(`\n  ${summary.passed}/${summary.expected} turns passed their expectations`);
+if (summary.navigation.mainFrameEvents || summary.navigation.recoveries) {
+  console.log(`  navigation: ${summary.navigation.mainFrameEvents} main-frame event(s), ${summary.navigation.recovered}/${summary.navigation.recoveries} context recovery/recoveries`);
+}
 console.log(`  audit at the end: ${JSON.stringify(final.audit)} · after close: ${JSON.stringify(auditAfterClose)}`);
 console.log(`  page ended at ${final.href} · language ${final.language} · console errors ${errors.length} · failed requests ${failed.length}`);
 if (errors.length) console.log(`  ${errors.slice(0, 5).join('\n  ')}`);

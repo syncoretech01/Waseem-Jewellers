@@ -9,7 +9,7 @@ import { qaMode } from '../qa';
 import { buildSiteContext } from '../context';
 import { stripBannedPhrases } from '../register';
 import type { VoiceAdapter, VoiceHandlers, VoiceSessionRuntime } from './adapters';
-import type { ProviderEvent, SiteContext, ToolName, ToolOutcome } from '../types';
+import type { ProviderEvent, ToolName, ToolOutcome } from '../types';
 
 /**
  * The premium voice: microphone → WebRTC → GPT-Live → client delegation → our tools → a
@@ -72,10 +72,8 @@ const PAUSE_SHORT_MS = 700;
 const PAUSE_SENTENCE_MS = 1_500;
 const SHORT_COMMANDS = new Set(['core_department', 'back', 'ordinal_open', 'close', 'appointment_field', 'core_restart', 'gold_world', 'diamond_world', 'bridal_route']);
 const OPEN_COMMANDS = new Set(['core_open', 'deictic_open', 'named_open']);
-function pauseFor(text: string, ctx: SiteContext): number | null {
-  const t = text.trim();
-  if (!t) return null;
-  const route = routeSentence(t, ctx);
+const CONVERSATIONAL_PLANS = new Set(['greeting', 'core_greet', 'thanks', 'core_thanks', 'help', 'watches', 'out_of_scope']);
+function pauseForRoute(route: Route): number | null {
   const n = route.tokens;
   if (SHORT_COMMANDS.has(route.plan.id) && n <= 3) return PAUSE_SHORT_MS;
   // "open it", "yeh kholo", "is ko kholo": a verb with the deictic; "yeh" alone is the start of a sentence
@@ -88,6 +86,8 @@ const SETTLE_MS = 400;
 const SETTLE_QUIET_MS = 220;
 /** A sentence the parser could not read waits this long for GPT-Live to delegate it; then it is the model's to answer. */
 const DELEGATION_WAIT_MS = 2_600;
+/** A direct action normally receives a Live delegation before it finishes. Do not leave its one reply unsent if that protocol event is absent. */
+const DIRECT_DELEGATION_FALLBACK_MS = 2_600;
 /** A turn whose result was handed back but never spoken closes after this. */
 const RESULT_SILENCE_MS = 4_000;
 /** The remote track: louder than this is speech; quieter for this long is the end of it. */
@@ -128,6 +128,9 @@ interface Turn {
   /** The fact handed to the voice model, once it exists. */
   fact: string | null;
   factSent: boolean;
+  /** A spoken direct action may finish before GPT-Live's delegation reaches us. Its one spoken result waits for that id. */
+  awaitingDelegation: boolean;
+  delegationTimer: number | null;
   rung: 'direct' | 'astra' | 'live' | 'typed';
   reply: string;
   spoke: boolean;
@@ -186,6 +189,8 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private speaking = false;
   private loudAt = 0;
   private lastLevel = 0;
+  /** A page request is being transcribed or worked; no Live acknowledgement may escape before its fact. */
+  private resultGuard = false;
   private epoch = 0;
   readonly trace: TraceEntry[] = [];
   readonly audit: VoiceAudit = {
@@ -562,6 +567,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     this.output = { text: '', lastAt: 0 };
     this.lastContext = '';
     this.languageTold = null;
+    this.resultGuard = false;
     if (this.speaking) {
       this.speaking = false;
       this.runtime?.emit({ type: 'voice.speaking', active: false });
@@ -571,6 +577,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     if (wasLive) {
       if (openTurn) {
         if (openTurn.silenceTimer) window.clearTimeout(openTurn.silenceTimer);
+        if (openTurn.delegationTimer) window.clearTimeout(openTurn.delegationTimer);
         this.runtime?.emit({ type: 'turn.error', turnId: openTurn.id, message: reason, recoverable: true });
       }
       if (!opts.quiet) {
@@ -617,6 +624,23 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     const ok = this.send({ type, event_id: eventId, delegation_id: delegationId, content: content.slice(0, 1400) });
     this.note(ok ? type.replace('session.', '') : 'append.dropped', `${delegationId ?? 'null'} · ${content.slice(0, 90)}`);
     return eventId;
+  }
+
+  /**
+   * Live can begin an acknowledgement before it emits the client delegation. Put a silence
+   * guard on likely page requests as soon as their first transcript words arrive, rather than
+   * waiting for the delegation event (which was too late in production traces).
+   */
+  private guardResultSpeech(route: Route) {
+    if (this.resultGuard || CONVERSATIONAL_PLANS.has(route.plan.id)) return;
+    this.resultGuard = true;
+    this.append(
+      'session.instructions.append',
+      null,
+      'The visitor is still speaking a request that may need the page. Do not speak or acknowledge it. If it needs the page, delegate it when ready; after delegating, remain silent until the application returns the one result. Do not narrate the wait.',
+      'guard',
+    );
+    this.note('result.guard', `${route.plan.id} · ${route.rung}`);
   }
 
   // ── context ─────────────────────────────────────────────────────────────
@@ -715,7 +739,14 @@ export class LiveVoiceAdapter implements VoiceAdapter {
           this.input.startMs = startMs;
           this.note('input.started', `${startMs}`);
           // the visitor speaks over the reply, or over an action still running: what was in flight is over
-          if (this.speaking || (this.turn && this.turn.factSent)) {
+          const outputInFlight = this.speaking || Boolean(this.output.text);
+          if (outputInFlight || (this.turn && this.turn.factSent)) {
+            // Live normally performs barge-in itself, but make the stop explicit as well: a
+            // transcript can arrive just before the remote audio meter observes the reply.
+            if (outputInFlight) {
+              this.append('session.instructions.append', null, 'Stop speaking now. Listen to the visitor and do not continue the interrupted reply.', 'interrupt');
+              this.note('interrupt', 'barge-in');
+            }
             this.supersede('barge-in');
             rt.emit({ type: 'voice.transcript', text: '', final: false });
             rt.emit({ type: 'voice.listening', active: true });
@@ -727,7 +758,9 @@ export class LiveVoiceAdapter implements VoiceAdapter {
         this.note('input.delta', `${startMs}-${endMs} ${delta.slice(0, 40)}`);
         rt.emit({ type: 'voice.transcript', text: this.input.text.trim(), final: false });
         if (this.pauseTimer) window.clearTimeout(this.pauseTimer);
-        const pause = pauseFor(this.input.text, rt.siteContext());
+        const route = routeSentence(this.input.text, rt.siteContext());
+        this.guardResultSpeech(route);
+        const pause = pauseForRoute(route);
         if (pause !== null) this.pauseTimer = window.setTimeout(() => this.closeTurn('pause'), pause);
         break;
       }
@@ -759,7 +792,15 @@ export class LiveVoiceAdapter implements VoiceAdapter {
       case 'session.output_transcript.delta': {
         const delta = String(e.delta ?? '');
         this.armIdle();
-        if (!this.output.text) this.note('output.started', `${String(e.start_ms ?? '')}`);
+        if (!this.output.text) {
+          this.note('output.started', `${String(e.start_ms ?? '')}`);
+          if (this.resultGuard && !this.turn?.factSent) {
+            // This is a protocol breach rather than the result. Ask Live to cut it before a
+            // second phrase starts; the pending turn and its fact remain intact.
+            this.append('session.instructions.append', null, 'Stop speaking now. No page result has been returned yet. Remain silent until the application returns that result.', 'guard-stop');
+            this.note('premature.output');
+          }
+        }
         this.output.text += delta;
         this.output.lastAt = Date.now();
         // the model speaks with no turn open — a greeting back, a clarifying question — and the line still belongs in the exchange
@@ -871,12 +912,14 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     if (!text) {
       if (reason === 'delegation' && delegation) {
         // a delegation for a turn already read at the pause: it gets the same result
-        if (this.turn && !this.turn.delegationId && Date.now() - this.turn.startedAt < 12_000) {
+        if (this.turn?.route && !this.turn.delegationId && Date.now() - this.turn.startedAt < 12_000) {
           this.turn.delegationId = delegation.id;
+          this.turn.awaitingDelegation = false;
+          if (this.turn.delegationTimer) window.clearTimeout(this.turn.delegationTimer);
+          this.turn.delegationTimer = null;
           this.pendingDelegation = null;
           this.note('delegation.attached', `${delegation.id} → ${this.turn.id}`);
-          if (this.turn.fact && !this.turn.factSent) this.sendFact(this.turn);
-          else if (this.turn.fact) this.append(RESULT_CHANNEL === 'commentary' ? 'session.commentary.append' : 'session.thinking.append', delegation.id, resultContent(this.turn.fact), 'res');
+          this.sendFact(this.turn);
           return;
         }
         // a sentence held for exactly this: the parser could not read it, the model wants it answered
@@ -945,9 +988,40 @@ export class LiveVoiceAdapter implements VoiceAdapter {
 
     // a fresh turn supersedes whatever was still open
     if (this.turn) this.finishTurn();
+    if (how === 'spoken') this.guardResultSpeech(route);
     const epoch = ++this.epoch;
-    const turn: Turn = { id: uid('t'), text, route, delegationId, fact: null, factSent: false, rung: route.rung, reply: '', spoke: false, tools: [], startedAt: Date.now(), silenceTimer: null, working: true };
+    const turn: Turn = {
+      id: uid('t'),
+      text,
+      route,
+      delegationId,
+      fact: null,
+      factSent: false,
+      // Direct spoken commands act at the pause for responsiveness, but their commentary
+      // must be attached to the resulting Live delegation. Sending it early and then again
+      // under the delegation id was the layered-response path.
+      awaitingDelegation: how === 'spoken' && delegationId === null,
+      delegationTimer: null,
+      rung: route.rung,
+      reply: '',
+      spoke: false,
+      tools: [],
+      startedAt: Date.now(),
+      silenceTimer: null,
+      working: true,
+    };
     this.turn = turn;
+    if (turn.awaitingDelegation) {
+      turn.delegationTimer = window.setTimeout(() => {
+        if (this.turn !== turn || !turn.awaitingDelegation) return;
+        turn.delegationTimer = null;
+        turn.awaitingDelegation = false;
+        this.note('delegation.missing', turn.id);
+        // A missing delegation is a protocol fault, not a second result. A later id only
+        // attaches to this already-sent fact; `sendFact` is idempotent.
+        this.sendFact(turn);
+      }, DIRECT_DELEGATION_FALLBACK_MS);
+    }
     rt.emit({ type: 'voice.thinking' });
     rt.emit({ type: 'turn.start', turnId: turn.id });
     const deps = {
@@ -967,7 +1041,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     let tools: string[] = [];
     // the backend model takes a second or three: the voice model is told to hold, so it does not
     // answer from the page as it was (it once said "koi ring saamne nahi" a moment before four arrived)
-    if (route.rung === 'astra' && delegationId) this.append('session.thinking.append', delegationId, 'Working on this request now; the result follows in a moment. Until it arrives say at most one word and nothing about the page.', 'hold');
+    if (route.rung === 'astra' && delegationId) this.append('session.thinking.append', delegationId, 'Working on this request now; the result follows in a moment. Do not speak until the result arrives.', 'hold');
     if (route.rung === 'direct') {
       const result = await runDirect(route.plan, deps);
       fact = result.fact;
@@ -994,7 +1068,13 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   }
 
   private sendFact(turn: Turn) {
-    if (!turn.fact || !this.live) return;
+    // A result belongs to exactly one delegation. The direct rung can finish before that
+    // delegation exists; retain its fact for the visual action, then hand it to Live once the
+    // id arrives. Typed text has no delegation and is deliberately sent immediately.
+    if (!turn.fact || !this.live || turn.factSent || turn.awaitingDelegation) return;
+    if (turn.delegationTimer) window.clearTimeout(turn.delegationTimer);
+    turn.delegationTimer = null;
+    this.resultGuard = false;
     turn.factSent = true;
     this.note('fact', `${turn.rung} → ${turn.delegationId ?? 'null'} · ${turn.fact.slice(0, 80)}`);
     // the page has changed: the voice model reads what is in view before it is handed the result,
@@ -1014,7 +1094,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private openVoiceTurn() {
     const rt = this.runtime;
     if (!rt) return;
-    const turn: Turn = { id: uid('t'), text: '', route: null, delegationId: null, fact: null, factSent: true, rung: 'live', reply: '', spoke: false, tools: [], startedAt: Date.now(), silenceTimer: null, working: false };
+    const turn: Turn = { id: uid('t'), text: '', route: null, delegationId: null, fact: null, factSent: true, awaitingDelegation: false, delegationTimer: null, rung: 'live', reply: '', spoke: false, tools: [], startedAt: Date.now(), silenceTimer: null, working: false };
     this.turn = turn;
     rt.emit({ type: 'turn.start', turnId: turn.id });
     rt.emit({ type: 'turn.trace', turnId: turn.id, trace: { rung: 'live', note: 'spoken by the voice model alone' } });
@@ -1025,7 +1105,12 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     const turn = this.turn;
     if (!rt || !turn) return;
     if (turn.silenceTimer) window.clearTimeout(turn.silenceTimer);
+    if (turn.delegationTimer) window.clearTimeout(turn.delegationTimer);
     this.turn = null;
+    // A model-only line can be the very acknowledgement the guard is trying to suppress.
+    // Do not let its lifecycle release the pending page request; only its fact, supersession
+    // or teardown may do that.
+    if (turn.rung !== 'live' || !this.resultGuard) this.resultGuard = false;
     const text = tidy(turn.reply);
     if (text) this.history.push({ role: 'concierge', text });
     this.output = { text: '', lastAt: 0 };
@@ -1039,6 +1124,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private supersede(reason: string) {
     this.epoch += 1;
     this.held = null;
+    this.resultGuard = false;
     if (this.waitTimer) window.clearTimeout(this.waitTimer);
     this.waitTimer = null;
     if (this.speaking) this.setSpeaking(false);
