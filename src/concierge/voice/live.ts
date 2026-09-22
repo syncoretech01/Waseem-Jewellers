@@ -141,6 +141,24 @@ interface Turn {
   working: boolean;
 }
 
+/**
+ * GPT-Live has no output-cancel event. When it starts an acknowledgement before a grounded
+ * page result, keep its WebRTC audio muted, ask it to stop with a supported instruction, and
+ * wait for the already-received remote audio to go quiet before releasing the one fact.
+ */
+interface OutputDrain {
+  stopEventId: string;
+  acknowledged: boolean;
+  failed: boolean;
+  lastActivityAt: number;
+  /** The one page result held until the stale output has drained. */
+  factTurn: Turn | null;
+  /** A replacement page request must keep the gate closed until its fact is ready. */
+  waitForFact: boolean;
+  timer: number | null;
+  reason: 'pre-result' | 'barge-in';
+}
+
 export class LiveVoiceAdapter implements VoiceAdapter {
   /** The store's id for the session adapter: the WebRTC transport; the model behind it is GPT-Live. */
   readonly kind = 'realtime' as const;
@@ -193,6 +211,8 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private resultGuard = false;
   /** The first blocked output gets one stop instruction and one trace entry, never a visible reply. */
   private blockedOutputSeen = false;
+  /** A muted, in-flight Live utterance that must finish locally before a page fact is spoken. */
+  private outputDrain: OutputDrain | null = null;
   private epoch = 0;
   readonly trace: TraceEntry[] = [];
   readonly audit: VoiceAudit = {
@@ -295,8 +315,11 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   /** A tap on the ring over the reply: GPT-Live is told to stop, and the turn is over on this side. */
   interrupt() {
     if (!this.live) return;
+    const outputInFlight = this.speaking || Boolean(this.output.text) || Boolean(this.outputDrain) || Boolean(this.turn?.factSent);
+    if (outputInFlight) {
+      this.beginOutputDrain('barge-in', 'Stop speaking now. Listen to the visitor and do not continue the interrupted reply.', false);
+    }
     if (this.speaking || this.turn) {
-      this.append('session.instructions.append', null, 'Stop speaking now and listen to the visitor.', 'interrupt');
       this.note('interrupt');
     }
     this.supersede('interrupt');
@@ -305,6 +328,11 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   /** A typed sentence into the same conversation: routed here, its outcome handed to the voice. */
   sendText(text: string): boolean {
     if (!this.live || !this.dc || this.dc.readyState !== 'open') return false;
+    if (this.speaking || Boolean(this.output.text) || this.outputDrain || this.turn?.factSent) {
+      // A typed interruption also stays on the one WebRTC session. Its result must not unmute
+      // an older spoken answer while the older answer is still on the remote track.
+      this.beginOutputDrain('barge-in', 'Stop speaking now. Listen to the visitor and do not continue the interrupted reply.', true);
+    }
     this.supersede('typed');
     this.armIdle();
     this.note('text.sent', text.slice(0, 60));
@@ -572,6 +600,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     this.output = { text: '', lastAt: 0 };
     this.lastContext = '';
     this.languageTold = null;
+    this.clearOutputDrain();
     this.setResultGuard(false);
     if (this.speaking) {
       this.speaking = false;
@@ -647,6 +676,80 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     this.note(on ? 'audio.gated' : 'audio.ungated');
   }
 
+  /** Forget a local drain without changing the playback gate. Callers decide when unmuting is safe. */
+  private clearOutputDrain() {
+    if (this.outputDrain?.timer) window.clearTimeout(this.outputDrain.timer);
+    this.outputDrain = null;
+  }
+
+  /** Mark a muted output packet or audio sample as activity for the local quiet-window drain. */
+  private noteOutputDrainActivity() {
+    if (this.outputDrain) this.outputDrain.lastActivityAt = Date.now();
+  }
+
+  /**
+   * GPT-Live supports corrective instructions, but not a protocol-level output cancel. Its
+   * append acknowledgement only means the instruction arrived, so the remote analyser must
+   * also observe a quiet window before the gate opens again.
+   */
+  private beginOutputDrain(reason: OutputDrain['reason'], instruction: string, waitForFact: boolean) {
+    const existing = this.outputDrain;
+    if (existing) {
+      existing.lastActivityAt = Date.now();
+      existing.waitForFact ||= waitForFact;
+      // A failed append is kept muted. A later visitor interruption may safely retry the same
+      // supported correction without ever falling through to audible stale output.
+      if (existing.failed) {
+        existing.stopEventId = this.append('session.instructions.append', null, instruction, 'guard-stop');
+        existing.acknowledged = false;
+        existing.failed = false;
+        this.note('output.stop.retry', existing.reason);
+      }
+      return;
+    }
+    this.setResultGuard(true);
+    const stopEventId = this.append('session.instructions.append', null, instruction, 'guard-stop');
+    this.outputDrain = {
+      stopEventId,
+      acknowledged: false,
+      failed: false,
+      lastActivityAt: Date.now(),
+      factTurn: null,
+      waitForFact,
+      timer: null,
+      reason,
+    };
+    this.note('output.drain', reason);
+  }
+
+  /** Release a drained result only after the stop append and local remote-audio quiet window. */
+  private scheduleOutputDrainRelease() {
+    const drain = this.outputDrain;
+    if (!drain || drain.timer || !drain.acknowledged || drain.failed || (drain.waitForFact && !drain.factTurn)) return;
+    const delay = Math.max(0, SPEECH_QUIET_MS - (Date.now() - drain.lastActivityAt));
+    drain.timer = window.setTimeout(() => {
+      if (this.outputDrain !== drain) return;
+      drain.timer = null;
+      if (!drain.acknowledged || drain.failed || (drain.waitForFact && !drain.factTurn)) return;
+      const quietFor = Date.now() - drain.lastActivityAt;
+      if (quietFor < SPEECH_QUIET_MS) {
+        this.scheduleOutputDrainRelease();
+        return;
+      }
+      const turn = drain.factTurn;
+      this.outputDrain = null;
+      this.note('output.drained', drain.reason);
+      if (turn) {
+        // A newer visitor sentence always supersedes the held fact before it can be released.
+        if (this.turn === turn) this.deliverFact(turn);
+        else this.note('fact.stale', turn.id);
+      } else {
+        this.output = { text: '', lastAt: 0 };
+        this.setResultGuard(false);
+      }
+    }, delay);
+  }
+
   /**
    * Live can begin an acknowledgement before it emits the client delegation. Put a silence
    * guard on likely page requests as soon as their first transcript words arrive, rather than
@@ -655,7 +758,14 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private guardResultSpeech(route: Route) {
     // An unread sentence is deliberately left to Live unless it delegates. Do not suppress a
     // genuine model-only clarification merely because its parser reading is unknown.
-    if (this.resultGuard || CONVERSATIONAL_PLANS.has(route.plan.id) || (route.rung === 'astra' && route.plan.id === 'unknown')) return;
+    const needsPageResult = !CONVERSATIONAL_PLANS.has(route.plan.id) && !(route.rung === 'astra' && route.plan.id === 'unknown');
+    if (!needsPageResult) return;
+    // A visitor can speak while an older answer is draining. Retain the same mute gate for the
+    // replacement page request instead of briefly unmuting the old answer between the two.
+    if (this.resultGuard) {
+      if (this.outputDrain) this.outputDrain.waitForFact = true;
+      return;
+    }
     this.setResultGuard(true);
     this.append(
       'session.instructions.append',
@@ -705,6 +815,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
         // Gated audio is intentionally discarded. It must not light the stage, alter the
         // turn's `spoke` state, or become the harness's first audible response.
         if (this.resultGuard || this.remote?.muted) {
+          if (level > SPEECH_LEVEL) this.noteOutputDrainActivity();
           if (this.speaking) this.setSpeaking(false);
         } else if (level > SPEECH_LEVEL) {
           this.loudAt = now;
@@ -766,12 +877,12 @@ export class LiveVoiceAdapter implements VoiceAdapter {
           this.input.startMs = startMs;
           this.note('input.started', `${startMs}`);
           // the visitor speaks over the reply, or over an action still running: what was in flight is over
-          const outputInFlight = this.speaking || Boolean(this.output.text);
+          const outputInFlight = this.speaking || Boolean(this.output.text) || Boolean(this.outputDrain) || Boolean(this.turn?.factSent);
           if (outputInFlight || (this.turn && this.turn.factSent)) {
             // Live normally performs barge-in itself, but make the stop explicit as well: a
             // transcript can arrive just before the remote audio meter observes the reply.
             if (outputInFlight) {
-              this.append('session.instructions.append', null, 'Stop speaking now. Listen to the visitor and do not continue the interrupted reply.', 'interrupt');
+              this.beginOutputDrain('barge-in', 'Stop speaking now. Listen to the visitor and do not continue the interrupted reply.', false);
               this.note('interrupt', 'barge-in');
             }
             this.supersede('barge-in');
@@ -822,13 +933,14 @@ export class LiveVoiceAdapter implements VoiceAdapter {
         // A delegation may race its own acknowledgement. The remote track is muted while the
         // fact is pending; discard the matching transcript too so it cannot become a hidden
         // first reply in the turn history or a second reply after the result.
-        if (this.resultGuard && !this.turn?.factSent) {
+        if (this.resultGuard) {
           if (!this.blockedOutputSeen) {
             this.blockedOutputSeen = true;
             this.note('output.started', `${String(e.start_ms ?? '')}`);
-            this.append('session.instructions.append', null, 'Stop speaking now. No page result has been returned yet. Remain silent until the application returns that result.', 'guard-stop');
+            this.beginOutputDrain('pre-result', 'Stop speaking now. No page result has been returned yet. Remain silent until the application returns that result.', true);
             this.note('premature.output');
           }
+          this.noteOutputDrainActivity();
           this.output = { text: '[suppressed]', lastAt: Date.now() };
           break;
         }
@@ -857,9 +969,19 @@ export class LiveVoiceAdapter implements VoiceAdapter {
 
       case 'session.thinking.appended':
       case 'session.commentary.appended':
-      case 'session.instructions.appended':
         this.note('appended', `${String(e.client_event_id ?? '')} · ${String(e.start_ms ?? '')}-${String(e.end_ms ?? '')}`);
         break;
+
+      case 'session.instructions.appended': {
+        const clientEventId = String(e.client_event_id ?? '');
+        this.note('appended', `${clientEventId} · ${String(e.start_ms ?? '')}-${String(e.end_ms ?? '')}`);
+        if (this.outputDrain?.stopEventId === clientEventId) {
+          this.outputDrain.acknowledged = true;
+          this.note('output.stop.accepted');
+          this.scheduleOutputDrainRelease();
+        }
+        break;
+      }
 
       case 'session.input_audio.muted':
       case 'session.input_audio.unmuted':
@@ -884,7 +1006,14 @@ export class LiveVoiceAdapter implements VoiceAdapter {
 
       case 'error': {
         const err = (e.error ?? {}) as Record<string, unknown>;
-        this.note('error', `${String(err.code ?? err.type ?? '')}: ${String(err.message ?? '')}${err.client_event_id ? ` (${String(err.client_event_id)})` : ''}`);
+        const clientEventId = String(err.client_event_id ?? e.client_event_id ?? '');
+        this.note('error', `${String(err.code ?? err.type ?? '')}: ${String(err.message ?? '')}${clientEventId ? ` (${clientEventId})` : ''}`);
+        if (this.outputDrain?.stopEventId === clientEventId) {
+          // Fail closed. An append error never becomes permission to unmute an unknown amount
+          // of stale audio; the next visitor interruption retries the supported correction.
+          this.outputDrain.failed = true;
+          this.note('output.stop.error');
+        }
         break;
       }
 
@@ -1089,6 +1218,21 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     // arrives later, the attachment path reaches this idempotent method and adds nothing.
     if (!turn.fact || !this.live || turn.factSent) return;
     turn.factSent = true;
+    if (this.outputDrain) {
+      // An early acknowledgement is still on the muted remote track. Hold the fact rather
+      // than unmuting into its tail; normal direct commands have no drain and stay immediate.
+      this.outputDrain.factTurn = turn;
+      this.outputDrain.waitForFact = true;
+      this.note('fact.queued', `${turn.rung} → ${turn.delegationId ?? 'null'} · ${turn.fact.slice(0, 80)}`);
+      this.scheduleOutputDrainRelease();
+      return;
+    }
+    this.deliverFact(turn);
+  }
+
+  /** Hand the one grounded result to GPT-Live only after no stale muted output can leak. */
+  private deliverFact(turn: Turn) {
+    if (!turn.fact || !this.live || this.turn !== turn) return;
     // Drop the marker for any muted acknowledgement before the one grounded result is allowed
     // into the remote speaker and session transcript.
     this.output = { text: '', lastAt: 0 };
@@ -1117,7 +1261,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     rt.emit({ type: 'turn.trace', turnId: turn.id, trace: { rung: 'live', note: 'spoken by the voice model alone' } });
   }
 
-  private finishTurn() {
+  private finishTurn(opts: { preserveResultGuard?: boolean } = {}) {
     const rt = this.runtime;
     const turn = this.turn;
     if (!rt || !turn) return;
@@ -1126,7 +1270,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     // A model-only line can be the very acknowledgement the guard is trying to suppress.
     // Do not let its lifecycle release the pending page request; only its fact, supersession
     // or teardown may do that.
-    if (turn.rung !== 'live' || !this.resultGuard) this.setResultGuard(false);
+    if (!opts.preserveResultGuard && (turn.rung !== 'live' || !this.resultGuard)) this.setResultGuard(false);
     const text = tidy(turn.reply);
     if (text) this.history.push({ role: 'concierge', text });
     this.output = { text: '', lastAt: 0 };
@@ -1138,15 +1282,24 @@ export class LiveVoiceAdapter implements VoiceAdapter {
 
   /** Whatever was in flight is over: a fresh sentence, a tap, a typed line. */
   private supersede(reason: string) {
+    const preserveResultGuard = Boolean(this.outputDrain);
     this.epoch += 1;
     this.held = null;
-    this.setResultGuard(false);
+    if (this.outputDrain?.factTurn === this.turn) {
+      // The visitor has moved on. Never release an old page fact after the interruption.
+      this.outputDrain.factTurn = null;
+      this.outputDrain.waitForFact = false;
+    }
+    if (!preserveResultGuard) {
+      this.clearOutputDrain();
+      this.setResultGuard(false);
+    }
     if (this.waitTimer) window.clearTimeout(this.waitTimer);
     this.waitTimer = null;
     if (this.speaking) this.setSpeaking(false);
     if (this.turn) {
       this.note(reason, this.turn.id);
-      this.finishTurn();
+      this.finishTurn({ preserveResultGuard });
     }
   }
 

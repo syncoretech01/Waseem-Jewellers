@@ -154,10 +154,10 @@ async function waitFor(page, states, timeout = 8000) {
 }
 
 /** Waits for a predicate on the page, polling; resolves whether it came true. */
-async function until(page, fn, timeout = 8000) {
+async function until(page, fn, timeout = 8000, arg) {
   const started = Date.now();
   while (Date.now() - started < timeout) {
-    if (await page.evaluate(fn)) return true;
+    if (await page.evaluate(fn, arg)) return true;
     await settle(page, 40);
   }
   return false;
@@ -253,6 +253,7 @@ try {
     ok(calls.session.length === 1, `one session was created (${calls.session.length})`);
 
     // a direct command: the page moves before any speech, the delegation is answered with the fact
+    const normalTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
     const say1 = await page.evaluate(() => window.__fakeLive.say('Gold.'));
     const moved = await until(page, () => location.pathname === '/gold', 8000);
     const movedAt = Date.now();
@@ -271,8 +272,66 @@ try {
     ok(r.hit === 'SPEAKING', `the remote track carrying voice puts the stage at SPEAKING (${r.seen.join(' → ')})`);
     r = await waitFor(page, ['LISTENING'], 6000);
     ok(r.hit === 'LISTENING', `silence on the track returns the stage to LISTENING (${r.seen.join(' → ')})`);
+    const normalTrace = await page.evaluate((from) => window.__wjVoiceTrace().slice(from).map((entry) => entry.type), normalTraceAt);
+    ok(normalTrace.includes('fact') && !normalTrace.includes('fact.queued') && !normalTrace.includes('output.drain'), 'a normal direct command hands back its fact without a drain');
     const heard = await page.evaluate(() => ({ stored: window.__wjConcierge.store.turns.filter((t) => t.role === 'visitor' && t.source === 'voice').map((t) => t.text), onStage: document.querySelector('[data-voice-stage]')?.textContent ?? '', qa: Boolean(document.querySelector('[data-qa-heard]')) }));
     ok(heard.stored.includes('Gold.') && !heard.onStage.includes('Gold.') && !heard.qa, 'the words are kept in the store and never written on the stage');
+
+    // A Live acknowledgement that starts before the page result remains physically muted until
+    // its remote audio has gone quiet. The result is queued, not layered onto that reply.
+    const drainTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
+    const conciergeBeforeDrain = await page.evaluate(() => window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').length);
+    const sayDrain = await page.evaluate(() => {
+      const delegation = window.__fakeLive.say('Diamond.');
+      window.__fakeLive.speak('Ji.', 3000);
+      return delegation;
+    });
+    const diamondMoved = await until(page, () => location.pathname === '/diamond', 8000);
+    const queued = await until(page, (from) => window.__wjVoiceTrace().slice(from).some((entry) => entry.type === 'fact.queued'), 8000, drainTraceAt);
+    ok(diamondMoved && queued, 'a premature acknowledgement still lets the direct page action finish, but queues its fact');
+    const held = await page.evaluate(({ from, id }) => {
+      const trace = window.__wjVoiceTrace().slice(from).map((entry) => entry.type);
+      const resultAppends = window.__fakeLive.sent.filter((event) => event.type === 'session.commentary.append' && event.delegation_id === id);
+      const guardStops = window.__fakeLive.sent.filter((event) => event.type === 'session.instructions.append' && String(event.event_id || '').startsWith('guard-stop_'));
+      const concierge = window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').map((turn) => turn.text);
+      return { trace, resultAppends: resultAppends.length, guardStops: guardStops.length, speaking: window.__wjConcierge.store.state === 'SPEAKING', prematureInHistory: concierge.some((text) => /Ji\./.test(text)), toneActive: window.__fakeLive.gain?.gain.value > 0 };
+    }, { from: drainTraceAt, id: sayDrain.id });
+    ok(held.toneActive && held.resultAppends === 0 && !held.speaking && !held.prematureInHistory && held.guardStops === 1, 'the premature audio is muted: no result append, SPEAKING state, history leak, or duplicate stop instruction');
+    ok(held.trace.includes('audio.gated') && held.trace.includes('premature.output') && held.trace.includes('fact.queued') && !held.trace.includes('audio.ungated'), 'the gate stays closed through the queued fact');
+    await until(page, () => window.__fakeLive.gain?.gain.value === 0, 6000);
+    const released = await until(page, (id) => window.__fakeLive.sent.some((event) => event.type === 'session.commentary.append' && event.delegation_id === id), 6000, sayDrain.id);
+    const drainTrace = await page.evaluate((from) => window.__wjVoiceTrace().slice(from).map((entry) => entry.type), drainTraceAt);
+    const drainedAt = drainTrace.indexOf('output.drained');
+    const ungatedAt = drainTrace.indexOf('audio.ungated');
+    const factAt = drainTrace.indexOf('fact');
+    ok(released && drainedAt >= 0 && drainedAt < ungatedAt && ungatedAt < factAt, 'only the drained fact is handed to Live after the stale output stops');
+    await page.evaluate(() => window.__fakeLive.speak('Diamond is open.', 700));
+    r = await waitFor(page, ['SPEAKING'], 3000);
+    ok(r.hit === 'SPEAKING', 'the grounded result, not the premature acknowledgement, reaches SPEAKING');
+    await waitFor(page, ['LISTENING'], 6000);
+    const drainedReplies = await page.evaluate((from) => window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').slice(from).map((turn) => turn.text), conciergeBeforeDrain);
+    ok(drainedReplies.length === 1 && !drainedReplies.some((text) => /Ji\./.test(text)), `one final grounded reply is stored (${JSON.stringify(drainedReplies)})`);
+
+    // Barge-in uses that same drain: an interrupted answer never races a new page fact, and
+    // the existing microphone, peer connection, and Live session remain the only transport.
+    const bargeTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
+    await page.evaluate(() => window.__fakeLive.speak('I was still speaking.', 3000));
+    r = await waitFor(page, ['SPEAKING'], 3000);
+    ok(r.hit === 'SPEAKING', 'a normal Live reply is audible before the visitor barges in');
+    const sayBarge = await page.evaluate(() => window.__fakeLive.say('Gold.'));
+    const bargedToGold = await until(page, () => location.pathname === '/gold', 8000);
+    const bargeQueued = await until(page, (from) => window.__wjVoiceTrace().slice(from).some((entry) => entry.type === 'fact.queued'), 8000, bargeTraceAt);
+    const barge = await page.evaluate((from) => {
+      const trace = window.__wjVoiceTrace().slice(from).map((entry) => entry.type);
+      return { trace, state: window.__wjConcierge.store.state, toneActive: window.__fakeLive.gain?.gain.value > 0, audit: window.__wjVoiceAudit?.() };
+    }, bargeTraceAt);
+    ok(bargedToGold && bargeQueued && barge.toneActive && barge.trace.includes('interrupt') && barge.trace.includes('output.drain') && barge.state !== 'SPEAKING', 'barge-in mutes the old reply while the new action queues its one fact');
+    ok(barge.audit?.streams === 1 && barge.audit?.liveTracks === 1 && barge.audit?.openPeerConnections === 1 && barge.audit?.sessions === 1 && barge.audit?.sessionOpen === true && !barge.trace.includes('reconnect') && !barge.trace.includes('session.closed'), 'barge-in keeps one mic, peer connection, and Live session without reconnecting');
+    await until(page, () => window.__fakeLive.gain?.gain.value === 0, 6000);
+    const bargeReleased = await until(page, (id) => window.__fakeLive.sent.some((event) => event.type === 'session.commentary.append' && event.delegation_id === id), 6000, sayBarge.id);
+    ok(bargeReleased, 'the new fact is released only after the interrupted remote audio drains');
+    await page.evaluate(() => window.__fakeLive.speak('Gold is open.', 700));
+    await waitFor(page, ['LISTENING'], 6000);
 
     // a natural sentence: the delegation model, its tool executed here
     await page.evaluate(() => { window.__wjConcierge.dismissTray(); });
