@@ -86,8 +86,6 @@ const SETTLE_MS = 400;
 const SETTLE_QUIET_MS = 220;
 /** A sentence the parser could not read waits this long for GPT-Live to delegate it; then it is the model's to answer. */
 const DELEGATION_WAIT_MS = 2_600;
-/** A direct action normally receives a Live delegation before it finishes. Do not leave its one reply unsent if that protocol event is absent. */
-const DIRECT_DELEGATION_FALLBACK_MS = 2_600;
 /** A turn whose result was handed back but never spoken closes after this. */
 const RESULT_SILENCE_MS = 4_000;
 /** The remote track: louder than this is speech; quieter for this long is the end of it. */
@@ -128,9 +126,6 @@ interface Turn {
   /** The fact handed to the voice model, once it exists. */
   fact: string | null;
   factSent: boolean;
-  /** A spoken direct action may finish before GPT-Live's delegation reaches us. Its one spoken result waits for that id. */
-  awaitingDelegation: boolean;
-  delegationTimer: number | null;
   rung: 'direct' | 'astra' | 'live' | 'typed';
   reply: string;
   spoke: boolean;
@@ -582,7 +577,6 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     if (wasLive) {
       if (openTurn) {
         if (openTurn.silenceTimer) window.clearTimeout(openTurn.silenceTimer);
-        if (openTurn.delegationTimer) window.clearTimeout(openTurn.delegationTimer);
         this.runtime?.emit({ type: 'turn.error', turnId: openTurn.id, message: reason, recoverable: true });
       }
       if (!opts.quiet) {
@@ -949,9 +943,6 @@ export class LiveVoiceAdapter implements VoiceAdapter {
         // a delegation for a turn already read at the pause: it gets the same result
         if (this.turn?.route && !this.turn.delegationId && Date.now() - this.turn.startedAt < 12_000) {
           this.turn.delegationId = delegation.id;
-          this.turn.awaitingDelegation = false;
-          if (this.turn.delegationTimer) window.clearTimeout(this.turn.delegationTimer);
-          this.turn.delegationTimer = null;
           this.pendingDelegation = null;
           this.note('delegation.attached', `${delegation.id} → ${this.turn.id}`);
           this.sendFact(this.turn);
@@ -1032,11 +1023,8 @@ export class LiveVoiceAdapter implements VoiceAdapter {
       delegationId,
       fact: null,
       factSent: false,
-      // Direct spoken commands act at the pause for responsiveness, but their commentary
-      // must be attached to the resulting Live delegation. Sending it early and then again
-      // under the delegation id was the layered-response path.
-      awaitingDelegation: how === 'spoken' && delegationId === null,
-      delegationTimer: null,
+      // Direct commands never wait for a model event: their tool result is the one response.
+      // A late delegation is attached idempotently below and never receives a second fact.
       rung: route.rung,
       reply: '',
       spoke: false,
@@ -1046,17 +1034,6 @@ export class LiveVoiceAdapter implements VoiceAdapter {
       working: true,
     };
     this.turn = turn;
-    if (turn.awaitingDelegation) {
-      turn.delegationTimer = window.setTimeout(() => {
-        if (this.turn !== turn || !turn.awaitingDelegation) return;
-        turn.delegationTimer = null;
-        turn.awaitingDelegation = false;
-        this.note('delegation.missing', turn.id);
-        // A missing delegation is a protocol fault, not a second result. A later id only
-        // attaches to this already-sent fact; `sendFact` is idempotent.
-        this.sendFact(turn);
-      }, DIRECT_DELEGATION_FALLBACK_MS);
-    }
     rt.emit({ type: 'voice.thinking' });
     rt.emit({ type: 'turn.start', turnId: turn.id });
     const deps = {
@@ -1103,12 +1080,9 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   }
 
   private sendFact(turn: Turn) {
-    // A result belongs to exactly one delegation. The direct rung can finish before that
-    // delegation exists; retain its fact for the visual action, then hand it to Live once the
-    // id arrives. Typed text has no delegation and is deliberately sent immediately.
-    if (!turn.fact || !this.live || turn.factSent || turn.awaitingDelegation) return;
-    if (turn.delegationTimer) window.clearTimeout(turn.delegationTimer);
-    turn.delegationTimer = null;
+    // A result is delivered once. Direct commands do not wait for a model delegation; if one
+    // arrives later, the attachment path reaches this idempotent method and adds nothing.
+    if (!turn.fact || !this.live || turn.factSent) return;
     turn.factSent = true;
     // Drop the marker for any muted acknowledgement before the one grounded result is allowed
     // into the remote speaker and session transcript.
@@ -1132,7 +1106,7 @@ export class LiveVoiceAdapter implements VoiceAdapter {
   private openVoiceTurn() {
     const rt = this.runtime;
     if (!rt) return;
-    const turn: Turn = { id: uid('t'), text: '', route: null, delegationId: null, fact: null, factSent: true, awaitingDelegation: false, delegationTimer: null, rung: 'live', reply: '', spoke: false, tools: [], startedAt: Date.now(), silenceTimer: null, working: false };
+    const turn: Turn = { id: uid('t'), text: '', route: null, delegationId: null, fact: null, factSent: true, rung: 'live', reply: '', spoke: false, tools: [], startedAt: Date.now(), silenceTimer: null, working: false };
     this.turn = turn;
     rt.emit({ type: 'turn.start', turnId: turn.id });
     rt.emit({ type: 'turn.trace', turnId: turn.id, trace: { rung: 'live', note: 'spoken by the voice model alone' } });
@@ -1143,7 +1117,6 @@ export class LiveVoiceAdapter implements VoiceAdapter {
     const turn = this.turn;
     if (!rt || !turn) return;
     if (turn.silenceTimer) window.clearTimeout(turn.silenceTimer);
-    if (turn.delegationTimer) window.clearTimeout(turn.delegationTimer);
     this.turn = null;
     // A model-only line can be the very acknowledgement the guard is trying to suppress.
     // Do not let its lifecycle release the pending page request; only its fact, supersession
