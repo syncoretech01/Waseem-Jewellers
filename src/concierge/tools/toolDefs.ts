@@ -38,8 +38,9 @@ const CATEGORIES = ['bridal-set', 'set', 'necklace', 'choker', 'earrings', 'ring
 
 /**
  * One registry, JSON-schema parameters. The same array feeds the keyless planner, the text
- * model (the turn route) and the delegation model behind the voice (the delegate route,
- * through `server/concierge/responses.ts`). The voice model itself holds no tools.
+ * model (the turn route) and the direct Realtime voice tool projection. The latter exposes
+ * only its deliberately small safe subset; every execution still comes back through this
+ * registry and its validator.
  */
 export const TOOL_DEFS: readonly ToolDef[] = [
   {
@@ -68,6 +69,8 @@ export const TOOL_DEFS: readonly ToolDef[] = [
         // began dropping them the moment it started rebuilding args from the schema
         occasion: { type: 'string', enum: ['wedding', 'mehndi', 'baraat', 'walima', 'engagement', 'everyday', 'gift'] },
         maxWeightGrams: { type: 'number', minimum: 0, maximum: 500, description: 'only pieces that publish a weight can satisfy this' },
+        maxPricePkr: { type: 'number', minimum: 0, maximum: 100000000, description: 'only fixed, published prices can satisfy this; never infer a price for price-on-request pieces' },
+        excludeSlugs: { type: 'array', items: { type: 'string', format: 'piece-slug', pattern: '^[a-z0-9][a-z0-9-]{2,80}$' }, maxItems: 12, description: 'recently recommended or opened pieces to avoid when the visitor asks for another or something different' },
         limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 },
       },
     },
@@ -79,6 +82,12 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     name: 'openProduct',
     description: 'Open the page of one piece — "open it", "second one", "doosra kholo", "the first". An ordinal names one of the pieces just shown; "it" / "this one" / "yeh" is the piece in view, else the piece last spoken about, else the first piece just shown. Never ask which when one of those exists.',
     parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } }, required: ['slug'] },
+    runtime: 'browser',
+  },
+  {
+    name: 'scrollToProductDetails',
+    description: 'On the current product page, scroll only to its published product-information and details area — “scroll down”, “show the details”, “open this product and scroll down”. Refuse unless a product page is open.',
+    parameters: { type: 'object', properties: {} },
     runtime: 'browser',
   },
   { name: 'showSimilarPieces', description: 'Pieces in the same spirit as a piece (defaults to the piece in view).', parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' }, limit: { type: 'integer', minimum: 1, maximum: 6, default: 4 } } }, runtime: 'browser' },
@@ -161,6 +170,13 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     runtime: 'browser',
   },
   {
+    name: 'getProductFacts',
+    description:
+      'Read only published product facts: gross weight / weight / wazan / وزن / grams / گرام / tola, purity / karat, diamond carats, material, reference, and published price or price on request. Defaults to the piece in view, then the most recently shown piece. Use for “What is the weight?”, “Is ka wazan kitna hai?”, “Yeh kitne gram ka hai?”, “اس کا وزن کتنا ہے؟”, and price questions. Never estimate; state when a fact is not published.',
+    parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } },
+    runtime: 'browser',
+  },
+  {
     name: 'navigate',
     description:
       'Take the visitor somewhere — "back" / "go back" / "wapas" (back), "home", "take me to gold", "the bridal collection", "where are your showrooms" (locations), "the appointment form" (appointment). Give a target, or a path for a page the targets do not name.',
@@ -171,6 +187,12 @@ export const TOOL_DEFS: readonly ToolDef[] = [
         path: { type: 'string', description: '/, /<department>, /<department>/<kind>, /collections/<slug> or /jewellery/<slug>' },
       },
     },
+    runtime: 'browser',
+  },
+  {
+    name: 'goBack',
+    description: 'Return to the previous page — “go back”, “back”, “wapas”.',
+    parameters: { type: 'object', properties: {} },
     runtime: 'browser',
   },
   // ── operating the site: the chrome, the gallery, the gate, the window ──────────────────

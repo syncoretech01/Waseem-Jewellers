@@ -5,12 +5,13 @@ import { useSiteStore } from '@/state/siteStore';
 import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
 import { getRow, loadIndex, priceLabelOf, specLineOf } from '@/data/clientIndex';
-import { canonicalCategory } from '@/data/vocabulary';
+import { asDepartment, canonicalCategory } from '@/data/vocabulary';
 import { CATEGORY_PLURAL } from '@/data/labels';
 import type { Category } from '@/data/types';
 import { chooseVoiceEngine, hearingAvailable, type VoiceTier } from './voice/engine';
-import { liveMark, liveTrace, registerLiveEngine, type TraceEntry } from './voice/live';
-import { topicLine } from './memory';
+import { realtimeMark, realtimeTrace, registerRealtimeEngine, type TraceEntry } from './voice/realtime';
+import { subjectOf, topicLine } from './memory';
+import type { Slots } from './nlu/parse';
 import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
 import { executeTool } from './tools/executeTool';
@@ -78,9 +79,9 @@ export class ConciergeController {
       toolDefs: TOOL_DEFS,
     };
     this.provider.attach(runtime);
-    registerLiveEngine();
+    registerRealtimeEngine();
     this.refreshVoiceSupport();
-    if (typeof window !== 'undefined') window.__wjVoiceTrace = liveTrace;
+    if (typeof window !== 'undefined') window.__wjVoiceTrace = realtimeTrace;
     useConciergeStore.subscribe((s, prev) => {
       if (s.state !== prev.state) this.mark(`state:${s.state}`, s.reason);
     });
@@ -91,7 +92,7 @@ export class ConciergeController {
     const entry = { t: Date.now(), type, detail };
     this.marks.push(entry);
     if (this.marks.length > 400) this.marks.splice(0, this.marks.length - 400);
-    liveMark(type, detail);
+    realtimeMark(type, detail);
   }
 
   /** The timeline the latency harness reads: the controller's marks; the adapter's trace is `window.__wjVoiceTrace()`. */
@@ -126,6 +127,7 @@ export class ConciergeController {
       return r ? specLineOf(r) || priceLabelOf(r) : fallback;
     };
     const gallery = row && site.gallery?.slug === row.s ? site.gallery : null;
+    const lastComparison = [...c.turns].reverse().find((turn) => turn.result?.kind === 'compare')?.result;
     return {
       route: site.pathname || '/',
       pieceInView: row ? { slug: row.s, name: row.t, facts: specLineOf(row) || priceLabelOf(row) } : null,
@@ -135,6 +137,8 @@ export class ConciergeController {
       frames: gallery?.count,
       // the form's state, never the visitor's details: those travel only when a tool is asked for them
       appointment: site.consultation.open || site.consultation.draft ? `${site.consultation.open ? 'open' : 'closed'} — ${summariseDraft(site.consultation.draft)}` : undefined,
+      comparison: lastComparison?.kind === 'compare' ? lastComparison.pieces.map((piece) => `${piece.name} (${piece.slug})`).join(', ') : undefined,
+      recommendations: c.memory.discussed.slice(0, 8).join(', ') || undefined,
     };
   }
 
@@ -229,7 +233,6 @@ export class ConciergeController {
         if (this.store.state === 'VOICE_READY') this.store.transition('CHAT', 'no-voice');
         return;
       }
-      if (this.store.mode === 'voice') this.warmVoice();
     });
     if (s.state === 'IDLE' || s.state === 'HOVER') {
       s.transition('OPENING', 'open');
@@ -304,31 +307,19 @@ export class ConciergeController {
       s.setVoice({ preparing: false, sessionLive: session ? s.voice.sessionLive : false });
       s.setTranscript({ interim: '', final: '', active: false });
       if (this.store.state === 'LISTENING') s.transition('VOICE_READY', 'mode');
-    } else if (session && mode === 'chat') {
-      // the keyboard has the floor in every state, not only mid-sentence: a microphone the
-      // visitor cannot see must not keep hearing the room from behind the composer
-      session.stop();
-      this.micPaused = true;
+    }
+    if (session && mode === 'chat') {
+      // Leaving voice closes the paid Realtime call instead of keeping an unseen microphone
+      // alive behind the composer. A later voice tap deliberately starts a fresh session.
+      void session.close?.();
+      this.adapter = null;
+      this.micPaused = false;
+      s.setVoice({ sessionLive: false, preparing: false });
     }
     s.setMode(mode);
     const cur = this.store.state;
     if (cur === 'CHAT' || cur === 'VOICE_READY' || cur === 'RESULT' || cur === 'ERROR') s.transition(mode === 'voice' ? 'VOICE_READY' : 'CHAT', 'mode');
-    if (mode === 'voice') void probeCapabilities().then(() => this.warmVoice());
-  }
-
-  /**
-   * The session before the tap: opened the moment the stage is shown, or a pointer reaches
-   * the microphone, with no permission asked — the tap only attaches the microphone. A
-   * failure here is silent; the tap reports it, once, and the written concierge answers.
-   */
-  warmVoice() {
-    if (this.store.voice.denied || (this.voiceRefused && Date.now() - this.refusedAt < ConciergeController.REFUSAL_MS)) return;
-    if (this.session) return;
-    const adapter = this.chooseAdapter('auto');
-    if (adapter.kind !== 'realtime' || !adapter.warm) return;
-    this.adapter = adapter;
-    this.mark('warm');
-    void adapter.warm().then((live) => this.mark(live ? 'warm.live' : 'warm.failed'));
+    if (mode === 'voice') void probeCapabilities();
   }
 
   /**
@@ -392,8 +383,7 @@ export class ConciergeController {
     this.store.forget();
     // begun again: the standing topic goes with the conversation; the visitor's language stays
     this.store.forgetTopic();
-    // a fresh conversation, and the session for it opened now rather than on the next tap
-    if (this.store.mode === 'voice') void probeCapabilities().then(() => this.warmVoice());
+    // A fresh Realtime conversation is opened only by the next explicit microphone activation.
   }
 
   // ── turns ─────────────────────────────────────────────────────────────────
@@ -565,6 +555,20 @@ export class ConciergeController {
         break;
       }
       case 'tool.call': {
+        if (e.name === 'searchProducts') {
+          const purity = typeof e.args.purity === 'string' ? /^(18|21|22)K$/.exec(e.args.purity)?.[1] : undefined;
+          const slots: Slots = {
+            category: canonicalCategory(e.args.category),
+            material: typeof e.args.material === 'string' ? e.args.material : undefined,
+            department: asDepartment(e.args.department),
+            occasion: typeof e.args.occasion === 'string' ? e.args.occasion : undefined,
+            style: typeof e.args.style === 'string' ? e.args.style : undefined,
+            karat: purity ? Number(purity) : undefined,
+            maxWeightGrams: typeof e.args.maxWeightGrams === 'number' ? e.args.maxWeightGrams : undefined,
+            maxPricePkr: typeof e.args.maxPricePkr === 'number' ? e.args.maxPricePkr : undefined,
+          };
+          if (Object.keys(subjectOf(slots)).length) s.rememberTopic(subjectOf(slots));
+        }
         s.transition('EXECUTING_ACTION', e.name);
         s.upsertTool(e.turnId, { id: e.callId, name: e.name, label: '', status: 'running', startedAt: Date.now() });
         break;
@@ -574,6 +578,8 @@ export class ConciergeController {
         s.upsertTool(e.turnId, { id: e.callId, name: 'tool', label: o.label, status: 'done', startedAt: Date.now(), finishedAt: Date.now() });
         if (o.ui) {
           s.setResult(e.turnId, o.ui);
+          if (o.ui.kind === 'pieces') s.noteDiscussed(o.ui.pieces.map((piece) => piece.slug));
+          if (o.ui.kind === 'piece') s.noteDiscussed([o.ui.piece.slug]);
           this.pendingResult = true;
           // results go to the vitrine; the associate stays in the room — only an action that
           // takes over the stage collapses the rail, and each of those says so with `compact`
@@ -689,7 +695,7 @@ export class ConciergeController {
             if (cur === 'LISTENING' || cur === 'THINKING' || cur === 'EXECUTING_ACTION' || cur === 'SPEAKING' || cur === 'RESULT') s.transition('VOICE_READY', 'session.ended');
             if (e.message && e.message !== 'abort' && e.message !== 'idle' && e.message !== 'close') {
               s.setError({ code: 'NETWORK', message: this.R.lineDropped });
-              recordTrace('voice', { rung: 'live', fallback: `session ended: ${e.message}` });
+              recordTrace('voice', { rung: 'realtime', fallback: `session ended: ${e.message}` });
             }
           }
         }
@@ -754,7 +760,7 @@ export class ConciergeController {
 
   // ── voice ─────────────────────────────────────────────────────────────────
   /**
-   * Which engine listens is decided by the capabilities probe, not here: the Live session
+   * Which engine listens is decided by the capabilities probe, not here: the Realtime session
    * when the deployment offers it, the scripted example on request, nothing else.
    */
   private chooseAdapter(tier: VoiceTier = 'auto'): VoiceAdapter {
@@ -795,6 +801,27 @@ export class ConciergeController {
     if (s.mode !== 'voice') s.setMode('voice');
     if (s.state === 'CHAT' || s.state === 'RESULT' || s.state === 'ERROR' || s.state === 'SPEAKING') s.transition('VOICE_READY', 'listen');
     if (this.store.state !== 'VOICE_READY' || this.store.voice.preparing) return;
+    /**
+     * An auto voice tap must never fall through to the scripted example while the asynchronous
+     * capabilities probe is still in flight. Wait for that non-paid probe, then either open the
+     * direct Realtime session or show the text Concierge. Scripted remains explicit-only.
+     */
+    if (tier === 'auto' && !this.probed) {
+      s.setVoice({ preparing: true });
+      void probeCapabilities().then(() => {
+        this.probed = true;
+        this.refreshVoiceSupport();
+        // The visitor may have closed the panel or switched to writing while the probe ran.
+        if (this.store.mode !== 'voice' || this.store.state !== 'VOICE_READY' || !this.store.voice.preparing) return;
+        this.store.setVoice({ preparing: false });
+        if (!hearingAvailable()) {
+          this.setMode('chat');
+          return;
+        }
+        this.startListening('auto');
+      });
+      return;
+    }
     // a deployment with no voice: the stage is not offered, and the composer is the door
     if (tier === 'auto' && this.probed && !hearingAvailable()) {
       this.setMode('chat');
@@ -829,7 +856,7 @@ export class ConciergeController {
       if (!this.store.voice.preparing || this.adapter !== adapter) return;
       adapter.abort();
       this.store.setVoice({ preparing: false, sessionLive: false });
-      recordTrace('voice', { rung: 'live', fallback: `the session did not open in time (${adapter.kind})` });
+      recordTrace('voice', { rung: 'realtime', fallback: `the session did not open in time (${adapter.kind})` });
       this.voiceUnavailable('timeout');
     });
     void adapter.start({
@@ -858,7 +885,7 @@ export class ConciergeController {
         st.setVoice({ preparing: false });
         if (code === 'MIC_DENIED') {
           // a refused microphone is a different message from a session that would not open
-          recordTrace('voice', { rung: 'live', fallback: `microphone: ${code} ${message}` });
+          recordTrace('voice', { rung: 'realtime', fallback: `microphone: ${code} ${message}` });
           st.setError({ code: 'MIC_DENIED', message: this.R.micDenied });
           st.setVoice({ sessionLive: false, denied: true });
           st.transition('ERROR', code);
@@ -868,7 +895,7 @@ export class ConciergeController {
           return;
         }
         // the session could not be opened, or the microphone could not be attached to it: said once, the provider's reason on the record
-        recordTrace('voice', { rung: 'live', fallback: `${code} ${message}` });
+        recordTrace('voice', { rung: 'realtime', fallback: `${code} ${message}` });
         st.transition('VOICE_READY', 'refused');
         this.voiceUnavailable(message);
       },

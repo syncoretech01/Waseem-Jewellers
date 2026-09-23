@@ -17,7 +17,7 @@ import type { Language } from './nlu/script';
 
 export interface ConciergeCapabilities {
   intelligence: 'model' | 'keyless';
-  /** `native` — the Live voice session is offered by this deployment; `none` — no voice, the composer is the door. */
+  /** `native` — the direct Realtime voice session is offered by this deployment; `none` — no voice, the composer is the door. */
   voice: 'none' | 'native';
   languages: Language[];
   /** `local` — the consultation form stays on the device, as it does today. */

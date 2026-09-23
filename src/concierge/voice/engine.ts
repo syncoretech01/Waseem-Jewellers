@@ -6,7 +6,7 @@ import { ScriptedExampleAdapter, type VoiceAdapter } from './adapters';
 /**
  * Which engine hears — decided in one place, by the same probe that selects the text model.
  *
- * One tier. The Live session is the voice when the deployment advertises it (`voice:
+ * One tier. The direct Realtime session is the voice when the deployment advertises it (`voice:
  * 'native'`) and the browser can carry a WebRTC call; otherwise there is no voice, the stage
  * is not offered, and the composer is the door. There is no rung beneath the session: a
  * session that cannot open is said so once, and the written concierge answers.
@@ -18,12 +18,12 @@ type EngineFactory = () => VoiceAdapter;
 
 let liveEngine: EngineFactory | null = null;
 
-/** Called by the Live voice module when it loads. Absent until it exists. */
+/** Called by the Realtime voice module when it loads. Absent until it exists. */
 export function registerVoiceEngine(factory: EngineFactory) {
   liveEngine = factory;
 }
 
-/** Whether this device can hear at all: the deployment offers the Live voice and the browser can carry it. */
+/** Whether this device can hear at all: the deployment offers Realtime voice and the browser can carry it. */
 export function hearingAvailable(): boolean {
   return capabilities().voice === 'native' && Boolean(liveEngine) && liveEngine!().isSupported();
 }

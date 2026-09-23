@@ -19,8 +19,7 @@ import { cn } from '@/lib/cn';
  * happening — LISTENING · THINKING · BRINGING IT TO YOU · SPEAKING · TRY AGAIN — and one
  * sentence beneath it in the display face. Never the visitor's own words: a transcript is
  * kept for the conversation and the tests, and shown only in the QA view — which also
- * prints the last turn's trace: the rung (direct, the delegation model, the voice alone),
- * the intent, the tool, the language, the delegation id.
+ * prints the last turn's trace: the engine, tool and established language.
  */
 interface Status {
   label: string;
@@ -193,7 +192,6 @@ export function VoiceStage({ compact = false }: { compact?: boolean }) {
             aria-label={micLabel}
             disabled={preparing || working}
             onClick={() => (listening ? controller?.stopListening() : controller?.startListening())}
-            onPointerEnter={() => controller?.warmVoice()}
             className={cn(
               'relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-colors duration-500',
               listening ? 'border-gold-hi text-gold-hi' : 'border-line-strong text-fg-2',

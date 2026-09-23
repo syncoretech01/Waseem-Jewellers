@@ -1,7 +1,7 @@
 'use client';
 
 import { startSyntheticMeter, stopMeter } from './meter';
-import type { VoiceContextInput } from './livePrompt';
+import type { VoiceContextInput } from './realtimePrompt';
 import type { ProviderEvent, SiteContext, ToolName, ToolOutcome } from '../types';
 
 export type VoiceErrorCode = 'MIC_DENIED' | 'NO_SPEECH' | 'NETWORK' | 'ABORTED' | 'UNSUPPORTED';
@@ -17,8 +17,8 @@ export interface VoiceHandlers {
 /**
  * Two adapters, and no ladder between them.
  *
- * `realtime` is the Live session (`live.ts`): one conversation over WebRTC that hears, reasons
- * through this application and speaks. `scripted` is "Let me show you": a typed example line
+ * `realtime` is the direct Realtime session (`realtime.ts`): one conversation over WebRTC that
+ * hears, calls this application's safe tools and speaks. `scripted` is "Let me show you": a typed example line
  * through the same handlers, on any browser, with no microphone and no credential. Nothing
  * else listens — the browser's own recognition and the transcription tier are gone, and a
  * session that cannot open is said so once and answered by the written concierge.
@@ -35,8 +35,6 @@ export interface VoiceAdapter {
   isLive?(): boolean;
   /** The session hears the room: the microphone is attached and open. */
   isHearing?(): boolean;
-  /** Open the call before any tap, so the tap is instant; resolves whether it is live. Never asks a permission. */
-  warm?(): Promise<boolean>;
   /** A typed sentence into the same conversation. */
   sendText?(text: string): boolean;
   /** Cut the reply that is being spoken; the conversation stays. */

@@ -90,6 +90,7 @@ export function ConciergePanel() {
   const controller = useController();
   const state = useConciergeStore((s) => s.state);
   const mode = useConciergeStore((s) => s.mode);
+  const voiceAvailable = useConciergeStore((s) => s.voice.recognition && !s.voice.denied);
   const panel = useConciergeStore((s) => s.panel);
   const turns = useConciergeStore((s) => s.turns);
   const trayOpen = useConciergeStore((s) => s.trayOpen);
@@ -187,9 +188,25 @@ export function ConciergePanel() {
               <WaseemMark variant="crest" tone="current" title={null} className="h-5 w-auto text-fg" />
               <p className="micro text-fg-2">{CONCIERGE.name}</p>
             </div>
-            <button type="button" onClick={() => controller?.close()} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close" aria-label="Close the concierge">
-              Close
-            </button>
+            <div className="flex items-center gap-5">
+              {mode === 'chat' && voiceAvailable && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    controller?.setMode('voice');
+                    controller?.startListening();
+                  }}
+                  className="micro text-fg-muted transition-colors hover:text-fg"
+                  data-cursor="listen"
+                  aria-label={CONCIERGE.voice.start}
+                >
+                  Voice
+                </button>
+              )}
+              <button type="button" onClick={() => controller?.close()} className="micro text-fg-muted transition-colors hover:text-fg" data-cursor="close" aria-label="Close the concierge">
+                Close
+              </button>
+            </div>
           </div>
 
           {/* the piece in view: a plate while writing, a strip while the stage is up */}

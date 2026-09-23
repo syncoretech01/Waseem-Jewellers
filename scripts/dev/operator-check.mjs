@@ -2,10 +2,10 @@
 /**
  * The concierge as a site operator, exercised without a model.
  *
- * A real Chromium against a running server, the capabilities route mocked to the keyless
- * engine with the appointment form kept on the device, and every tool dispatched through the
- * controller's own `runTool` — the same validator, the same events, the same store
- * transitions a model's call goes through. What is asserted is what the visitor sees:
+ * A real Chromium against a running server, the capabilities route mocked to the written
+ * fallback with the appointment form kept on the device, and every tool dispatched through
+ * the controller's own `runTool` — the same validator, the same events, the same store
+ * transitions a Realtime function call goes through. What is asserted is what the visitor sees:
  *
  *   navigate 'gold'          lands on /gold through the curtain
  *   navigate 'back'          returns to the previous page
@@ -14,8 +14,8 @@
  *   submitAppointment        refused without confirmation; with it, 'prepared' with a WJ- reference,
  *                            and no request ever reaches /api/enquiry
  *   setGalleryFrame          on a piece's page, the asked-for photograph comes into view
- *   the voice router         which rung each sentence of the demo takes — direct (the parser, no
- *                            model) or the delegation model — read through window.__wjVoiceRoute
+ *   direct Realtime tools    the direct-tool subset performs its visible action through the
+ *                            authoritative validator/executor; no session is opened by chat or tools
  *
  *   node scripts/dev/operator-check.mjs [http://localhost:3300]
  */
@@ -28,7 +28,7 @@ const ok = (cond, what) => {
   if (!cond) failures.push(what);
 };
 
-/** The voice is advertised so the router hook is installed; no session is ever opened here (the route answers 503). */
+/** Native voice is advertised, but this operator harness never activates a microphone or opens a paid session. */
 const CAPABILITIES = { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'native', enquiry: 'local', privacy: null, booking: 'none' };
 
 /** Pieces the homepage opens with; the first with two or more photographs carries the gallery test. */
@@ -107,7 +107,12 @@ try {
     } catch {}
   });
   let enquiryCalls = 0;
+  let realtimeSessionCalls = 0;
   await ctx.route('**/api/concierge/capabilities', (route) => route.fulfill({ json: CAPABILITIES }));
+  await ctx.route('**/api/concierge/realtime-session', (route) => {
+    realtimeSessionCalls += 1;
+    return route.fulfill({ status: 503, json: { error: { code: 'CONCIERGE_VOICE_OFFLINE', message: 'not in this operator harness' } } });
+  });
   await ctx.route('**/api/enquiry', (route) => {
     enquiryCalls += 1;
     return route.fulfill({ status: 503, json: { error: 'ENQUIRY_NOT_CONFIGURED' } });
@@ -117,13 +122,13 @@ try {
   page.on('pageerror', (e) => errors.push(String(e)));
 
   console.log('\noperating the site');
-  await ctx.route('**/api/concierge/live-session', (route) => route.fulfill({ status: 503, json: { error: { code: 'CONCIERGE_VOICE_OFFLINE', message: 'not in this harness' } } }));
   await page.goto(`${BASE}/?qa=1`, { waitUntil: 'load', timeout: 120000 });
   await settle(page, 3500);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'chat' } })));
   await page.waitForFunction(() => typeof window.__wjConcierge?.runTool === 'function', null, { timeout: 15000 });
   await settle(page, 1200);
   ok(true, 'the concierge is mounted and exposes runTool');
+  ok(realtimeSessionCalls === 0, `opening the written concierge did not create a Realtime session (${realtimeSessionCalls})`);
 
   // navigate: a natural target, through the curtain
   await watchCurtain(page);
@@ -307,40 +312,90 @@ try {
   await settle(page, 400);
 
   /**
-   * The voice router, read without a session: which rung each sentence of the demo takes.
-   * A plain command is direct — the parser, no model, the site acts at once; a natural
-   * sentence with qualifiers the lexicon does not carry goes to the delegation model. The
-   * hook reads the page as it is, so the pieces are brought first and the form opened for
-   * the sentences that answer it.
+   * The premium path has no parser, Astra rung or delegation drain. These are the same
+   * authoritative controller calls that the direct Realtime functions execute after a model
+   * function_call; the separate voice harness owns WebRTC and barge-in protocol checks.
    */
-  console.log('\nthe voice router: which rung each sentence takes');
+  console.log('\nthe direct Realtime tool authority');
   await page.evaluate(() => window.__wjConcierge.forget());
-  await page.evaluate(() => window.__wjConcierge.runTool('searchProducts', { category: 'ring', material: 'gold', limit: 4 }));
-  await settle(page, 1200);
-  const route = (text) => page.evaluate((t) => window.__wjVoiceRoute(t), text);
-  const DIRECT = [
-    ['Gold.', 'core_department'], ['Show rings.', 'core_search'], ['Second one.', 'core_open'], ['Back.', 'back'], ['Diamond.', 'core_department'], ['Open it.', 'core_open'], ['Book an appointment.', 'consultation'],
-    ['Doosra wala kholo.', 'core_open'], ['Nahi, pehla.', 'core_open'], ['Wapas jao.', 'back'], ['Liberty mein appointment karwani hai.', 'consultation'],
-    ['Show me gold rings.', 'core_search'], ['Something lighter.', 'core_lighter'], ['Open the second one.', 'core_open'], ['Go back.', 'back'], ['Take me to Bridal.', 'core_department'], ['Is se thora halka.', 'core_lighter'], ['Iska price kya hai.', 'price'],
-    ['Menu diamond de rings dikhao.', 'core_search'], ['Compare the first two', 'compare'], ['close', 'close'],
-  ];
-  const ASTRA = ['Show me something elegant for walima.', 'Mujhe baraat ke liye kuch heavy gold mein dikhao.', 'Mujhe bridal mein kuch elegant dikhao.', 'Gold mein koi simple ring dikhao.', 'Walima ke liye something classy.', 'Walima ke liye kuch elegant dikhao.', 'what would work with this necklace', 'around four lakh for a nikah', 'something similar but lighter and less traditional', 'Walima ke liye elegant diamond piece chahiye, not too heavy', 'Kal shaam ka time dekhna.'];
-  for (const [text, plan] of DIRECT) {
-    const r = await route(text);
-    ok(r.rung === 'direct' && r.plan === plan, `direct · ${plan.padEnd(16)} "${text}" (${r.rung} · ${r.plan} · ${r.language} · ${r.why})`);
+  await run(page, 'navigate', { target: 'home' });
+  await arrived(page, '/');
+
+  // Department calls from the homepage remain chapter glides, never stale forced page navigation.
+  const goldDepartment = await run(page, 'showDepartment', { department: 'gold' });
+  const goldChapterTop = await restingTop(page, '[data-section="gold"], #ch03-gold');
+  ok(goldDepartment.result?.department === 'gold' && pathOf(page) === '/', 'showDepartment gold from home keeps the visitor on the Gold homepage chapter');
+  ok(goldChapterTop !== null && Math.abs(goldChapterTop) <= 250, 'the Gold homepage chapter is the visible destination');
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settle(page, 700);
+  const diamondDepartment = await run(page, 'showDepartment', { department: 'diamond' });
+  const diamondChapterTop = await restingTop(page, '[data-section="diamond"], #ch04-diamond');
+  ok(diamondDepartment.result?.department === 'diamond' && pathOf(page) === '/', 'showDepartment diamond from home keeps the visitor on the Diamond homepage chapter');
+  ok(diamondChapterTop !== null && Math.abs(diamondChapterTop) <= 250, 'the Diamond homepage chapter is the visible destination');
+
+  // The owner-demo catalogue sequence, dispatched through the exact validation/execution seam.
+  const rings = await run(page, 'searchProducts', { category: 'ring', material: 'gold', limit: 4 });
+  const ringItems = Array.isArray(rings.result?.items) ? rings.result.items : [];
+  const firstSlug = ringItems[0]?.slug;
+  const secondSlug = ringItems[1]?.slug;
+  ok(ringItems.length >= 2 && typeof firstSlug === 'string' && typeof secondSlug === 'string', 'searchProducts returns at least two grounded gold rings');
+
+  const lighter = await run(page, 'refineResults', { weight: 'lighter', limit: 4 });
+  const lighterItems = Array.isArray(lighter.result?.items) ? lighter.result.items : [];
+  ok(lighter.result?.anchor === firstSlug, 'refineResults lighter uses the first currently shown piece as its anchor');
+  ok(['published', 'form', 'none'].includes(lighter.result?.basis), 'refineResults reports the evidence basis instead of inventing weight');
+
+  const comparisonItems = lighterItems.length >= 2 ? lighterItems : ringItems;
+  const compareSlugs = comparisonItems.slice(0, 2).map((piece) => piece.slug);
+  const compared = await run(page, 'comparePieces', { slugs: compareSlugs });
+  ok(compared.result?.pieces?.length === 2 && compared.result?.rows?.length > 0, 'comparePieces returns two published piece records and comparison rows');
+
+  const openedSlug = comparisonItems[1]?.slug ?? secondSlug;
+  if (typeof openedSlug === 'string') {
+    const opened = await run(page, 'openProduct', { slug: openedSlug });
+    await arrived(page, '/jewellery/' + openedSlug);
+    ok(opened.result?.ok === true && pathOf(page) === '/jewellery/' + openedSlug, 'openProduct opens the selected second result');
+
+    const facts = await run(page, 'getProductFacts', {});
+    ok(facts.result?.piece?.slug === openedSlug && typeof facts.result?.piece?.priceLabel === 'string', 'getProductFacts returns only the opened piece\'s published facts');
+    const formAfterFacts = await page.evaluate((sel) => Boolean(document.querySelector(sel)), FORM);
+    ok(!formAfterFacts, 'getProductFacts does not open or submit an appointment');
+
+    const similar = await run(page, 'showSimilarPieces', { slug: openedSlug, limit: 4 });
+    ok(similar.result?.anchor === openedSlug, 'showSimilarPieces remains grounded on the opened piece');
+    const matching = await run(page, 'showMatchingPieces', { slug: openedSlug, limit: 4 });
+    ok(matching.result?.anchor === openedSlug, 'showMatchingPieces remains grounded on the opened piece');
+
+  const directBack = await run(page, 'goBack', {});
+  await arrived(page, '/');
+  ok(directBack.result?.ok === true && pathOf(page) === '/', 'goBack uses the site history and returns to the homepage');
+  } else {
+    ok(false, 'openProduct has a second grounded result to open');
   }
-  for (const text of ASTRA) {
-    const r = await route(text);
-    ok(r.rung === 'astra', `astra  · ${r.plan.padEnd(16)} "${text}" (${r.why})`);
-  }
-  await run(page, 'openAppointment', {});
-  await settle(page, 600);
-  for (const text of ['Liberty.', 'MM Alam kar dein.', 'Actually MM Alam.', 'ایم ایم عالم کر دیں.', 'م م عالم کر دیں.', '0300 7122859']) {
-    const r = await route(text);
-    ok(r.rung === 'direct' && r.plan === 'appointment_field', `direct · appointment_field "${text}" while the form is open (${r.rung} · ${r.plan})`);
-  }
-  ok(await closeDialog(page, FORM), 'the form is closed again by hand');
+
+  // Recommendation diversity is a deterministic catalogue rule, not a second model pass.
+  // Occasion tags currently overlap, so they rank a request but cannot make a factual claim
+  // that one piece belongs uniquely to Valima or Baraat.
+  const valima = await run(page, 'searchProducts', { category: 'ring', occasion: 'walima', limit: 1 });
+  const valimaSlug = valima.result?.items?.[0]?.slug;
+  const baraat = await run(page, 'searchProducts', { category: 'ring', occasion: 'baraat', excludeSlugs: typeof valimaSlug === 'string' ? [valimaSlug] : [], limit: 1 });
+  const baraatSlug = baraat.result?.items?.[0]?.slug;
+  const recommendationMemory = await page.evaluate(() => window.__wjConcierge.store.memory);
+  ok(typeof valimaSlug === 'string' && typeof baraatSlug === 'string' && valimaSlug !== baraatSlug, 'a recommendation followed by another excludes the prior grounded piece when alternatives exist');
+  ok(recommendationMemory.standingSlots.occasion === 'baraat', 'a changed occasion replaces the standing recommendation intent');
+  ok(recommendationMemory.discussed.includes(valimaSlug) && recommendationMemory.discussed.includes(baraatSlug), 'recent recommendations are retained in compact exclusion context');
+
+  const appointment = await run(page, 'openAppointment', { topic: 'bridal' });
+  const prepared = await run(page, 'fillAppointment', { name: 'Ayesha Khan', phone: '0300 7122859', showroom: 'Liberty Market', occasion: 'bridal' });
+  const corrected = await run(page, 'fillAppointment', { showroom: 'MM Alam Road' });
+  const directReview = await run(page, 'reviewAppointment', {});
+  ok(appointment.result?.ok === true && prepared.result?.formOpen === true, 'openAppointment and fillAppointment prepare only the visible form');
+  ok(corrected.result?.draft?.showroom?.name === 'MM Alam Road', 'a later MM Alam correction replaces Liberty in the visible appointment draft');
+  ok(directReview.result?.draft?.showroom?.name === 'MM Alam Road' && directReview.result?.missing?.length === 0, 'reviewAppointment reads the corrected complete draft without submitting it');
+  ok(await closeDialog(page, FORM), 'the direct-tool appointment form is closed again by hand');
   await settle(page, 400);
+  ok(realtimeSessionCalls === 0, 'chat and direct tool checks never opened a paid Realtime session');
   await page.evaluate(() => window.__wjConcierge.forget());
   await settle(page, 300);
 

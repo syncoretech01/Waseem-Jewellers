@@ -26,9 +26,9 @@ export class MockConciergeProvider implements ConciergeProvider {
   readonly id = 'keyless' as const;
   /**
    * Deterministic, and named as such. It streams because the controller wants deltas either
-   * way, and its speech is the browser's, exactly as the model path's is.
+   * way; it writes only and never owns browser audio.
    */
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'browser', contextPush: false, intelligence: 'deterministic' };
+  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'none', contextPush: false, intelligence: 'deterministic' };
   private runtime: ProviderRuntime | null = null;
   private timers = new Set<number>();
   private cancelled = new Set<string>();

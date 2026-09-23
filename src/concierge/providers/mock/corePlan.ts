@@ -37,9 +37,12 @@ const searchArgs = (frame: IntentFrame): Record<string, unknown> => {
     material: s.material,
     department: s.department,
     purity: s.karat ? `${s.karat}K` : undefined,
+    occasion: s.occasion,
+    style: s.style,
     // parsed and then carried: reading "under 15 grams" and dropping it is worse than not
     // reading it, because the visitor is shown pieces that do not answer what they asked
     maxWeightGrams: s.maxWeightGrams,
+    maxPricePkr: s.maxPricePkr,
     limit: 4,
   };
 };

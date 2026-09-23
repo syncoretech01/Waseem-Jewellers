@@ -1,482 +1,581 @@
 #!/usr/bin/env node
 /**
- * The Live voice path, exercised without a credential.
+ * Cost-free Realtime Concierge integration check.
  *
- * A real Chromium, a fake `RTCPeerConnection` whose data channel is scripted like a GPT-Live
- * session (session.started, input transcript deltas, a client delegation, output transcript
- * deltas, the appends acknowledged, session.close answered), a remote track that carries a
- * tone while the fake "speaks", the session route and the delegation route mocked. Nothing
- * else is faked: the router, the parser, the tools, the page and the stage are the real ones.
- * What is asserted is what the visitor sees and what the wire carries:
+ * It drives the real browser controller, validator and browser tool executor through a fake
+ * WebRTC data channel. The only fakes are media transport and the Realtime model's selected
+ * function calls. No OpenAI session is opened. This verifies the frozen seam:
  *
- *   the session refused   said once, in writing, and the written concierge is presented;
- *                         no example runs in the visitor's name; the reason is on the trace
- *   a direct command      "Gold." → the page moves before any speech; one commentary append
- *                         with the delegation id; the trace says direct
- *   a natural sentence    → the delegation route, its tool executed here, the fact handed back;
- *                         the trace says astra
- *   language              Roman Urdu after English → one instructions append naming it
- *   a typed sentence      into the same session: routed, acted on, handed to the voice
- *   SPEAKING              follows the remote audio, not a server event
- *   the transcript        kept in the store, never on the stage; the QA view alone shows it
- *   the audio pipeline    one microphone stream, one peer connection, one session — and none
- *                         left open after close, across open → talk → close ×5
- *   the line dropped      re-established once with the recent transcript seeded, the microphone kept
- *   the browser's speech  never touched: SpeechRecognition and speechSynthesis are watched
+ *   microphone -> WebRTC -> direct function -> real site action -> function output ->
+ *   the same Realtime session -> one short reply.
  *
- *   node scripts/dev/voice-check.mjs [http://localhost:3300]
+ * Run: node scripts/dev/voice-check.mjs [http://localhost:3300]
  */
 import { chromium } from 'playwright';
 
 const BASE = (process.argv[2] || 'http://localhost:3300').replace(/\/$/, '');
 const failures = [];
-const ok = (cond, what) => {
-  console.log(`  ${cond ? 'ok  ' : 'FAIL'} ${what}`);
-  if (!cond) failures.push(what);
-};
 
-const CAPABILITIES = { intelligence: 'keyless', languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'], voice: 'native', enquiry: 'local', privacy: null, booking: 'none' };
-
-/** Installed before any page script: the fake transport, and a watch on the browser's own speech APIs. */
-const FAKES = `
-(() => {
-  const fake = { pcs: [], sent: [], sessions: 0, seq: 0, sessionId: 'live_test', onSend: null, closeReason: 'close_requested' };
-  window.__fakeLive = fake;
-  window.__speechTouched = 0;
-  for (const k of ['SpeechRecognition', 'webkitSpeechRecognition', 'speechSynthesis', 'SpeechSynthesisUtterance']) {
-    Object.defineProperty(window, k, { configurable: true, get() { window.__speechTouched += 1; return undefined; } });
-  }
-  class FakeDataChannel {
-    constructor(label) { this.label = label; this.readyState = 'connecting'; this.onopen = null; this.onmessage = null; this.onclose = null; this.onerror = null; }
-    send(data) { const ev = JSON.parse(data); fake.sent.push(ev); fake.onSend && fake.onSend(ev, this); }
-    close() { if (this.readyState === 'closed') return; this.readyState = 'closed'; this.onclose && this.onclose(new Event('close')); }
-    _open() { this.readyState = 'open'; this.onopen && this.onopen(new Event('open')); }
-    _push(ev) { if (this.readyState !== 'open') return; ev.event_id = ev.event_id || ('evt_' + (++fake.seq)); this.onmessage && this.onmessage(new MessageEvent('message', { data: JSON.stringify(ev) })); }
-  }
-  class FakeSender { constructor(track) { this.track = track || null; } async replaceTrack(t) { this.track = t; } }
-  class FakePeerConnection {
-    constructor() { this.connectionState = 'new'; this.iceGatheringState = 'complete'; this.localDescription = null; this.ontrack = null; this.onconnectionstatechange = null; this._dc = null; this._closed = false; fake.pcs.push(this); }
-    addEventListener() {} removeEventListener() {}
-    addTransceiver() { return { sender: new FakeSender() }; }
-    addTrack(track) { return new FakeSender(track); }
-    createDataChannel(label) { this._dc = new FakeDataChannel(label); return this._dc; }
-    async createOffer() { return { type: 'offer', sdp: 'v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=-\\r\\n' }; }
-    async setLocalDescription(d) { this.localDescription = d; }
-    async setRemoteDescription() {
-      this.connectionState = 'connected';
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain);
-      const dest = ctx.createMediaStreamDestination();
-      gain.connect(dest);
-      osc.start();
-      fake.gain = gain;
-      fake.ctx = ctx;
-      const stream = dest.stream;
-      const track = stream.getAudioTracks()[0];
-      const dc = this._dc;
-      fake.sessions += 1;
-      setTimeout(() => {
-        this.ontrack && this.ontrack({ track, streams: [stream] });
-        dc._open();
-        setTimeout(() => dc._push({ type: 'session.started', session: { id: fake.sessionId + '_' + fake.sessions, model: 'gpt-live-1', status: 'active' } }), 20);
-      }, 30);
-    }
-    close() { if (this._closed) return; this._closed = true; this.connectionState = 'closed'; this._dc && this._dc.close(); }
-    async getStats() { return new Map(); }
-  }
-  window.RTCPeerConnection = FakePeerConnection;
-  fake.dc = () => { const pc = fake.pcs[fake.pcs.length - 1]; return pc && pc._dc; };
-  fake.openPcs = () => fake.pcs.filter((p) => !p._closed).length;
-  let t = 1000;
-  /** The visitor's words: transcript fragments, then (optionally) a client delegation. */
-  fake.say = (text, opts = {}) => {
-    const dc = fake.dc();
-    if (!dc) return null;
-    const words = text.split(' ');
-    const half = Math.ceil(words.length / 2);
-    const parts = words.length > 3 ? [words.slice(0, half).join(' ') + ' ', words.slice(half).join(' ')] : [text];
-    const startMs = t;
-    for (const p of parts) { dc._push({ type: 'session.input_transcript.delta', delta: p, start_ms: t, end_ms: t + 400 }); t += 400; }
-    const id = 'del_' + (++fake.seq);
-    if (opts.delegate !== false) setTimeout(() => dc._push({ type: 'session.delegation.created', offset_ms: t, delegation: { id, type: 'delegation', target: 'client' } }), opts.delay ?? 250);
-    t += 800;
-    return { id, startMs, endMs: t };
-  };
-  /** The concierge's voice: output transcript fragments and a tone on the remote track for a while. */
-  fake.speak = (text, ms = 900) => {
-    const dc = fake.dc();
-    if (!dc) return;
-    dc._push({ type: 'session.output_transcript.delta', delta: text, start_ms: t, end_ms: t + ms });
-    t += ms;
-    if (fake.gain) { fake.gain.gain.value = 0.6; setTimeout(() => { fake.gain.gain.value = 0; }, ms); }
-  };
-  fake.drop = () => { const dc = fake.dc(); dc && dc._push({ type: 'session.closed', reason: 'connection_lost', usage: { seconds: 12 } }); };
-  fake.onSend = (ev, dc) => {
-    if (/^session\\.(thinking|commentary|instructions)\\.append$/.test(ev.type)) setTimeout(() => dc._push({ type: ev.type + 'ed', client_event_id: ev.event_id, start_ms: t, end_ms: t }), 15);
-    if (ev.type === 'session.input_audio.mute') setTimeout(() => dc._push({ type: 'session.input_audio.muted', client_event_id: ev.event_id }), 10);
-    if (ev.type === 'session.input_audio.unmute') setTimeout(() => dc._push({ type: 'session.input_audio.unmuted', client_event_id: ev.event_id }), 10);
-    if (ev.type === 'session.close') setTimeout(() => { dc._push({ type: 'session.closed', reason: fake.closeReason, usage: { seconds: 30 } }); setTimeout(() => dc.close(), 10); }, 40);
-  };
-})();
-`;
-
-const settle = (page, ms) => page.waitForTimeout(ms);
-const state = (page) => page.evaluate(() => window.__wjConcierge?.store?.state ?? null);
-const sent = (page, type) => page.evaluate((t) => window.__fakeLive.sent.filter((e) => e.type === t), type);
-const audit = (page) => page.evaluate(() => window.__wjVoiceAudit?.() ?? null);
-const lastTrace = (page) =>
-  page.evaluate(() => {
-    const t = window.__wjConcierge.qaTrace();
-    return t[t.length - 1] ?? null;
-  });
-
-/** Waits until the store reaches one of the states, recording every state seen on the way. */
-async function waitFor(page, states, timeout = 8000) {
-  return page.evaluate(
-    ({ states, timeout }) =>
-      new Promise((resolve) => {
-        const seen = [];
-        const started = performance.now();
-        const tick = () => {
-          const s = window.__wjConcierge?.store?.state;
-          if (s && seen[seen.length - 1] !== s) seen.push(s);
-          if (states.includes(s)) return resolve({ hit: s, seen });
-          if (performance.now() - started > timeout) return resolve({ hit: null, seen });
-          setTimeout(tick, 25);
-        };
-        tick();
-      }),
-    { states, timeout },
-  );
+function check(condition, message) {
+  console.log('  ' + (condition ? 'ok  ' : 'FAIL') + ' ' + message);
+  if (!condition) failures.push(message);
 }
 
-/** Waits for a predicate on the page, polling; resolves whether it came true. */
-async function until(page, fn, timeout = 8000, arg) {
+function installFakes() {
+  const fake = {
+    pcs: [],
+    sent: [],
+    calls: [],
+    sessions: 0,
+    sequence: 0,
+    cancelled: 0,
+    cleared: 0,
+    speechTimers: [],
+    speaking: false,
+  };
+  window.__fakeRealtime = fake;
+  window.__speechTouched = 0;
+
+  for (const key of ['SpeechRecognition', 'webkitSpeechRecognition', 'speechSynthesis', 'SpeechSynthesisUtterance']) {
+    Object.defineProperty(window, key, {
+      configurable: true,
+      get() {
+        window.__speechTouched += 1;
+        return undefined;
+      },
+    });
+  }
+
+  class FakeDataChannel {
+    constructor(label) {
+      this.label = label;
+      this.readyState = 'connecting';
+      this.onopen = null;
+      this.onmessage = null;
+      this.onclose = null;
+      this.onerror = null;
+    }
+    send(data) {
+      const event = JSON.parse(data);
+      fake.sent.push(event);
+      fake.onSend(event, this);
+    }
+    close() {
+      if (this.readyState === 'closed') return;
+      this.readyState = 'closed';
+      if (this.onclose) this.onclose(new Event('close'));
+    }
+    open() {
+      this.readyState = 'open';
+      if (this.onopen) this.onopen(new Event('open'));
+    }
+    push(event) {
+      if (this.readyState !== 'open') return;
+      event.event_id = event.event_id || 'evt_' + (++fake.sequence);
+      if (this.onmessage) this.onmessage(new MessageEvent('message', { data: JSON.stringify(event) }));
+    }
+  }
+
+  class FakeSender {
+    constructor(track) {
+      this.track = track || null;
+    }
+    async replaceTrack(track) {
+      this.track = track;
+    }
+  }
+
+  class FakePeerConnection {
+    constructor() {
+      this.connectionState = 'new';
+      this.iceGatheringState = 'complete';
+      this.localDescription = null;
+      this.ontrack = null;
+      this.onconnectionstatechange = null;
+      this.channel = null;
+      this.closed = false;
+      fake.pcs.push(this);
+    }
+    addEventListener() {}
+    removeEventListener() {}
+    addTrack(track) {
+      return new FakeSender(track);
+    }
+    addTransceiver() {
+      return { sender: new FakeSender() };
+    }
+    createDataChannel(label) {
+      this.channel = new FakeDataChannel(label);
+      return this.channel;
+    }
+    async createOffer() {
+      return { type: 'offer', sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\n' };
+    }
+    async setLocalDescription(description) {
+      this.localDescription = description;
+    }
+    async setRemoteDescription() {
+      this.connectionState = 'connected';
+      fake.sessions += 1;
+      const stream = new MediaStream();
+      window.setTimeout(() => {
+        if (this.closed) return;
+        if (this.ontrack) this.ontrack({ streams: [stream] });
+        if (this.channel) this.channel.open();
+      }, 20);
+    }
+    close() {
+      if (this.closed) return;
+      this.closed = true;
+      this.connectionState = 'closed';
+      if (this.onconnectionstatechange) this.onconnectionstatechange();
+      if (this.channel) this.channel.close();
+    }
+    async getStats() {
+      return new Map();
+    }
+  }
+
+  window.RTCPeerConnection = FakePeerConnection;
+  fake.channel = function () {
+    const pc = fake.pcs[fake.pcs.length - 1];
+    return pc ? pc.channel : null;
+  };
+  fake.openPcs = function () {
+    return fake.pcs.filter((pc) => !pc.closed).length;
+  };
+  fake.stopSpeech = function (notify) {
+    for (const timer of fake.speechTimers) window.clearTimeout(timer);
+    fake.speechTimers = [];
+    if (!fake.speaking) return;
+    fake.speaking = false;
+    if (notify) {
+      const channel = fake.channel();
+      if (channel) channel.push({ type: 'output_audio_buffer.stopped' });
+    }
+  };
+  fake.reply = function (call) {
+    const channel = fake.channel();
+    if (!channel || call.replySent) return;
+    call.replySent = true;
+    call.replyCount += 1;
+    channel.push({ type: 'response.created', response: { id: 'reply_' + call.id } });
+    channel.push({ type: 'output_audio_buffer.started' });
+    channel.push({ type: 'response.output_audio_transcript.delta', delta: call.reply });
+    fake.speaking = true;
+    const timer = window.setTimeout(() => {
+      fake.speaking = false;
+      channel.push({ type: 'output_audio_buffer.stopped' });
+      channel.push({ type: 'response.done', response: { status: 'completed', output: [] } });
+      call.replyDone = true;
+    }, call.duration);
+    fake.speechTimers.push(timer);
+  };
+  fake.emitFunctionCall = function (call) {
+    const channel = fake.channel();
+    if (!channel) return;
+    const item = { type: 'function_call', call_id: call.id, name: call.name, arguments: JSON.stringify(call.args || {}) };
+    channel.push({ type: 'response.function_call_arguments.done', call_id: call.id, name: call.name, arguments: item.arguments });
+    // Realtime can deliver the same call through more than one event. The client must dedupe it.
+    channel.push({ type: 'response.output_item.done', item });
+    channel.push({ type: 'response.done', response: { status: 'completed', output: [item] } });
+  };
+  fake.hear = function (text, name, args, reply, duration) {
+    const channel = fake.channel();
+    if (!channel) throw new Error('Realtime channel is not open');
+    const id = 'call_' + (++fake.sequence);
+    const itemId = 'item_' + fake.sequence;
+    const call = {
+      id,
+      text,
+      name,
+      args,
+      reply: reply || 'Ji.',
+      duration: typeof duration === 'number' ? duration : 120,
+      output: null,
+      outputCount: 0,
+      replyCount: 0,
+      replySent: false,
+      replyDone: false,
+    };
+    fake.calls.push(call);
+    channel.push({ type: 'input_audio_buffer.speech_started' });
+    channel.push({ type: 'conversation.item.input_audio_transcription.delta', delta: text });
+    channel.push({ type: 'input_audio_buffer.speech_stopped', item_id: itemId });
+    channel.push({ type: 'conversation.item.input_audio_transcription.completed', item_id: itemId, transcript: text });
+    channel.push({ type: 'response.created', response: { id: 'tool_' + id } });
+    fake.emitFunctionCall(call);
+    return id;
+  };
+  fake.hearCompound = function (text, first, second, reply, duration) {
+    const channel = fake.channel();
+    if (!channel) throw new Error('Realtime channel is not open');
+    const makeCall = (request) => ({
+      id: 'call_' + (++fake.sequence),
+      text,
+      name: request.name,
+      args: request.args,
+      reply: reply || 'Ji.',
+      duration: typeof duration === 'number' ? duration : 120,
+      output: null,
+      outputCount: 0,
+      replyCount: 0,
+      replySent: false,
+      replyDone: false,
+      continued: false,
+      next: null,
+    });
+    const firstCall = makeCall(first);
+    const secondCall = makeCall(second);
+    firstCall.next = secondCall;
+    fake.calls.push(firstCall, secondCall);
+    const itemId = 'item_' + fake.sequence;
+    channel.push({ type: 'input_audio_buffer.speech_started' });
+    channel.push({ type: 'conversation.item.input_audio_transcription.delta', delta: text });
+    channel.push({ type: 'input_audio_buffer.speech_stopped', item_id: itemId });
+    channel.push({ type: 'conversation.item.input_audio_transcription.completed', item_id: itemId, transcript: text });
+    channel.push({ type: 'response.created', response: { id: 'tool_' + firstCall.id } });
+    fake.emitFunctionCall(firstCall);
+    return [firstCall.id, secondCall.id];
+  };
+  fake.stallAfterSpeech = function (text) {
+    const channel = fake.channel();
+    if (!channel) throw new Error('Realtime channel is not open');
+    const itemId = 'item_' + (++fake.sequence);
+    channel.push({ type: 'input_audio_buffer.speech_started' });
+    channel.push({ type: 'conversation.item.input_audio_transcription.delta', delta: text });
+    channel.push({ type: 'input_audio_buffer.speech_stopped', item_id: itemId });
+    channel.push({ type: 'conversation.item.input_audio_transcription.completed', item_id: itemId, transcript: text });
+  };
+  fake.onSend = function (event, channel) {
+    if (
+      event.type === 'conversation.item.create' &&
+      event.item &&
+      event.item.type === 'function_call_output'
+    ) {
+      const call = fake.calls.find((entry) => entry.id === event.item.call_id);
+      if (call) {
+        call.outputCount += 1;
+        call.output = event.item.output;
+      }
+      return;
+    }
+    if (event.type === 'response.create' && event.response) {
+      const call = fake.calls.find((entry) => entry.output !== null && !entry.replySent && !entry.continued);
+      if (call && call.next) {
+        call.continued = true;
+        window.setTimeout(() => {
+          channel.push({ type: 'response.created', response: { id: 'tool_' + call.next.id } });
+          fake.emitFunctionCall(call.next);
+        }, 8);
+      } else if (call) {
+        window.setTimeout(() => fake.reply(call), 8);
+      }
+      return;
+    }
+    if (event.type === 'response.cancel') {
+      fake.cancelled += 1;
+      return;
+    }
+    if (event.type === 'output_audio_buffer.clear') {
+      fake.cleared += 1;
+      fake.stopSpeech(false);
+      channel.push({ type: 'output_audio_buffer.cleared' });
+    }
+  };
+}
+
+const CAPABILITIES = {
+  intelligence: 'keyless',
+  languages: ['en', 'ur', 'ur-Latn', 'pa-Arab', 'pa-Guru'],
+  voice: 'native',
+  enquiry: 'local',
+  privacy: null,
+  booking: 'none',
+};
+
+const SESSION_ANSWER = {
+  model: 'gpt-realtime-2.1',
+  voice: 'marin',
+  sdp: 'v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\n',
+};
+
+const sleep = (page, ms) => page.waitForTimeout(ms);
+
+async function until(page, predicate, arg, timeout = 8000) {
   const started = Date.now();
   while (Date.now() - started < timeout) {
-    if (await page.evaluate(fn, arg)) return true;
-    await settle(page, 40);
+    if (await page.evaluate(predicate, arg)) return true;
+    await sleep(page, 40);
   }
   return false;
 }
 
-const SESSION_ANSWER = { sessionId: 'live_test', model: 'gpt-live-1', voice: 'marin', sdp: 'v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\ns=-\r\n' };
+async function waitState(page, states, timeout = 8000) {
+  return until(page, (wanted) => wanted.includes(window.__wjConcierge?.store?.state), states, timeout);
+}
 
-async function newContext(browser, { sessionStatus = 200, delegate } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'] });
-  await ctx.addInitScript(FAKES);
-  await ctx.addInitScript(() => {
-    try {
-      sessionStorage.clear();
-    } catch {}
+async function createContext(browser, sessionStatus = 200, capabilityDelayMs = 0) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    permissions: ['microphone'],
   });
-  const calls = { session: [], delegate: [] };
-  await ctx.route('**/api/concierge/capabilities', (route) => route.fulfill({ json: CAPABILITIES }));
-  await ctx.route('**/api/concierge/live-session', (route) => {
-    const body = JSON.parse(route.request().postData() ?? '{}');
-    calls.session.push(body);
-    if (sessionStatus !== 200) return route.fulfill({ status: sessionStatus, json: { error: { code: 'insufficient_quota', message: 'You exceeded your current quota (test)' } } });
+  await context.addInitScript(installFakes);
+  const calls = { realtime: [], delegate: [], turn: [] };
+  await context.route('**/api/concierge/capabilities', async (route) => {
+    if (capabilityDelayMs) await new Promise((resolve) => setTimeout(resolve, capabilityDelayMs));
+    await route.fulfill({ json: CAPABILITIES });
+  });
+  await context.route('**/api/concierge/realtime-session', (route) => {
+    calls.realtime.push(JSON.parse(route.request().postData() || '{}'));
+    if (sessionStatus !== 200) {
+      return route.fulfill({
+        status: sessionStatus,
+        json: { error: { code: 'test_unavailable', message: 'Realtime test session unavailable' } },
+      });
+    }
     return route.fulfill({ json: SESSION_ANSWER });
   });
-  await ctx.route('**/api/concierge/delegate', (route) => {
-    const body = JSON.parse(route.request().postData() ?? '{}');
-    calls.delegate.push(body);
-    const frames = delegate ? delegate(body) : [{ type: 'turn.error', code: 'CONCIERGE_OFFLINE', message: 'no model configured', recoverable: true }];
-    return route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: frames.map((f) => JSON.stringify(f)).join('\n') + '\n' });
+  await context.route('**/api/concierge/delegate', (route) => {
+    calls.delegate.push(JSON.parse(route.request().postData() || '{}'));
+    return route.fulfill({ status: 500, body: 'legacy delegate must not be used' });
   });
-  await ctx.route('**/api/concierge/turn', (route) => route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: `${JSON.stringify({ type: 'turn.error', code: 'CONCIERGE_OFFLINE', message: 'no model configured', recoverable: true })}\n` }));
-  return { ctx, calls };
+  await context.route('**/api/concierge/turn', (route) => {
+    calls.turn.push(JSON.parse(route.request().postData() || '{}'));
+    return route.fulfill({ status: 500, body: 'text turn must not be used while Realtime is healthy' });
+  });
+  return { context, calls };
 }
 
-async function openVoice(page, path) {
+async function openVoice(page, path = '/') {
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`${BASE}${path}${/\?/.test(path) ? '&' : '?'}qa=1`, { waitUntil: 'load', timeout: 120000 });
-  await settle(page, 3500);
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } })));
-  const r = await waitFor(page, ['VOICE_READY']);
-  await settle(page, 800);
-  return { errors, r };
+  page.on('pageerror', (error) => errors.push(String(error)));
+  const separator = path.includes('?') ? '&' : '?';
+  await page.goto(BASE + path + separator + 'qa=1', { waitUntil: 'load', timeout: 120000 });
+  await sleep(page, 1200);
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } }));
+  });
+  const ready = await waitState(page, ['VOICE_READY']);
+  return { errors, ready };
 }
 
-const browser = await chromium.launch({ headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+async function tell(page, text, name, args, reply, duration, waitForReplyDone = true) {
+  const before = await page.evaluate(() => window.__fakeRealtime.calls.length);
+  await page.evaluate(
+    (request) => window.__fakeRealtime.hear(request.text, request.name, request.args, request.reply, request.duration),
+    { text, name, args, reply, duration },
+  );
+  const output = await until(
+    page,
+    (index) => Boolean(window.__fakeRealtime.calls[index] && window.__fakeRealtime.calls[index].output !== null),
+    before,
+  );
+  const replyStarted = await until(
+    page,
+    (index) => Boolean(window.__fakeRealtime.calls[index] && window.__fakeRealtime.calls[index].replyCount === 1),
+    before,
+  );
+  const complete = waitForReplyDone
+    ? await until(
+    page,
+    (index) => Boolean(window.__fakeRealtime.calls[index] && window.__fakeRealtime.calls[index].replyDone),
+    before,
+      )
+    : true;
+  const call = await page.evaluate((index) => window.__fakeRealtime.calls[index], before);
+  check(output && replyStarted && complete, name + ' returns a result and a same-session reply');
+  check(call && call.outputCount === 1, name + ' has one function_call_output despite duplicate call events');
+  check(call && call.replyCount === 1, name + ' has exactly one spoken reply');
+  return call;
+}
+
+async function tellCompound(page, text, first, second, reply, duration) {
+  const before = await page.evaluate(() => window.__fakeRealtime.calls.length);
+  await page.evaluate(
+    (request) => window.__fakeRealtime.hearCompound(request.text, request.first, request.second, request.reply, request.duration),
+    { text, first, second, reply, duration },
+  );
+  const complete = await until(
+    page,
+    (index) => {
+      const calls = window.__fakeRealtime.calls.slice(index, index + 2);
+      return calls.length === 2 && calls.every((call) => call.output !== null) && calls[1].replyDone;
+    },
+    before,
+  );
+  const calls = await page.evaluate((index) => window.__fakeRealtime.calls.slice(index, index + 2), before);
+  check(complete, first.name + ' then ' + second.name + ' completes in one visitor turn');
+  check(calls[0]?.outputCount === 1 && calls[1]?.outputCount === 1, 'compound request returns one function output per grounded action');
+  check(calls[0]?.replyCount === 0 && calls[1]?.replyCount === 1, 'compound request produces one final spoken reply');
+  return calls;
+}
+
+async function recentSlugs(page) {
+  return page.evaluate(() => window.__wjConcierge.store.recentResults.map((piece) => piece.slug));
+}
+
+const browser = await chromium.launch({
+  headless: true,
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
+});
+
 try {
-  // ── the session refused: said once, in writing, and the written concierge answers ──
   {
-    console.log('\nthe session refused (the route answers 502 with the provider\'s reason)');
-    const { ctx, calls } = await newContext(browser, { sessionStatus: 502 });
-    const page = await ctx.newPage();
-    const { errors, r } = await openVoice(page, '/gold');
-    ok(r.hit === 'VOICE_READY', 'opens in voice mode at VOICE_READY');
+    console.log('\nvoice activation and fallback');
+    const { context, calls } = await createContext(browser, 502);
+    const page = await context.newPage();
+    const opened = await openVoice(page, '/gold');
+    check(opened.ready, 'voice panel opens ready');
+    check(calls.realtime.length === 0, 'opening the panel creates no paid Realtime session');
     await page.evaluate(() => window.__wjConcierge.startListening());
-    const said = await until(page, () => window.__wjConcierge.store.turns.some((t) => t.role === 'concierge' && /Voice is unavailable just now/.test(t.text)), 12000);
-    const s = await page.evaluate(() => ({ mode: window.__wjConcierge.store.mode, state: window.__wjConcierge.store.state, adapter: window.__wjConcierge.store.voice.adapter, visitorTurns: window.__wjConcierge.store.turns.filter((t) => t.role === 'visitor').length, error: window.__wjConcierge.store.error?.message ?? null }));
-    ok(said, 'the stage says, in writing, that voice is unavailable and writing continues');
-    ok(s.mode === 'chat' && s.state === 'CHAT', `the written concierge is presented (${s.mode}/${s.state})`);
-    ok(s.adapter !== 'scripted' && s.visitorTurns === 0, `no example ran in the visitor's name (${s.adapter}, ${s.visitorTurns} visitor turns)`);
-    const trace = await lastTrace(page);
-    ok(trace && trace.rung === 'live' && /insufficient_quota/.test(trace.fallback ?? ''), `the provider's reason is on the trace verbatim ("${trace?.fallback}")`);
-    ok(calls.session.length >= 1 && calls.session.length <= 2, `the session route was asked (${calls.session.length})`);
-    // a second tap does not ask again until "Try again"
-    const before = calls.session.length;
-    await page.evaluate(() => window.__wjConcierge.startListening());
-    await settle(page, 600);
-    ok(calls.session.length === before, `a second tap does not ask the route again (${calls.session.length})`);
-    const touched = await page.evaluate(() => window.__speechTouched);
-    ok(touched === 0, `the browser's own speech APIs were never touched (${touched})`);
-    ok(errors.length === 0, `no page errors (${errors.length}${errors[0] ? `: ${errors[0]}` : ''})`);
-    await ctx.close();
+    const fallback = await until(
+      page,
+      () => window.__wjConcierge.store.mode === 'chat' && window.__wjConcierge.store.state === 'CHAT',
+      undefined,
+      12000,
+    );
+    check(fallback, 'a Realtime failure falls back to text Concierge');
+    check(calls.realtime.length === 1, 'one session is requested only after the explicit voice tap');
+    const speechTouched = await page.evaluate(() => window.__speechTouched);
+    check(speechTouched === 0, 'browser SpeechRecognition and SpeechSynthesis stay untouched');
+    check(opened.errors.length === 0, 'fallback has no page errors');
+    await context.close();
   }
 
-  // ── the live session: direct, the delegation model, language, typed text, speaking, the audit ──
   {
-    console.log('\nthe live session (transport faked, session route mocked)');
-    const { ctx, calls } = await newContext(browser, {
-      delegate: (body) => {
-        if (!body.continuation) return [{ type: 'turn.trace', note: 'gpt-6-astra · effort low · tier priority · round 1' }, { type: 'tool.call', callId: 'call_1', name: 'searchProducts', args: { occasion: 'walima', style: 'contemporary', limit: 4 } }, { type: 'await.tools', continuation: 'c1' }];
-        return [{ type: 'turn.trace', note: 'round 2' }, { type: 'text.done', text: 'Four walima pieces are on the page now.' }, { type: 'turn.done' }];
-      },
-    });
-    const page = await ctx.newPage();
-    const { errors } = await openVoice(page, '/diamond');
-    const warm = await until(page, () => window.__wjConcierge.store.voice.sessionLive === true, 8000);
-    ok(warm, 'the session is opened before the tap (voice.sessionLive)');
-    const tapAt = Date.now();
+    console.log('\ndirect Realtime owner flow');
+    // Hold the free capability probe long enough to exercise a visitor tapping Voice before
+    // it returns. That must wait for Realtime, never run the scripted example.
+    const { context, calls } = await createContext(browser, 200, 1800);
+    const page = await context.newPage();
+    const opened = await openVoice(page, '/');
+    check(opened.ready, 'voice panel is ready on the homepage');
+    check(calls.realtime.length === 0, 'opening voice still creates no session');
+
     await page.evaluate(() => window.__wjConcierge.startListening());
-    let r = await waitFor(page, ['LISTENING'], 8000);
-    ok(r.hit === 'LISTENING', `the tap attaches the microphone: LISTENING in ${Date.now() - tapAt} ms`);
-    let a = await audit(page);
-    ok(a && a.streams === 1 && a.liveTracks === 1 && a.openPeerConnections === 1 && a.sessionOpen === true, `one stream, one live track, one peer connection, one session (${JSON.stringify(a)})`);
-    ok(calls.session.length === 1, `one session was created (${calls.session.length})`);
+    const listening = await waitState(page, ['LISTENING']);
+    const audit = await page.evaluate(() => window.__wjVoiceAudit && window.__wjVoiceAudit());
+    check(listening, 'one explicit tap opens mic and Realtime session');
+    check(
+      audit && audit.streams === 1 && audit.liveTracks === 1 && audit.openPeerConnections === 1 && audit.sessions === 1 && audit.sessionOpen,
+      'one microphone, connection and persistent session are active',
+    );
+    check(calls.realtime.length === 1, 'only one Realtime session was created');
+    const earlyTap = await page.evaluate(() => ({
+      adapter: window.__wjConcierge.store.voice.adapter,
+      examples: window.__wjConcierge.store.turns.filter((turn) => turn.role === 'visitor' && turn.source === 'example').length,
+    }));
+    check(earlyTap.adapter === 'realtime' && earlyTap.examples === 0, 'an early voice tap waits for Realtime and never runs a scripted example');
+    check(calls.realtime[0].context && !('name' in calls.realtime[0].context), 'session context excludes appointment personal data');
 
-    // a direct command: the page moves before any speech, the delegation is answered with the fact
-    const normalTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
-    const say1 = await page.evaluate(() => window.__fakeLive.say('Gold.'));
-    const moved = await until(page, () => location.pathname === '/gold', 8000);
-    const movedAt = Date.now();
-    ok(moved, `"Gold." moves the page to /gold (${movedAt - tapAt} ms after the tap, before any speech)`);
-    await until(page, () => window.__fakeLive.sent.some((e) => e.type === 'session.commentary.append' && /department is open/.test(e.content)), 4000);
-    let appends = await sent(page, 'session.commentary.append');
-    const gold = appends.find((e) => /Gold department is open/.test(e.content));
-    ok(Boolean(gold) && gold.delegation_id === say1.id, `one commentary append carries the fact with the delegation id (${gold?.delegation_id} = ${say1.id})`);
-    let trace = await lastTrace(page);
-    ok(trace?.rung === 'direct' && trace.plan === 'core_department' && trace.language === 'en', `the trace says direct · core_department · en (${trace?.rung} · ${trace?.plan} · ${trace?.language})`);
-    const refreshed = await until(page, () => window.__fakeLive.sent.some((e) => e.type === 'session.thinking.append' && /site-context/.test(e.content) && /page: \/gold/.test(e.content)), 4000);
-    ok(refreshed, 'the page state was pushed to the session after the action');
-    // SPEAKING follows the remote audio
-    await page.evaluate(() => window.__fakeLive.speak('Gold is open.', 1000));
-    r = await waitFor(page, ['SPEAKING'], 3000);
-    ok(r.hit === 'SPEAKING', `the remote track carrying voice puts the stage at SPEAKING (${r.seen.join(' → ')})`);
-    r = await waitFor(page, ['LISTENING'], 6000);
-    ok(r.hit === 'LISTENING', `silence on the track returns the stage to LISTENING (${r.seen.join(' → ')})`);
-    const normalTrace = await page.evaluate((from) => window.__wjVoiceTrace().slice(from).map((entry) => entry.type), normalTraceAt);
-    ok(normalTrace.includes('fact') && !normalTrace.includes('fact.queued') && !normalTrace.includes('output.drain'), 'a normal direct command hands back its fact without a drain');
-    const heard = await page.evaluate(() => ({ stored: window.__wjConcierge.store.turns.filter((t) => t.role === 'visitor' && t.source === 'voice').map((t) => t.text), onStage: document.querySelector('[data-voice-stage]')?.textContent ?? '', qa: Boolean(document.querySelector('[data-qa-heard]')) }));
-    ok(heard.stored.includes('Gold.') && !heard.onStage.includes('Gold.') && !heard.qa, 'the words are kept in the store and never written on the stage');
+    await tell(page, 'Gold.', 'showDepartment', { department: 'gold' }, 'Ji.');
+    check(await page.evaluate(() => location.pathname === '/'), 'homepage department command stays on its homepage chapter');
 
-    // A Live acknowledgement that starts before the page result remains physically muted until
-    // its remote audio has gone quiet. The result is queued, not layered onto that reply.
-    const drainTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
-    const conciergeBeforeDrain = await page.evaluate(() => window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').length);
-    const sayDrain = await page.evaluate(() => {
-      const delegation = window.__fakeLive.say('Diamond.');
-      window.__fakeLive.speak('Ji.', 3000);
-      return delegation;
-    });
-    const diamondMoved = await until(page, () => location.pathname === '/diamond', 8000);
-    const queued = await until(page, (from) => window.__wjVoiceTrace().slice(from).some((entry) => entry.type === 'fact.queued'), 8000, drainTraceAt);
-    ok(diamondMoved && queued, 'a premature acknowledgement still lets the direct page action finish, but queues its fact');
-    const held = await page.evaluate(({ from, id }) => {
-      const trace = window.__wjVoiceTrace().slice(from).map((entry) => entry.type);
-      const resultAppends = window.__fakeLive.sent.filter((event) => event.type === 'session.commentary.append' && event.delegation_id === id);
-      const guardStops = window.__fakeLive.sent.filter((event) => event.type === 'session.instructions.append' && String(event.event_id || '').startsWith('guard-stop_'));
-      const concierge = window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').map((turn) => turn.text);
-      return { trace, resultAppends: resultAppends.length, guardStops: guardStops.length, speaking: window.__wjConcierge.store.state === 'SPEAKING', prematureInHistory: concierge.some((text) => /Ji\./.test(text)), toneActive: window.__fakeLive.gain?.gain.value > 0 };
-    }, { from: drainTraceAt, id: sayDrain.id });
-    ok(held.toneActive && held.resultAppends === 0 && !held.speaking && !held.prematureInHistory && held.guardStops === 1, 'the premature audio is muted: no result append, SPEAKING state, history leak, or duplicate stop instruction');
-    ok(held.trace.includes('audio.gated') && held.trace.includes('premature.output') && held.trace.includes('fact.queued') && !held.trace.includes('audio.ungated'), 'the gate stays closed through the queued fact');
-    await until(page, () => window.__fakeLive.gain?.gain.value === 0, 6000);
-    const released = await until(page, (id) => window.__fakeLive.sent.some((event) => event.type === 'session.commentary.append' && event.delegation_id === id), 6000, sayDrain.id);
-    const drainTrace = await page.evaluate((from) => window.__wjVoiceTrace().slice(from).map((entry) => entry.type), drainTraceAt);
-    const drainedAt = drainTrace.indexOf('output.drained');
-    const ungatedAt = drainTrace.indexOf('audio.ungated');
-    const factAt = drainTrace.indexOf('fact');
-    ok(released && drainedAt >= 0 && drainedAt < ungatedAt && ungatedAt < factAt, 'only the drained fact is handed to Live after the stale output stops');
-    await page.evaluate(() => window.__fakeLive.speak('Diamond is open.', 700));
-    r = await waitFor(page, ['SPEAKING'], 3000);
-    ok(r.hit === 'SPEAKING', 'the grounded result, not the premature acknowledgement, reaches SPEAKING');
-    await waitFor(page, ['LISTENING'], 6000);
-    const drainedReplies = await page.evaluate((from) => window.__wjConcierge.store.turns.filter((turn) => turn.role === 'concierge').slice(from).map((turn) => turn.text), conciergeBeforeDrain);
-    ok(drainedReplies.length === 1 && !drainedReplies.some((text) => /Ji\./.test(text)), `one final grounded reply is stored (${JSON.stringify(drainedReplies)})`);
+    await tell(page, 'Show me gold rings.', 'searchProducts', { category: 'ring', material: 'gold', limit: 4 }, 'Four gold rings are on the page.');
+    let slugs = await recentSlugs(page);
+    check(slugs.length >= 2, 'gold ring search produces ordinal-ready catalogue results');
 
-    // Barge-in uses that same drain: an interrupted answer never races a new page fact, and
-    // the existing microphone, peer connection, and Live session remain the only transport.
-    const bargeTraceAt = await page.evaluate(() => window.__wjVoiceTrace().length);
-    await page.evaluate(() => window.__fakeLive.speak('I was still speaking.', 3000));
-    r = await waitFor(page, ['SPEAKING'], 3000);
-    ok(r.hit === 'SPEAKING', 'a normal Live reply is audible before the visitor barges in');
-    const sayBarge = await page.evaluate(() => window.__fakeLive.say('Gold.'));
-    const bargedToGold = await until(page, () => location.pathname === '/gold', 8000);
-    const bargeQueued = await until(page, (from) => window.__wjVoiceTrace().slice(from).some((entry) => entry.type === 'fact.queued'), 8000, bargeTraceAt);
-    const barge = await page.evaluate((from) => {
-      const trace = window.__wjVoiceTrace().slice(from).map((entry) => entry.type);
-      return { trace, state: window.__wjConcierge.store.state, toneActive: window.__fakeLive.gain?.gain.value > 0, audit: window.__wjVoiceAudit?.() };
-    }, bargeTraceAt);
-    ok(bargedToGold && bargeQueued && barge.toneActive && barge.trace.includes('interrupt') && barge.trace.includes('output.drain') && barge.state !== 'SPEAKING', 'barge-in mutes the old reply while the new action queues its one fact');
-    ok(barge.audit?.streams === 1 && barge.audit?.liveTracks === 1 && barge.audit?.openPeerConnections === 1 && barge.audit?.sessions === 1 && barge.audit?.sessionOpen === true && !barge.trace.includes('reconnect') && !barge.trace.includes('session.closed'), 'barge-in keeps one mic, peer connection, and Live session without reconnecting');
-    await until(page, () => window.__fakeLive.gain?.gain.value === 0, 6000);
-    const bargeReleased = await until(page, (id) => window.__fakeLive.sent.some((event) => event.type === 'session.commentary.append' && event.delegation_id === id), 6000, sayBarge.id);
-    ok(bargeReleased, 'the new fact is released only after the interrupted remote audio drains');
-    await page.evaluate(() => window.__fakeLive.speak('Gold is open.', 700));
-    await waitFor(page, ['LISTENING'], 6000);
+    await tell(page, 'Something lighter.', 'refineResults', { weight: 'lighter', limit: 4 }, 'Lighter options are on the page.');
+    await tell(page, 'Compare the first and second.', 'comparePieces', { slugs: slugs.slice(0, 2) }, 'The first two are side by side.');
+    check(
+      await page.evaluate(() => window.__wjConcierge.store.turns.some((turn) => turn.result && turn.result.kind === 'compare')),
+      'comparison is rendered by the authoritative browser tool',
+    );
 
-    // a natural sentence: the delegation model, its tool executed here
-    await page.evaluate(() => { window.__wjConcierge.dismissTray(); });
-    const say2 = await page.evaluate(() => window.__fakeLive.say('Walima ke liye something classy.'));
-    const delegated = await until(page, () => window.__wjConcierge.store.trayOpen === true && window.__wjConcierge.qaTrace().slice(-1)[0]?.tool === 'searchProducts', 10000);
-    ok(delegated && (await lastTrace(page))?.rung === 'astra', 'the natural sentence brings pieces onto the page through the delegation route');
-    ok(calls.delegate.length === 2 && calls.delegate[0].mode === 'voice' && calls.delegate[0].text === 'Walima ke liye something classy.' && Boolean(calls.delegate[1].continuation), `two rounds went to /api/concierge/delegate in voice mode (${calls.delegate.length})`);
-    ok(Array.isArray(calls.delegate[0].history) && calls.delegate[0].history.some((h) => h.text === 'Gold.'), 'the recent spoken exchange travelled with it');
-    await until(page, () => window.__fakeLive.sent.some((e) => e.type === 'session.commentary.append' && /walima pieces/.test(e.content)), 4000);
-    appends = await sent(page, 'session.commentary.append');
-    const walima = appends.find((e) => /walima pieces/.test(e.content));
-    ok(Boolean(walima) && walima.delegation_id === say2.id, `the model's fact was handed back under the delegation id (${walima?.delegation_id})`);
-    trace = await lastTrace(page);
-    ok(trace?.rung === 'astra' && trace.tool === 'searchProducts', `the trace says astra · searchProducts (${trace?.rung} · ${trace?.tool} · ${trace?.note})`);
-    const langAppends = (await sent(page, 'session.instructions.append')).filter((e) => /Roman Urdu/.test(e.content));
-    ok(langAppends.length === 1, `the language change to Roman Urdu was told once (${langAppends.length})`);
-    await page.evaluate(() => window.__fakeLive.speak('Ji, chaar pieces saamne hain.', 700));
-    await waitFor(page, ['LISTENING'], 6000);
+    await tellCompound(
+      page,
+      'Open the second one and scroll down.',
+      { name: 'openProduct', args: { slug: slugs[1] } },
+      { name: 'scrollToProductDetails', args: {} },
+      'Here are the details.',
+    );
+    const openedProduct = await until(page, (slug) => location.pathname === '/jewellery/' + slug, slugs[1]);
+    check(openedProduct, 'compound ordinal product action changes to the selected product route');
+    await tell(page, 'Show similar pieces.', 'showSimilarPieces', { slug: slugs[1], limit: 4 }, 'Here are similar pieces.');
+    await tell(page, 'What matches this?', 'showMatchingPieces', { slug: slugs[1], limit: 4 }, 'These pair beautifully.');
+    await tell(page, 'Go back.', 'goBack', {}, 'Bilkul.');
+    const backed = await until(page, () => !location.pathname.startsWith('/jewellery/'));
+    check(backed, 'goBack returns from the product route without a separate router');
 
-    // an ordinal, in Roman Urdu: direct, the language kept
-    await page.evaluate(() => window.__fakeLive.say('Doosra wala kholo.'));
-    const opened = await until(page, () => /^\/jewellery\//.test(location.pathname), 8000);
-    ok(opened, `"Doosra wala kholo." opens the second piece (${await page.evaluate(() => location.pathname)})`);
-    // the trace lands when the turn ends, a beat after the page has moved on a fast build
-    await until(page, () => window.__wjConcierge.qaTrace().slice(-1)[0]?.plan === 'core_open', 4000);
-    trace = await lastTrace(page);
-    ok(trace?.rung === 'direct' && trace.plan === 'core_open' && trace.language === 'ur-Latn', `direct · core_open · ur-Latn (${trace?.rung} · ${trace?.plan} · ${trace?.language})`);
-    ok((await sent(page, 'session.instructions.append')).filter((e) => /Roman Urdu/.test(e.content)).length === 1, 'no second language instruction for the same language');
-    await page.evaluate(() => window.__fakeLive.speak('Yeh raha.', 600));
-    await waitFor(page, ['LISTENING'], 6000);
+    await tell(page, 'Mujhe bridal mein kuch elegant dikhao.', 'searchProducts', { department: 'bridal', style: 'bridal', limit: 4 }, 'Chaar bridal pieces saamne hain.');
+    slugs = await recentSlugs(page);
+    check(slugs.length >= 2, 'bridal search leaves ordinal context in the same session');
+    await tell(page, 'Doosra wala kholo.', 'openProduct', { slug: slugs[1] }, 'Yeh raha.');
+    const urduContinuity = await page.evaluate(() => window.__wjConcierge.store.memory.language);
+    check(urduContinuity === 'ur-Latn', 'Roman Urdu survives the short ordinal follow-up');
+    await tell(page, 'Is se thora halka.', 'refineResults', { weight: 'lighter', limit: 4 }, 'Halkay options saamne hain.');
+    await tell(page, 'Iska price kya hai.', 'getProductFacts', {}, 'Iski price on request hai.');
 
-    // a typed sentence into the same conversation
-    await page.evaluate(() => window.__wjConcierge.submitText('Wapas jao', 'text'));
-    const back = await until(page, () => !/^\/jewellery\//.test(location.pathname), 8000);
-    ok(back, `a typed "Wapas jao" goes back through the session (${await page.evaluate(() => location.pathname)})`);
-    await until(page, () => window.__fakeLive.sent.some((e) => e.type === 'session.commentary.append' && e.delegation_id === null && /Went back|page is now/.test(e.content)), 4000);
-    appends = await sent(page, 'session.commentary.append');
-    const typed = appends[appends.length - 1];
-    ok(typed && typed.delegation_id === null && /Went back|page is now/.test(typed.content), `its fact was handed to the voice with no delegation (${typed?.content?.slice(0, 60)})`);
-    ok((await sent(page, 'session.thinking.append')).some((e) => /visitor typed/.test(e.content)), 'the voice was told the words were typed');
+    await tell(page, 'Liberty mein appointment karwani hai.', 'openAppointment', { topic: 'bridal' }, 'Ji.');
+    await tell(page, 'Liberty.', 'fillAppointment', { showroom: 'Liberty Market' }, 'Liberty select kar diya hai.');
+    await tell(page, 'Mera naam Ayesha hai aur phone 03001234567.', 'fillAppointment', { name: 'Ayesha', phone: '03001234567' }, 'Naam aur number likh diye hain.');
+    const appointmentFields = await page.evaluate(() => ({
+      name: document.querySelector('input[autocomplete="name"]')?.value || '',
+      phone: document.querySelector('input[autocomplete="tel"]')?.value || '',
+      liberty: Array.from(document.querySelectorAll('[role="radio"]')).some((node) => node.textContent?.includes('Liberty') && node.getAttribute('aria-checked') === 'true'),
+    }));
+    check(appointmentFields.name === 'Ayesha' && appointmentFields.phone === '03001234567' && appointmentFields.liberty, 'appointment details are visibly filled, not submitted');
 
-    // the words the parser cannot read are left to the voice model unless it delegates
-    const before = (await sent(page, 'session.commentary.append')).length;
-    await page.evaluate(() => window.__fakeLive.say('Kal shaam ka time dekhna.', { delegate: false }));
-    await settle(page, 3500);
-    ok((await sent(page, 'session.commentary.append')).length === before && calls.delegate.length === 2, 'an unread sentence with no delegation calls no model and hands nothing back');
-    await page.evaluate(() => window.__fakeLive.say('Kal shaam ka time dekhna.', { delegate: true }));
-    const asked = await until(page, () => window.__fakeLive.sent.filter((e) => e.type === 'session.commentary.append').length > 0 && (window.__wjConcierge.qaTrace().slice(-1)[0]?.rung === 'astra'), 10000);
-    ok(asked && calls.delegate.length >= 3, `the same sentence delegated goes to the model (${calls.delegate.length} calls)`);
+    await tell(page, 'Actually MM Alam.', 'fillAppointment', { showroom: 'MM Alam Road' }, 'MM Alam select kar diya hai.');
+    const mmAlam = await page.evaluate(() => Array.from(document.querySelectorAll('[role="radio"]')).some((node) => node.textContent?.includes('MM Alam') && node.getAttribute('aria-checked') === 'true'));
+    check(mmAlam, 'showroom correction replaces Liberty with MM Alam');
 
-    // the close: session.close, session.closed, everything released
+    const longReply = await tell(page, 'Review it.', 'reviewAppointment', {}, 'MM Alam ke liye draft tayyar hai.', 3000, false);
+    check(longReply && longReply.replyCount === 1, 'review begins one reply before interruption');
+    const speaking = await until(page, () => window.__fakeRealtime.speaking === true, undefined, 1500);
+    check(speaking, 'Realtime output is active before barge-in');
+    const cancelBefore = await page.evaluate(() => window.__fakeRealtime.cancelled);
+    const clearBefore = await page.evaluate(() => window.__fakeRealtime.cleared);
+    await tell(page, 'Ruko, mera naam Ayesha hai.', 'fillAppointment', { name: 'Ayesha' }, 'Ji.');
+    const barge = await page.evaluate(() => ({
+      cancelled: window.__fakeRealtime.cancelled,
+      cleared: window.__fakeRealtime.cleared,
+      audit: window.__wjVoiceAudit && window.__wjVoiceAudit(),
+    }));
+    check(barge.cancelled === cancelBefore + 1 && barge.cleared === clearBefore + 1, 'barge-in sends native cancel and output clear once');
+    check(
+      barge.audit && barge.audit.streams === 1 && barge.audit.liveTracks === 1 && barge.audit.openPeerConnections === 1 && barge.audit.sessions === 1 && barge.audit.sessionOpen,
+      'barge-in keeps the same microphone and Realtime session',
+    );
+
+    const recoveryBefore = await page.evaluate(
+      () => window.__fakeRealtime.sent.filter((event) => event.type === 'response.create' && !event.response).length,
+    );
+    await page.evaluate(() => window.__fakeRealtime.stallAfterSpeech('Please show gold.'));
+    const recovered = await until(
+      page,
+      (count) => window.__fakeRealtime.sent.filter((event) => event.type === 'response.create' && !event.response).length === count + 1,
+      recoveryBefore,
+      4000,
+    );
+    check(recovered, 'a committed VAD turn without model activity gets one same-session recovery response request');
+    const settledAfterUnacknowledgedResponse = await waitState(page, ['VOICE_READY'], 7000);
+    check(settledAfterUnacknowledgedResponse, 'an unanswered recovery request settles the stage instead of leaving it listening forever');
+
+    const transport = await page.evaluate(() => ({
+      legacyAppends: window.__fakeRealtime.sent.filter((event) => /^session\.(commentary|thinking)\.append$/.test(event.type)).length,
+      responseCreates: window.__fakeRealtime.sent.filter((event) => event.type === 'response.create' && event.response && event.response.tool_choice === 'auto').length,
+      trace: (window.__wjVoiceTrace ? window.__wjVoiceTrace() : []).map((entry) => entry.type),
+      speechTouched: window.__speechTouched,
+    }));
+    check(calls.delegate.length === 0 && calls.turn.length === 0, 'healthy voice uses neither delegation nor text-turn routes');
+    check(transport.legacyAppends === 0, 'no Live commentary, thinking or output-drain layer remains');
+    check(!transport.trace.some((type) => /delegate|astra|output\.drain|fact\.queued/.test(type)), 'voice trace contains no retired routing or drain events');
+    check(transport.speechTouched === 0, 'no browser speech fallback is touched');
+
     await page.evaluate(() => window.__wjConcierge.close());
-    const closed = await until(page, () => window.__fakeLive.sent.some((e) => e.type === 'session.close') && window.__fakeLive.openPcs() === 0, 6000);
-    a = await audit(page);
-    ok(closed && a.liveTracks === 0 && a.openPeerConnections === 0 && a.sessionOpen === false, `close sends session.close and releases the track, the connection and the session (${JSON.stringify(a)})`);
-    const touched = await page.evaluate(() => window.__speechTouched);
-    ok(touched === 0, `the browser's own speech APIs were never touched (${touched})`);
-    ok(errors.length === 0, `no page errors (${errors.length}${errors[0] ? `: ${errors[0]}` : ''})`);
-    await ctx.close();
-  }
-
-  // ── the audio pipeline across five conversations ──
-  {
-    console.log('\nthe audio pipeline: open → talk → close, five times');
-    const { ctx } = await newContext(browser);
-    const page = await ctx.newPage();
-    const { errors } = await openVoice(page, '/diamond');
-    let maxTracks = 0;
-    let maxPcs = 0;
-    let maxSessions = 0;
-    for (let i = 0; i < 5; i++) {
-      if (i > 0) {
-        await page.evaluate(() => window.dispatchEvent(new CustomEvent('wj:concierge', { detail: { action: 'open', mode: 'voice' } })));
-        await waitFor(page, ['VOICE_READY'], 6000);
-        await settle(page, 300);
-      }
-      await page.evaluate(() => window.__wjConcierge.startListening());
-      const r = await waitFor(page, ['LISTENING'], 8000);
-      ok(r.hit === 'LISTENING', `round ${i + 1}: LISTENING`);
-      await page.evaluate(() => window.__fakeLive.say('Show rings.'));
-      await until(page, () => window.__wjConcierge.store.trayOpen === true, 8000);
-      await settle(page, 300);
-      const a = await audit(page);
-      maxTracks = Math.max(maxTracks, a.liveTracks);
-      maxPcs = Math.max(maxPcs, a.openPeerConnections);
-      maxSessions = Math.max(maxSessions, a.sessionOpen ? 1 : 0);
-      await page.evaluate(() => window.__wjConcierge.close());
-      await until(page, () => window.__fakeLive.openPcs() === 0, 6000);
-      await settle(page, 200);
-    }
-    const a = await audit(page);
-    ok(maxTracks === 1 && maxPcs === 1 && maxSessions === 1, `never more than one live track, one open connection, one session at a time (${maxTracks}/${maxPcs}/${maxSessions})`);
-    ok(a.liveTracks === 0 && a.openPeerConnections === 0 && a.sessionOpen === false, `nothing left open after the fifth close (${JSON.stringify(a)})`);
-    ok(a.streams === 5 && a.sessions === 5 && a.peerConnections === 5, `five conversations, five of each (${a.streams} streams, ${a.peerConnections} connections, ${a.sessions} sessions)`);
-    const touched = await page.evaluate(() => window.__speechTouched);
-    ok(touched === 0, `the browser's own speech APIs were never touched (${touched})`);
-    ok(errors.length === 0, `no page errors (${errors.length}${errors[0] ? `: ${errors[0]}` : ''})`);
-    await ctx.close();
-  }
-
-  // ── the QA view: what was heard, and the rung, shown to a tester only ──
-  {
-    console.log('\nQA view (?qa=1): the heard words and the trace');
-    const { ctx } = await newContext(browser);
-    const page = await ctx.newPage();
-    const { errors } = await openVoice(page, '/gold?qa=1');
-    await page.evaluate(() => window.__wjConcierge.startListening());
-    await waitFor(page, ['LISTENING'], 8000);
-    await page.evaluate(() => window.__fakeLive.say('Show rings.'));
-    await until(page, () => window.__wjConcierge.store.trayOpen === true, 8000);
-    await settle(page, 300);
-    const qa = await page.evaluate(() => ({ heard: document.querySelector('[data-qa-heard]')?.textContent ?? '', trace: document.querySelector('[data-qa-trace]')?.textContent ?? '' }));
-    ok(/Show rings/.test(qa.heard), `the QA line shows what was heard ("${qa.heard.trim()}")`);
-    ok(/rung direct/.test(qa.trace) && /searchProducts/.test(qa.trace) && /delegation/.test(qa.trace), `the QA trace shows the rung, the tool and the delegation ("${qa.trace.trim().slice(0, 120)}")`);
-    ok(errors.length === 0, `no page errors (${errors.length}${errors[0] ? `: ${errors[0]}` : ''})`);
-    await ctx.close();
-  }
-
-  // ── the line dropped: re-established once, the transcript seeded, the microphone kept ──
-  {
-    console.log('\nthe line dropped mid-conversation');
-    const { ctx, calls } = await newContext(browser);
-    const page = await ctx.newPage();
-    const { errors } = await openVoice(page, '/');
-    await page.evaluate(() => window.__wjConcierge.startListening());
-    await waitFor(page, ['LISTENING'], 8000);
-    await page.evaluate(() => window.__fakeLive.say('Diamond.'));
-    await until(page, () => location.pathname === '/diamond', 8000);
-    await page.evaluate(() => window.__fakeLive.speak('Diamond is open.', 500));
-    await waitFor(page, ['LISTENING'], 6000);
-    await page.evaluate(() => window.__fakeLive.drop());
-    const again = await until(page, () => window.__fakeLive.sessions === 2 && window.__wjConcierge.store.state === 'LISTENING', 10000);
-    const a = await audit(page);
-    ok(again, 'a dropped line is re-established and the stage listens again');
-    ok(calls.session.length === 2 && Array.isArray(calls.session[1].history) && calls.session[1].history.some((h) => h.text === 'Diamond.'), `the second session was seeded with the recent transcript (${JSON.stringify(calls.session[1]?.history ?? null).slice(0, 120)})`);
-    ok(a.streams === 1 && a.liveTracks === 1 && a.openPeerConnections === 1 && a.peerConnections === 2, `the microphone stream was kept; one new connection (${JSON.stringify(a)})`);
-    ok((await sent(page, 'session.instructions.append')).some((e) => /line dropped/i.test(e.content)), 'the voice was told to say so once');
-    const err = await page.evaluate(() => window.__wjConcierge.store.error?.message ?? null);
-    ok(err === null, `no error is shown for a line that came back (${err})`);
-    ok(errors.length === 0, `no page errors (${errors.length}${errors[0] ? `: ${errors[0]}` : ''})`);
-    await ctx.close();
+    const released = await until(page, () => {
+      const audit = window.__wjVoiceAudit && window.__wjVoiceAudit();
+      return Boolean(audit && audit.liveTracks === 0 && audit.openPeerConnections === 0 && !audit.sessionOpen && window.__fakeRealtime.openPcs() === 0);
+    });
+    check(released, 'closing Concierge releases the microphone, peer connection and Realtime session');
+    check(opened.errors.length === 0, 'owner flow has no page errors');
+    await context.close();
   }
 } finally {
   await browser.close();
 }
 
-console.log(failures.length ? `\nvoice-check: ${failures.length} failed` : '\nvoice-check: all passed');
+console.log(failures.length ? '\nvoice-check: ' + failures.length + ' failed' : '\nvoice-check: all passed');
 process.exit(failures.length ? 1 : 0);

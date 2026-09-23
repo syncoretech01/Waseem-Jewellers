@@ -98,6 +98,7 @@ const rowOf = (p: Product): PieceRow => ({
   w: p.spec.grossWeightGrams,
   ct: p.spec.diamondCarat,
   o: p.occasions,
+  st: p.styleTags.length ? p.styleTags : undefined,
   cp: p.campaignSlug,
   p: p.price.kind === 'fixed' ? p.price.pkr : 0,
   h: p.media.hero.ref.kind === 'local' ? p.media.hero.ref.id : p.media.hero.ref.src,

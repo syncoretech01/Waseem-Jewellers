@@ -24,9 +24,9 @@ export class ServerConciergeProvider implements ConciergeProvider {
   readonly id = 'server-model' as const;
   /**
    * A text model reached over HTTP. It streams, it reasons, and it does not speak: the typed
-   * concierge writes. The Live voice is a different engine and carries a different name.
+   * concierge writes. Direct Realtime voice is a separate engine and transport.
    */
-  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'browser', contextPush: false, intelligence: 'model' };
+  readonly capabilities: ProviderCapabilities = { streaming: true, voice: 'none', contextPush: false, intelligence: 'model' };
 
   private runtime: ProviderRuntime | null = null;
   private aborts = new Map<string, AbortController>();

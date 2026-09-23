@@ -4,10 +4,10 @@ import { TOOL_DEFS } from '@/concierge/tools/toolDefs';
 import type { JsonSchemaProperty, ToolDef } from '@/concierge/types';
 
 /**
- * The delegation model, reached through the Responses API.
+ * The written Concierge model, reached through the Responses API.
  *
- * The voice path's complex requests — and, by the same route, a typed sentence — go to a
- * reasoning model that acts with the one tool registry. The grounding is the text path's
+ * This belongs only to the typed Concierge path. Premium voice never enters this module:
+ * it uses direct Realtime function calls. The grounding is the text path's
  * (`retrieve.ts`, `prompt.ts`, `untrusted.ts`, `validate.ts`, `serverTools.ts`); this module
  * only knows the Responses request and its output shape, so nothing about what the model may
  * see or do is decided twice.

@@ -36,6 +36,8 @@ export interface Slots {
   material?: string;
   department?: string;
   occasion?: string;
+  /** Authored catalogue style, when an operator tool supplied it. */
+  style?: string;
   karat?: number;
   maxWeightGrams?: number;
   minWeightGrams?: number;

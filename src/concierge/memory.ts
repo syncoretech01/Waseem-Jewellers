@@ -51,7 +51,7 @@ export const EMPTY_MEMORY: ConversationMemory = {
 };
 
 /** The subject of a request, as opposed to how it was phrased. */
-const SUBJECT_KEYS = ['category', 'material', 'department', 'occasion', 'karat', 'maxWeightGrams', 'minWeightGrams', 'maxPricePkr'] as const;
+const SUBJECT_KEYS = ['category', 'material', 'department', 'occasion', 'style', 'karat', 'maxWeightGrams', 'minWeightGrams', 'maxPricePkr'] as const;
 
 export const subjectOf = (slots: Slots): Slots =>
   Object.fromEntries(SUBJECT_KEYS.flatMap((k) => (slots[k] !== undefined ? [[k, slots[k]]] : []))) as Slots;
@@ -99,6 +99,7 @@ export function topicLine(slots: Slots): string {
     slots.department,
     slots.category,
     slots.occasion,
+    slots.style,
     slots.maxWeightGrams !== undefined ? `under ${Math.round(slots.maxWeightGrams)} g` : undefined,
     slots.maxPricePkr !== undefined ? `under ${Math.round(slots.maxPricePkr / 100_000)} lakh` : undefined,
   ].filter(Boolean);

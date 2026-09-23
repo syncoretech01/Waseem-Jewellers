@@ -78,8 +78,6 @@ export function Composer({ autoFocus = false }: { autoFocus?: boolean }) {
             controller?.setMode('voice');
             controller?.startListening();
           }}
-          /* a pointer arriving over the microphone is a visitor about to tap: the call opens now */
-          onPointerEnter={() => controller?.warmVoice()}
           className={cn('mb-1 inline-flex h-11 w-11 items-center justify-center rounded-full border border-line-strong text-fg-2 transition-colors hover:border-gold-hi hover:text-fg')}
           data-cursor="listen"
         >

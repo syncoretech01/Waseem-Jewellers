@@ -13,6 +13,10 @@ export type ToolName =
   | 'filterProducts'
   | 'clearFilters'
   | 'showPriceGuidance'
+  /** Read only the published facts for the piece in view or a named listable piece. */
+  | 'getProductFacts'
+  /** The safe PDP-only scroll used after opening a product. */
+  | 'scrollToProductDetails'
   | 'scrollToSection'
   | 'openPrivateConsultation'
   | 'compareProducts'
@@ -25,6 +29,8 @@ export type ToolName =
   | 'showGold'
   | 'showDiamond'
   | 'navigate'
+  /** The narrow, spoken name for navigate({ target: 'back' }). */
+  | 'goBack'
   | 'getCurrentContext'
   /** Operating the site: the chrome, the gallery, the gate, the window. */
   | 'openMenu'
@@ -157,11 +163,10 @@ export interface ToolOutcome {
  */
 export interface TurnTrace {
   /**
-   * Which engine answered: the text model or the keyless engine on the typed path; on the
-   * voice path the direct rung (the parser, no model), the delegation model, or the voice
-   * model speaking alone.
+   * Which engine answered: the text model or the keyless engine on the typed path; the
+   * direct Realtime operator on the premium voice path.
    */
-  rung: 'model' | 'keyless' | 'direct' | 'astra' | 'live';
+  rung: 'model' | 'keyless' | 'realtime';
   /** Why a rung below the one tried answered instead — or why the voice did not open — the code and message of the failure, verbatim. */
   fallback?: string;
   language?: string;
@@ -203,20 +208,19 @@ export interface ProviderRuntime {
  * One name per engine, not per vendor.
  *
  * These used to be two names for three things: the server-mediated *text* model called itself
- * `openai-realtime` while advertising `voice: 'none'`, which made the identity useless for
- * the one question anyone asks it — can this thing speak. The Live voice is a different
+ * `realtime-voice` while advertising `voice: 'none'`, which made the identity useless for
+ * the one question anyone asks it — can this thing speak. The direct Realtime voice is a different
  * engine with a different transport and different failure modes, and carries its own name.
  */
-export type ProviderId = 'keyless' | 'server-model' | 'live-voice';
+export type ProviderId = 'keyless' | 'server-model' | 'realtime-voice';
 
 export interface ProviderCapabilities {
   streaming: boolean;
   /**
-   * `none` — this engine does not speak; the controller drives the browser's own speech.
-   * `browser` — the same, said explicitly: recognition and synthesis are the browser's.
+   * `none` — this engine does not speak.
    * `native` — the engine itself hears and speaks over its own transport.
    */
-  voice: 'none' | 'browser' | 'native';
+  voice: 'none' | 'native';
   contextPush: boolean;
   /** Whether the engine reasons, or answers from a fixed plan. Decides what a fallback costs. */
   intelligence: 'deterministic' | 'model';

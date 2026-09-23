@@ -183,7 +183,10 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         department: asDepartment(args.department),
         purity: asKarat(args.purity),
         occasion: str(args.occasion),
+        style: str(args.style),
         maxWeightGrams: typeof args.maxWeightGrams === 'number' ? args.maxWeightGrams : undefined,
+        maxPricePkr: typeof args.maxPricePkr === 'number' ? args.maxPricePkr : undefined,
+        excludeSlugs: Array.isArray(args.excludeSlugs) ? args.excludeSlugs.filter((slug): slug is string => typeof slug === 'string') : undefined,
         limit,
       });
       const what = describeQuery(args);
@@ -265,6 +268,19 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         navigateTo: `/jewellery/${product.s}`,
         ui: { kind: 'piece', piece: cardsOf([product])[0]!, verb: 'opened' },
         compact: true,
+      };
+    }
+
+    case 'scrollToProductDetails': {
+      if (ctx.routeKind !== 'product') return { result: { error: 'NOT_ON_A_PIECE', message: 'Open a product before asking for its details.' }, label: '' };
+      const el = sectionElement('details');
+      if (el) scrollTo(el, { offset: -24, duration: 1.2 });
+      return {
+        result: { ok: Boolean(el), section: 'details', slug: ctx.currentProduct?.slug ?? null },
+        runningLabel: 'Showing product details…',
+        label: 'Product details',
+        ui: { kind: 'navigation', label: 'Product details', href: ctx.route },
+        compact: ctx.viewport !== 'desktop',
       };
     }
 
@@ -575,6 +591,40 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         compact: true,
       };
     }
+
+    /**
+     * A read-only counterpart to price guidance. Realtime exposes this precise name rather
+     * than making the model infer a price from a card or a context block. It never opens an
+     * enquiry or submits anything; appointment preparation remains an explicit visitor flow.
+     */
+    case 'getProductFacts': {
+      const piece = resolveAnchor(args, ctx);
+      if (!piece) return { result: { needsPiece: true, note: 'Open a piece or show pieces first.' }, label: '' };
+      const category = piece.c ? CATEGORY_LABEL[piece.c as Category] ?? piece.c : null;
+      const pricePkr = piece.p > 0 ? piece.p : null;
+      return {
+        result: {
+          piece: {
+            slug: piece.s,
+            name: piece.t,
+            reference: piece.rf ?? null,
+            category,
+            material: piece.m ?? null,
+            purity: piece.k ?? null,
+            grossWeightGrams: piece.w ?? null,
+            diamondCarats: piece.ct ?? null,
+            pricePkr,
+            priceLabel: pricePkr !== null ? priceLabelOf(piece) : 'price on request',
+          },
+          note:
+            pricePkr !== null
+              ? 'This is the published price. Gold moves daily; do not present it as fixed.'
+              : 'Waseem publishes this price on request. Say so plainly; never estimate a figure or range.',
+        },
+        label: pricePkr !== null ? priceLabelOf(piece) : CONCIERGE.labels.priceOnRequest,
+      };
+    }
+
     /**
      * "Take me to gold." A target is the place as the visitor names it; a path is for the
      * pages the targets do not cover. Two of the targets are not pages at all — the
@@ -617,6 +667,10 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       await navigate(path);
       return { result: { ok: true, path }, runningLabel: CONCIERGE.labels.navigating(label), label, navigateTo: path, ui: { kind: 'navigation', label, href: path }, compact: true };
     }
+
+    /** The direct Realtime surface keeps the visitor's language as a first-class tool name. */
+    case 'goBack':
+      return executeTool('navigate', { target: 'back' });
 
     /**
      * The chrome. Each of these is one visitor sentence — "open the menu", "close", "the

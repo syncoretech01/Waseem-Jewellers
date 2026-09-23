@@ -136,11 +136,16 @@ export interface RowQuery {
   material?: string;
   department?: string;
   occasion?: string;
+  style?: string;
   purity?: string;
   /** A campaign slug. Declared *and read* — the field this replaces was silently discarded. */
   campaign?: string;
   maxWeightGrams?: number;
   minWeightGrams?: number;
+  /** Only fixed, published prices are eligible; price-on-request is never guessed. */
+  maxPricePkr?: number;
+  /** A compact caller-supplied set of pieces to keep out of a fresh recommendation. */
+  excludeSlugs?: readonly string[];
   limit?: number;
 }
 
@@ -148,18 +153,26 @@ export interface RowQuery {
 export function searchRows(q: RowQuery & { query?: string }): PieceRow[] {
   if (!cache) return [];
   const asked = q.query ? words(q.query) : [];
+  const excluded = new Set(q.excludeSlugs ?? []);
   return cache.rows
     .map((row) => {
+      if (excluded.has(row.s)) return null;
       if (q.category && row.c !== q.category) return null;
       if (q.department && !row.d.includes(q.department)) return null;
       if (q.purity && row.k !== q.purity) return null;
-      if (q.occasion && !row.o.includes(q.occasion)) return null;
       if (q.material && !matchesMaterial(row, q.material)) return null;
       if (q.campaign && row.cp !== q.campaign) return null;
       if (q.maxWeightGrams !== undefined && (row.w === undefined || row.w > q.maxWeightGrams)) return null;
       if (q.minWeightGrams !== undefined && (row.w === undefined || row.w < q.minWeightGrams)) return null;
+      if (q.maxPricePkr !== undefined && (row.p <= 0 || row.p > q.maxPricePkr)) return null;
       let score = 1;
-      const hay = `${row.t} ${row.c ?? ''} ${row.m ?? ''} ${row.cp ?? ''}`.toLowerCase();
+      // Occasion and authored style are recommendation signals, not a promise that every
+      // category carries editorial tagging. Filtering a requested ring down to only tagged
+      // bridal sets would be less relevant than returning a grounded ring with a subjective
+      // recommendation. A matching real tag still ranks ahead of an untagged alternative.
+      if (q.occasion && row.o.includes(q.occasion)) score += 2;
+      if (q.style && row.st?.includes(q.style)) score += 2;
+      const hay = `${row.t} ${row.c ?? ''} ${row.m ?? ''} ${row.cp ?? ''} ${(row.st ?? []).join(' ')}`.toLowerCase();
       for (const w of asked) if (hay.includes(w)) score += 1;
       return { row, score };
     })

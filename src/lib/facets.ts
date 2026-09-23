@@ -112,6 +112,7 @@ export interface PieceRow {
   /** gross weight, grams */ w?: number;
   /** diamond carat */ ct?: number;
   /** occasions */ o: string[];
+  /** authored style tags; omitted when Waseem publishes none */ st?: string[];
   /** campaign */ cp?: string;
   /** price in PKR, 0 when on request */ p: number;
   /** hero: an asset id when local, a source url when remote */ h: string;
