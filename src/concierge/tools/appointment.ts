@@ -10,8 +10,8 @@ import type { ConsultationDraft, ConsultationDraftField } from '@/state/siteStor
  * here submits, stores or transmits; it only reads a draft and describes it.
  */
 
-/** The four the form refuses without. In the order the form asks for them. */
-export const REQUIRED_FIELDS: readonly ConsultationDraftField[] = ['name', 'phone', 'showroom', 'occasion'];
+/** The appointment is not ready until its visitor, place, purpose, day and time are all explicit. */
+export const REQUIRED_FIELDS: readonly ConsultationDraftField[] = ['name', 'phone', 'showroom', 'occasion', 'date', 'window'];
 
 /** The same words the form offers, so a value the concierge writes is one the form can show. */
 export const OCCASIONS = [

@@ -1,7 +1,7 @@
 'use client';
 
 import { startSyntheticMeter, stopMeter } from './meter';
-import type { VoiceContextInput } from './livePrompt';
+import type { VoiceContextInput } from './realtimePrompt';
 import type { ProviderEvent, SiteContext, ToolName, ToolOutcome } from '../types';
 
 export type VoiceErrorCode = 'MIC_DENIED' | 'NO_SPEECH' | 'NETWORK' | 'ABORTED' | 'UNSUPPORTED';

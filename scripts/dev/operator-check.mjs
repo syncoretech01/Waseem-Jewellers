@@ -160,12 +160,19 @@ try {
   const afterKinds = await context(page);
   ok(kinds.result?.ok === true && afterKinds.highlightedCategory === 'bangle', `highlightCategory 'bangle' is recorded for the window (${afterKinds.highlightedCategory})`);
 
+  const men = await run(page, 'showDepartment', { department: 'men' });
+  const firstMen = men.result?.items?.map((item) => item.slug) ?? [];
+  const moreMen = await run(page, 'showMoreProducts');
+  const nextMen = moreMen.result?.items?.map((item) => item.slug) ?? [];
+  ok(men.result?.hasMore === true && firstMen.length > 0, `men's first group reports more pieces (${firstMen.length}/${men.result?.total})`);
+  ok(nextMen.length > 0 && !nextMen.some((slug) => firstMen.includes(slug)), `showMoreProducts advances to a distinct group (${nextMen.join(', ')})`);
+
   // saving is not offered on this build: the tool is gone, and the validator says so
   const saved = await run(page, 'openSaved').catch(() => null);
   ok(saved?.result?.error === 'TOOL_UNKNOWN', `openSaved is no longer a tool (${saved?.result?.error})`);
 
   console.log('\nthe appointment');
-  const fill = await run(page, 'fillAppointment', { name: 'Ayesha Khan', phone: '0300 7122859', showroom: 'Liberty Market', occasion: 'bridal' });
+  const fill = await run(page, 'fillAppointment', { name: 'Ayesha Khan', phone: '0300 7122859', showroom: 'Liberty Market', occasion: 'bridal', date: '2026-10-01', window: 'afternoon' });
   await settle(page, 900);
   const form = await page.evaluate((sel) => {
     const dialog = document.querySelector(sel);
@@ -203,6 +210,9 @@ try {
   const refilled = await nameField(page);
   ok(refilled === 'Ayesha Khan', `a later fill from the conversation is shown again ("${refilled}")`);
 
+  const premature = await run(page, 'submitAppointment', { confirmed: true });
+  ok(premature.result?.error === 'REVIEW_REQUIRED', `submitAppointment is refused until the complete form has been reviewed (${premature.result?.error})`);
+
   const review = await run(page, 'reviewAppointment');
   ok(review.result?.draft?.showroom?.name === 'Liberty Market' && review.result.draft.occasion?.label === 'Bridal', `reviewAppointment reads it back in words (${review.result?.draft?.showroom?.name}, ${review.result?.draft?.occasion?.label})`);
 
@@ -222,6 +232,12 @@ try {
   ok(/ready/i.test(screen) && !/received|booked|confirmed/i.test(screen), 'the acknowledgement says ready, not received');
   ok(await closeDialog(page, FORM), 'the form is closed again by hand');
   await settle(page, 600);
+  await run(page, 'openAppointment', {});
+  await settle(page, 200);
+  const cancelled = await run(page, 'cancelAppointment');
+  await settle(page, 650);
+  const appointmentOpen = await page.evaluate((sel) => Boolean(document.querySelector(sel)), FORM);
+  ok(cancelled.result?.cancelled === true && !appointmentOpen, 'cancelAppointment closes and clears the unsent appointment form');
 
   console.log('\nthe gallery');
   let piece = null;
@@ -313,7 +329,8 @@ try {
    * hook reads the page as it is, so the pieces are brought first and the form opened for
    * the sentences that answer it.
    */
-  console.log('\nthe voice router: which rung each sentence takes');
+  if (await page.evaluate(() => Boolean(window.__wjVoiceRoute))) {
+  console.log('\nthe legacy voice router: which rung each sentence takes');
   await page.evaluate(() => window.__wjConcierge.forget());
   await page.evaluate(() => window.__wjConcierge.runTool('searchProducts', { category: 'ring', material: 'gold', limit: 4 }));
   await settle(page, 1200);
@@ -343,6 +360,7 @@ try {
   await settle(page, 400);
   await page.evaluate(() => window.__wjConcierge.forget());
   await settle(page, 300);
+  } else console.log('\ndirect Realtime owns voice routing; legacy router probe skipped');
 
   console.log('\nclosing');
   const bye = await run(page, 'closeConcierge');

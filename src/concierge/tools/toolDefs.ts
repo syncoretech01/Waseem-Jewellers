@@ -90,6 +90,18 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     runtime: 'browser',
   },
   {
+    name: 'scrollPage',
+    description: 'Move the current page visibly: scroll down, scroll up, or return to the top. On a product page, use scrollToSection with details for “show details”.',
+    parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['down', 'up', 'top'] } }, required: ['direction'] },
+    runtime: 'browser',
+  },
+  {
+    name: 'getProductFacts',
+    description: 'Read only the published facts for the product in view or a named recent product: weight/wazan/grams/tola, purity or karat, metal, stones or carats, price, reference and available specifications. Never estimate a missing fact.',
+    parameters: { type: 'object', properties: { slug: { type: 'string', format: 'piece-slug' } } },
+    runtime: 'browser',
+  },
+  {
     name: 'openPrivateConsultation',
     description: 'Open the appointment form — a visit to a Lahore showroom, optionally about a piece.',
     parameters: { type: 'object', properties: { topic: { type: 'string', enum: ['bridal', 'bespoke', 'viewing', 'general'] }, productSlug: { type: 'string', format: 'piece-slug' } } },
@@ -228,6 +240,18 @@ export const TOOL_DEFS: readonly ToolDef[] = [
     description:
       'Send the appointment request — only after the visitor has answered yes to a confirming question in this conversation; pass confirmed true only then. Refused otherwise, and refused while a required field is missing. Afterwards say exactly what the result says: "prepared" means the request is kept on the device with a reference and WhatsApp is the next step, nothing was sent; "delivered" means our team has it and will confirm. Never say booked or confirmed.',
     parameters: { type: 'object', properties: { confirmed: { type: 'boolean', description: 'true only when the visitor has just said yes to sending' } }, required: ['confirmed'] },
+    runtime: 'browser',
+  },
+  {
+    name: 'cancelAppointment',
+    description: 'Close and cancel the open appointment form — “close the form”, “cancel appointment”, “exit booking”, “form band kar dein”, “cancel kar dein”, “booking close kar dein”. This closes the form and clears its unsent draft; it never closes the Concierge, browser or page.',
+    parameters: { type: 'object', properties: {} },
+    runtime: 'browser',
+  },
+  {
+    name: 'showMoreProducts',
+    description: 'Show the next group from the current category or collection results — “show more”, “next products”, “more options”, “scroll right”, “next page”. Keep the current category and do not repeat the preceding group.',
+    parameters: { type: 'object', properties: {} },
     runtime: 'browser',
   },
   /**

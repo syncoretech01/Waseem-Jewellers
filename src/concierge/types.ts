@@ -14,6 +14,8 @@ export type ToolName =
   | 'clearFilters'
   | 'showPriceGuidance'
   | 'scrollToSection'
+  | 'scrollPage'
+  | 'getProductFacts'
   | 'openPrivateConsultation'
   | 'compareProducts'
   | 'comparePieces'
@@ -39,6 +41,8 @@ export type ToolName =
   | 'fillAppointment'
   | 'reviewAppointment'
   | 'submitAppointment'
+  | 'cancelAppointment'
+  | 'showMoreProducts'
   | 'checkAvailability';
 
 /**

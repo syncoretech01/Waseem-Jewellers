@@ -37,7 +37,7 @@
     "bundle:report": "node scripts/dev/bundle-report.mjs",
     "leak:check": "node scripts/dev/leak-check.mjs",
     "warm:images": "node scripts/dev/warm-images.mjs",
-    "voice:check": "node scripts/dev/voice-check.mjs",
+    "voice:check": "node scripts/dev/realtime-voice-check.mjs",
     "operator:check": "node scripts/dev/operator-check.mjs",
     "secret:scan": "node scripts/dev/secret-scan.mjs",
     "assets:variants": "node scripts/assets/variants.mjs",

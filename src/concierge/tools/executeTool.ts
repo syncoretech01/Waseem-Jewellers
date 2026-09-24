@@ -120,6 +120,35 @@ const topicOf = (occasion: string | undefined): 'bridal' | 'bespoke' | 'viewing'
 
 const uniq = (list: string[]) => [...new Set(list)];
 
+/** The visible tray is one page; this small Concierge-only cursor remembers how to continue it. */
+interface BrowseState {
+  query?: string;
+  category?: string;
+  material?: string;
+  department?: string;
+  purity?: string;
+  occasion?: string;
+  maxWeightGrams?: number;
+  pageSize: number;
+  offset: number;
+}
+let activeBrowse: BrowseState | null = null;
+/** Tool-level guard; the Realtime adapter additionally requires the later spoken confirmation. */
+let appointmentReviewReady = false;
+
+function rowsForBrowse(browse: BrowseState) {
+  return searchRows({
+    query: browse.query,
+    category: canonicalCategory(browse.category),
+    material: asMaterial(browse.material),
+    department: asDepartment(browse.department),
+    purity: asKarat(browse.purity),
+    occasion: browse.occasion,
+    maxWeightGrams: browse.maxWeightGrams,
+    limit: 1000,
+  });
+}
+
 /** The department the visitor is standing in, read from the route rather than kept twice. */
 const departmentOf = (ctx: SiteContext): Department | undefined => asDepartment(ctx.route.split('?')[0]?.split('/')[1]);
 
@@ -176,7 +205,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
        * longer offers it. `campaignSlugOf` survives for the facet URL, where the values come
        * from counts of real pieces and can only name a campaign that has some.
        */
-      const results = searchRows({
+      const browse: BrowseState = {
         query: str(args.query),
         category: canonicalCategory(args.category),
         material: asMaterial(args.material),
@@ -184,8 +213,12 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         purity: asKarat(args.purity),
         occasion: str(args.occasion),
         maxWeightGrams: typeof args.maxWeightGrams === 'number' ? args.maxWeightGrams : undefined,
-        limit,
-      });
+        pageSize: limit,
+        offset: 0,
+      };
+      const all = rowsForBrowse(browse);
+      const results = all.slice(0, limit);
+      activeBrowse = all.length > limit ? browse : null;
       const what = describeQuery(args);
       if (results.length === 0) {
         return { result: { count: 0, items: [] }, label: CONCIERGE.labels.nothing, runningLabel: CONCIERGE.labels.searching(what) };
@@ -194,7 +227,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       const count = capitalise(countInWords(results.length));
       const houses = [...new Set(results.map((p) => p.cp).filter((h): h is string => Boolean(h)))];
       return {
-        result: { count: results.length, items: results.map((p) => ({ slug: p.s, name: p.t, house: p.cp, priceLabel: cards.find((c) => c.slug === p.s)?.priceLabel })), houses },
+        result: { count: results.length, total: all.length, offset: 0, hasMore: all.length > results.length, items: results.map((p) => ({ slug: p.s, name: p.t, house: p.cp, priceLabel: cards.find((c) => c.slug === p.s)?.priceLabel })), houses },
         label: CONCIERGE.labels.found(count, what),
         runningLabel: CONCIERGE.labels.searching(what),
         ui: { kind: 'pieces', title: `${count} ${what}`, pieces: cards },
@@ -325,6 +358,54 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       };
     }
 
+    case 'showMoreProducts': {
+      const browse = activeBrowse;
+      if (!browse) return { result: { error: 'NO_MORE_RESULTS', message: 'There is no active collection with more pieces.' }, label: '' };
+      const all = rowsForBrowse(browse);
+      const nextOffset = browse.offset + browse.pageSize;
+      const results = all.slice(nextOffset, nextOffset + browse.pageSize);
+      if (!results.length) {
+        activeBrowse = null;
+        return { result: { count: 0, total: all.length, offset: nextOffset, hasMore: false }, label: 'No further pieces' };
+      }
+      browse.offset = nextOffset;
+      if (browse.offset + results.length >= all.length) activeBrowse = null;
+      const cards = cardsOf(results);
+      const what = describeQuery(browse as unknown as Record<string, unknown>);
+      return {
+        result: { count: results.length, total: all.length, offset: browse.offset, hasMore: browse.offset + results.length < all.length, items: results.map((p) => ({ slug: p.s, name: p.t })) },
+        label: `More ${what}`,
+        runningLabel: CONCIERGE.labels.searching(what),
+        ui: { kind: 'pieces', title: `More ${what}`, pieces: cards },
+      };
+    }
+
+    case 'scrollPage': {
+      const direction = str(args.direction);
+      if (direction === 'top') scrollTo(0, { duration: 1.1 });
+      else if (direction === 'up') scrollTo(Math.max(0, window.scrollY - Math.round(window.innerHeight * 0.78)), { duration: 1.1 });
+      else if (direction === 'down') scrollTo(window.scrollY + Math.round(window.innerHeight * 0.78), { duration: 1.1 });
+      else return { result: { error: 'unknown direction' }, label: '' };
+      return { result: { ok: true, direction }, label: direction === 'top' ? 'At the top' : direction === 'up' ? 'Moved up' : 'Moved down', ui: { kind: 'navigation', label: direction, href: ctx.route } };
+    }
+
+    case 'getProductFacts': {
+      const product = resolveAnchor(args, ctx);
+      if (!product) return { result: { needsPiece: true }, label: '' };
+      const facts = {
+        slug: product.s,
+        name: product.t,
+        category: product.c ? CATEGORY_LABEL[product.c as Category] : null,
+        departments: product.d,
+        purity: product.k ?? null,
+        grossWeightGrams: product.w ?? null,
+        diamondsCarats: product.ct ?? null,
+        price: product.p > 0 ? priceLabelOf(product) : null,
+        reference: product.rf ?? null,
+      };
+      return { result: { product: facts, unpublished: Object.entries(facts).filter(([, value]) => value === null).map(([key]) => key) }, label: `Details for ${product.t}` };
+    }
+
     case 'openPrivateConsultation':
     case 'openAppointment': {
       const topic = (str(args.topic) as 'bridal' | 'bespoke' | 'viewing' | 'general' | undefined) ?? 'viewing';
@@ -349,7 +430,10 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
     case 'showGold':
     case 'showDiamond': {
       const department = name === 'showGold' ? 'gold' : name === 'showDiamond' ? 'diamond' : (asDepartment(args.department) ?? 'gold');
-      const results = searchRows({ department, limit: 4 });
+      const browse: BrowseState = { department, pageSize: 4, offset: 0 };
+      const all = rowsForBrowse(browse);
+      const results = all.slice(0, browse.pageSize);
+      activeBrowse = all.length > results.length ? browse : null;
       const label = DEPARTMENT_LABEL[department];
       // on the homepage every department has a chapter of its own pieces: bring the visitor to it
       if (ctx.routeKind === 'home') {
@@ -362,7 +446,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         await navigate(`/${department}`);
       }
       return {
-        result: { department, items: results.map((p) => ({ slug: p.s, name: p.t })) },
+        result: { department, total: all.length, offset: 0, hasMore: all.length > results.length, items: results.map((p) => ({ slug: p.s, name: p.t })) },
         runningLabel: CONCIERGE.labels.navigating(label),
         label,
         ui: { kind: 'pieces', title: label, pieces: cardsOf(results) },
@@ -688,6 +772,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
      * reports, so the sentence after it cannot claim more than happened.
      */
     case 'fillAppointment': {
+      appointmentReviewReady = false;
       const draft = site.consultation.draft ?? {};
       const patch: Partial<ConsultationDraft> = {};
       const problems: Record<string, string> = {};
@@ -752,6 +837,7 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
     case 'reviewAppointment': {
       if (!site.consultation.open) site.openConsultation({ topic: topicOf(site.consultation.draft?.occasion), productSlug: ctx.currentProduct?.slug, source: 'concierge' });
       const described = describeDraft(useSiteStore.getState().consultation.draft, (s) => getRow(s)?.t);
+      appointmentReviewReady = described.missing.length === 0;
       return {
         result: {
           formOpen: true,
@@ -772,6 +858,10 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
       if (args.confirmed !== true) {
         return { result: { error: 'NOT_CONFIRMED', message: 'ask the visitor whether to send the request; call again with confirmed true only after they say yes' }, label: '' };
       }
+      if (!appointmentReviewReady) {
+        return { result: { error: 'REVIEW_REQUIRED', message: 'Read the complete appointment back and ask for confirmation before submitting.' }, label: '' };
+      }
+      appointmentReviewReady = false;
       // the draft can say no before the form has to; the form's own validation still runs
       const early = missingFields(site.consultation.draft);
       if (early.length && !site.consultation.open) {
@@ -821,6 +911,18 @@ export async function executeTool(name: ToolName, rawArgs: Record<string, unknow
         },
         runningLabel: CONCIERGE.labels.sending,
         label: CONCIERGE.labels.prepared(reference),
+        ui: { kind: 'consultation' },
+        compact: true,
+      };
+    }
+
+    case 'cancelAppointment': {
+      appointmentReviewReady = false;
+      site.closeConsultation();
+      site.clearConsultationDraft();
+      return {
+        result: { ok: true, formOpen: false, cancelled: true },
+        label: 'Appointment form closed',
         ui: { kind: 'consultation' },
         compact: true,
       };

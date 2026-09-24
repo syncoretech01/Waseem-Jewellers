@@ -47,3 +47,30 @@ export function conciergeEnv(): ConciergeEnv {
 }
 
 export const modelIsConfigured = () => Boolean(conciergeEnv().apiKey);
+
+/** The direct WebRTC Concierge session. Its long-lived credential remains server-side. */
+export interface RealtimeEnv {
+  apiKey: string | null;
+  baseUrl: string;
+  model: string;
+  voice: string;
+  sttModel: string;
+  enabled: boolean;
+}
+
+export function realtimeEnv(): RealtimeEnv {
+  const concierge = conciergeEnv();
+  const openAiBase = /api\.openai\.com/.test(concierge.baseUrl);
+  const apiKey = process.env.OPENAI_API_KEY?.trim() || (openAiBase ? concierge.apiKey : null) || null;
+  const disabled = /^(off|0|false)$/i.test(process.env.CONCIERGE_REALTIME?.trim() ?? '');
+  return {
+    apiKey: openAiBase ? apiKey : null,
+    baseUrl: openAiBase ? concierge.baseUrl : 'https://api.openai.com/v1',
+    model: process.env.OPENAI_REALTIME_MODEL?.trim() || 'gpt-realtime-2.1',
+    voice: process.env.OPENAI_REALTIME_VOICE?.trim() || 'marin',
+    sttModel: process.env.CONCIERGE_REALTIME_STT?.trim() || 'gpt-4o-transcribe',
+    enabled: openAiBase && Boolean(apiKey) && !disabled,
+  };
+}
+
+export const realtimeIsConfigured = () => realtimeEnv().enabled;

@@ -6,10 +6,11 @@ import { useQualityStore } from '@/state/qualityStore';
 import { buildSiteContext } from './context';
 import { getRow, loadIndex, priceLabelOf, specLineOf } from '@/data/clientIndex';
 import { canonicalCategory } from '@/data/vocabulary';
+import { parse as parseIntent } from './nlu/parse';
 import { CATEGORY_PLURAL } from '@/data/labels';
 import type { Category } from '@/data/types';
 import { chooseVoiceEngine, hearingAvailable, type VoiceTier } from './voice/engine';
-import { liveMark, liveTrace, registerLiveEngine, type TraceEntry } from './voice/live';
+import { realtimeMark, realtimeTrace, registerRealtimeEngine, type TraceEntry } from './voice/realtime';
 import { topicLine } from './memory';
 import { probeCapabilities } from './capabilities';
 import { createProvider } from './createProvider';
@@ -78,9 +79,9 @@ export class ConciergeController {
       toolDefs: TOOL_DEFS,
     };
     this.provider.attach(runtime);
-    registerLiveEngine();
+    registerRealtimeEngine();
     this.refreshVoiceSupport();
-    if (typeof window !== 'undefined') window.__wjVoiceTrace = liveTrace;
+    if (typeof window !== 'undefined') window.__wjVoiceTrace = realtimeTrace;
     useConciergeStore.subscribe((s, prev) => {
       if (s.state !== prev.state) this.mark(`state:${s.state}`, s.reason);
     });
@@ -91,7 +92,7 @@ export class ConciergeController {
     const entry = { t: Date.now(), type, detail };
     this.marks.push(entry);
     if (this.marks.length > 400) this.marks.splice(0, this.marks.length - 400);
-    liveMark(type, detail);
+    realtimeMark(type, detail);
   }
 
   /** The timeline the latency harness reads: the controller's marks; the adapter's trace is `window.__wjVoiceTrace()`. */
@@ -136,6 +137,15 @@ export class ConciergeController {
       // the form's state, never the visitor's details: those travel only when a tool is asked for them
       appointment: site.consultation.open || site.consultation.draft ? `${site.consultation.open ? 'open' : 'closed'} — ${summariseDraft(site.consultation.draft)}` : undefined,
     };
+  }
+
+  /** The visitor's complete wording wins; a terse English-looking follow-up inherits its language. */
+  private rememberSpokenLanguage(text: string) {
+    const line = text.trim();
+    if (!line) return;
+    const language = parseIntent(line).language;
+    const shortFollowUp = line.split(/\s+/).length <= 2 && language === 'en' && this.store.memory.language && this.store.memory.language !== 'en';
+    if (!shortFollowUp) this.store.rememberLanguage(language);
   }
 
   /** What this device can hear with, by what the deployment offers. The session speaks for itself. */
@@ -841,6 +851,7 @@ export class ConciergeController {
       },
       onInterim: (text) => this.store.setTranscript({ interim: text, active: true }),
       onFinal: (text) => {
+        this.rememberSpokenLanguage(text);
         this.store.setTranscript({ interim: '', final: text, active: false });
         // the session answers its own sentences; only the scripted example is submitted as text
         if (adapter.kind !== 'realtime') this.submitText(text, 'example');

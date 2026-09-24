@@ -16,16 +16,16 @@ import { ScriptedExampleAdapter, type VoiceAdapter } from './adapters';
  */
 type EngineFactory = () => VoiceAdapter;
 
-let liveEngine: EngineFactory | null = null;
+let realtimeEngine: EngineFactory | null = null;
 
 /** Called by the Live voice module when it loads. Absent until it exists. */
 export function registerVoiceEngine(factory: EngineFactory) {
-  liveEngine = factory;
+  realtimeEngine = factory;
 }
 
 /** Whether this device can hear at all: the deployment offers the Live voice and the browser can carry it. */
 export function hearingAvailable(): boolean {
-  return capabilities().voice === 'native' && Boolean(liveEngine) && liveEngine!().isSupported();
+  return capabilities().voice === 'native' && Boolean(realtimeEngine) && realtimeEngine!().isSupported();
 }
 
 export type VoiceTier = 'auto' | 'scripted';
@@ -38,7 +38,7 @@ export interface EngineChoice {
 export function chooseVoiceEngine(opts: { tier?: VoiceTier; exampleLine: () => string }): EngineChoice {
   const tier = opts.tier ?? 'auto';
   if (tier === 'auto' && hearingAvailable()) {
-    const adapter = liveEngine!();
+    const adapter = realtimeEngine!();
     return { adapter, kind: adapter.kind };
   }
   return { adapter: new ScriptedExampleAdapter(opts.exampleLine), kind: 'scripted' };

@@ -1,5 +1,5 @@
 import { modelIsConfigured } from '@/server/env';
-import { liveIsConfigured } from '@/server/concierge/liveEnv';
+import { realtimeIsConfigured } from '@/server/env';
 import { enquiryReadiness } from '@/server/enquiry/sink';
 import { bookingProvider } from '@/server/booking/provider';
 
@@ -29,7 +29,7 @@ export function GET() {
        * `CONCIERGE_LIVE` is not off. 'none' is the shipped state: no voice, no stage, the
        * composer is the door. There is no tier beneath the session.
        */
-      voice: liveIsConfigured() ? 'native' : 'none',
+      voice: realtimeIsConfigured() ? 'native' : 'none',
       /**
        * 'local' means a consultation request never leaves the visitor's device: the form
        * hands them a reference and their own WhatsApp message, which is all it has ever
